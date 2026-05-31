@@ -41,11 +41,11 @@
                     Open Alpha · v0.1 · Onboarding lab partners
                 </span>
                 <h1 class="hero__headline">Laboratory Data That Cannot Be Altered</h1>
-                <p class="hero__subheadline">Signed at the source. A permanent, auditable record that can't be altered — with privacy controls when you need them.</p>
-                <p class="hero__description">Immutable QC (IQC) is middleware that captures measurements analytical instruments such as HPLC, MS, Discrete Analyzers, Flow Injection, & Environmental Sensors then signs them cryptographically and commits tamper-evident records to an immutable audit trail. No manual transcription. No post-hoc manipulation. Regulatory-ready documentation for 21 CFR Part 11 and ISO 17025.</p>
+                <p class="hero__subheadline">Cryptographically signed at the instrument. Tamper-evident records with audit trails that satisfy 21 CFR Part 11 and ISO 17025.</p>
+                <p class="hero__description">Immutable QC captures measurements directly from analytical instruments—HPLC, mass spectrometry, discrete analyzers, flow injection systems, and environmental sensors. Each data point is cryptographically signed at the source and written to an immutable audit trail. No manual transcription. No post-hoc manipulation. Mathematical proof of integrity from instrument to regulator.</p>
                 <div class="hero__actions">
                     <a href="https://alpha.immutableqc.com/dashboard" target="_blank" rel="noopener noreferrer" class="btn btn--primary">Access Open Alpha</a>
-                    <a href="#problem" class="btn btn--secondary">Read the Technical Overview</a>
+                    <a href="#how-it-works" class="btn btn--secondary">See How It Works</a>
                 </div>
             </div>
         </section>
@@ -60,7 +60,7 @@
                     </li>
                     <li class="status-strip__item">
                         <span class="status-strip__state status-strip__state--live">Live</span>
-                        <span class="status-strip__label">On-chain registry commitments</span>
+                        <span class="status-strip__label">Public cryptographic registry</span>
                     </li>
                     <li class="status-strip__item">
                         <span class="status-strip__state status-strip__state--progress">In progress</span>
@@ -105,15 +105,15 @@
                 <span class="section__label">The Solution</span>
                 <h2 class="section__title">Cryptographic Signing at the Source</h2>
                 <div class="section__lead">
-                    <p>IQC sits between your instruments and your data systems. It captures measurements the moment they are generated, before human hands touch them, applying cryptographic signatures and committing tamper-evident records to a hash-chained ledger with on-chain attestation.</p>
+                    <p>IQC sits between your instruments and your data systems. It captures measurements the moment they are generated—before human hands touch them—and commits them to a tamper-evident audit trail.</p>
                 </div>
                 <div class="card-grid card-grid--3">
                     <article class="card card--feature">
                         <div class="card__icon" aria-hidden="true">
                             <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><path d="M16 2L4 8v16l12 6 12-6V8L16 2z" stroke="currentColor" stroke-width="2"/><path d="M16 16l-6-3 6-3 6 3-6 3z" stroke="currentColor" stroke-width="2"/></svg>
                         </div>
-                        <h3 class="card__title">Source-to-Ledger Provenance</h3>
-                        <p class="card__text">Every measurement is signed at the instrument using ECDSA. The signature, timestamp, and instrument metadata form an unbreakable chain of custody from capture to audit.</p>
+                        <h3 class="card__title">Instrument-Grade Provenance</h3>
+                        <p class="card__text">Every measurement is signed at the instrument using ECDSA. The signature, timestamp, and instrument metadata form an unalterable chain of custody from capture to audit.</p>
                     </article>
                     <article class="card card--feature">
                         <div class="card__icon" aria-hidden="true">
@@ -127,7 +127,7 @@
                             <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="12" stroke="currentColor" stroke-width="2"/><path d="M12 16l3 3 5-6" stroke="currentColor" stroke-width="2"/></svg>
                         </div>
                         <h3 class="card__title">Mathematical Audit Trails</h3>
-                        <p class="card__text">Regulators verify integrity via cryptographic proof, not process documentation. Hash-chained records with on-chain attestation provide third-party verifiable evidence of data integrity.</p>
+                        <p class="card__text">Regulators verify integrity via cryptographic proof, not just process documentation. Tamper-evident records provide third-party verifiable evidence that data has not changed since capture.</p>
                     </article>
                 </div>
             </div>
@@ -154,13 +154,13 @@
                     <li class="pipeline__step">
                         <div class="pipeline__step-number">03</div>
                         <h3 class="pipeline__step-title">Sign &amp; Commit</h3>
-                        <p class="pipeline__step-text">IQC applies ECDSA signatures to each measurement, appends to a local hash-chained ledger (SQLite-backed), and submits a commitment to the on-chain registry.</p>
+                        <p class="pipeline__step-text">IQC applies ECDSA signatures to each measurement and appends it to a local tamper-evident database. Periodic cryptographic commitments are published to a public registry for independent verification.</p>
                     </li>
                     <li class="pipeline__connector" aria-hidden="true"><span class="pipeline__connector-line"></span></li>
                     <li class="pipeline__step">
                         <div class="pipeline__step-number">04</div>
                         <h3 class="pipeline__step-title">Verify</h3>
-                        <p class="pipeline__step-text">Auditors verify integrity via public attestation records. Cryptographic proofs confirm data has not been altered since capture, without accessing proprietary raw data.</p>
+                        <p class="pipeline__step-text">Auditors verify data integrity via public attestation records. Cryptographic proofs confirm data has not been altered since capture—without exposing proprietary methods or raw results.</p>
                     </li>
                 </ol>
             </div>
@@ -184,7 +184,7 @@
                     </article>
                     <article class="card card--dark">
                         <h4 class="card__title card__title--accent">OpenTimestamps</h4>
-                        <p class="card__text card__text--muted">Bitcoin-backed timestamping for proof of existence. IQC uses OpenTimestamps-style anchoring for third-party verifiable timestamps without blockchain bloat.</p>
+                        <p class="card__text card__text--muted">Distributed timestamping for proof of existence. IQC uses decentralized anchoring for third-party verifiable timestamps without registry bloat.</p>
                         <a class="card__link" href="https://opentimestamps.org" target="_blank" rel="noopener noreferrer">opentimestamps.org →</a>
                     </article>
                     <article class="card card--dark">
@@ -200,32 +200,36 @@
                     <div class="stack__item"><span class="stack__name">SQLite</span><span class="stack__desc">Local hash-chained ledger with SQL interface</span></div>
                     <div class="stack__item"><span class="stack__name">ECDSA (secp256k1)</span><span class="stack__desc">Cryptographic signing at instrument level</span></div>
                     <div class="stack__item"><span class="stack__name">SHA-256</span><span class="stack__desc">Merkle tree construction for tamper evidence</span></div>
-                    <div class="stack__item"><span class="stack__name">On-Chain Registry</span><span class="stack__desc">Periodic Merkle root commitments for verification</span></div>
+                    <div class="stack__item"><span class="stack__name">Public Registry</span><span class="stack__desc">Periodic cryptographic commitments for independent verification</span></div>
                     <div class="stack__item"><span class="stack__name">OpenAPI</span><span class="stack__desc">RESTful integration with LIMS and ELN systems</span></div>
                 </div>
             </div>
         </section>
 
-        <!-- RESEARCH / METHODOLOGY -->
+        <!-- USE CASES / SOCIAL PROOF -->
         <section class="research" id="research">
             <div class="container">
-                <span class="section__label">Methodology</span>
-                <h2 class="section__title">Evidence-Based Product Development</h2>
+                <span class="section__label">Who It's For</span>
+                <h2 class="section__title">Built for Regulatory-Intensive Labs</h2>
                 <div class="section__lead">
-                    <p>IQC interface work is grounded in a documented Pain Model and a multi-model UI/UX auditing playbook. Every design decision is traced to a real user job, constraint, or compliance outcome before code is written.</p>
+                    <p>IQC is designed for labs that face intense regulatory scrutiny—pharmaceutical QC, environmental testing, clinical diagnostics, and food safety.</p>
                 </div>
-                <div class="card-grid card-grid--2">
+                <div class="card-grid card-grid--3">
                     <article class="card">
-                        <h3 class="card__title">Pain Model &amp; Critical User Journeys</h3>
-                        <p class="card__text">A versioned artifact defining primary personas (technician, QC analyst, QA director, auditor) and the source-to-ledger journeys where failure breaks trust or compliance. It governs all prioritization.</p>
+                        <h3 class="card__title">Pharmaceutical QC</h3>
+                        <p class="card__text">Support for 21 CFR Part 11, Annex 11, and data integrity guidelines. Complete audit trails for method validation and batch release.</p>
                     </article>
                     <article class="card">
-                        <h3 class="card__title">Multi-Model Auditing Playbook</h3>
-                        <p class="card__text">Structured, claim-card reviews run across multiple frontier models against the highest-risk flows. Findings feed directly into prioritized engineering work, not subjective opinion.</p>
+                        <h3 class="card__title">Environmental Monitoring</h3>
+                        <p class="card__text">Continuous data capture from field sensors. Tamper-evident records for EPA and state regulatory submissions.</p>
+                    </article>
+                    <article class="card">
+                        <h3 class="card__title">Contract Testing Labs</h3>
+                        <p class="card__text">Demonstrate data integrity to clients without exposing proprietary methods. Cryptographic proof builds trust with sponsors.</p>
                     </article>
                 </div>
                 <div class="research__cta">
-                    <a class="btn btn--outline" href="https://github.com/fabreu08/IQC-ui-ux-review" target="_blank" rel="noopener noreferrer">View the UI/UX research repository →</a>
+                    <a class="btn btn--outline" href="https://github.com/fabreu08/IQC-ui-ux-review" target="_blank" rel="noopener noreferrer">See our UI/UX research methodology →</a>
                 </div>
             </div>
         </section>
@@ -278,7 +282,7 @@
                 </div>
             </div>
             <div class="footer__bottom">
-                <p>© 2026 Immutable Quality Control. Cryptographically verified.</p>
+                <p>© 2026 Immutable Quality Control.</p>
             </div>
         </div>
     </footer>
