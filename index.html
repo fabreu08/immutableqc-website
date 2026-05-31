@@ -11,8 +11,8 @@
 
     <nav class="nav" id="navbar">
         <div class="nav__container">
-            <a href="#" class="nav__logo">
-                <span class="nav__logo-icon">◉</span>
+            <a href="#hero" class="nav__logo">
+                <span class="nav__logo-icon" aria-hidden="true">◉</span>
                 <span class="nav__logo-text">Immutable<span class="nav__logo-accent">QC</span></span>
             </a>
             <ul class="nav__links" id="navLinks">
@@ -20,9 +20,10 @@
                 <li><a href="#solution" class="nav__link">Solution</a></li>
                 <li><a href="#how-it-works" class="nav__link">How It Works</a></li>
                 <li><a href="#technical" class="nav__link">Technical</a></li>
-                <li><a href="https://alpha.immutableqc.com/dashboard" target="_blank" class="nav__link nav__link--cta">Access Open Alpha</a></li>
+                <li><a href="#research" class="nav__link">Research</a></li>
+                <li><a href="https://alpha.immutableqc.com/dashboard" target="_blank" rel="noopener noreferrer" class="nav__link nav__link--cta">Open Alpha</a></li>
             </ul>
-            <button class="nav__toggle" id="navToggle" aria-label="Toggle navigation menu">
+            <button class="nav__toggle" id="navToggle" aria-label="Toggle navigation menu" aria-expanded="false">
                 <span class="nav__toggle-bar"></span>
                 <span class="nav__toggle-bar"></span>
                 <span class="nav__toggle-bar"></span>
@@ -31,196 +32,212 @@
     </nav>
 
     <main>
-        <!-- HERO: Tight, specific, no fluff -->
+        <!-- HERO -->
         <section class="hero" id="hero">
-            <div class="hero__bg-pattern"></div>
+            <div class="hero__bg-pattern" aria-hidden="true"></div>
             <div class="hero__container">
+                <span class="hero__badge">
+                    <span class="hero__badge-dot" aria-hidden="true"></span>
+                    Open Alpha · v0.1 · Onboarding lab partners
+                </span>
                 <h1 class="hero__headline">Laboratory Data That Cannot Be Altered</h1>
                 <p class="hero__subheadline">Source-to-ledger integrity for analytical instruments. Cryptographic signing at the point of capture. Hash-chained verification. On-chain attestation.</p>
-                <p class="hero__description">Immutable QC (IQC) is middleware that captures measurements from HPLC, mass spectrometers, and environmental sensors—signing them cryptographically and committing tamper-evident records to an immutable audit trail. No manual transcription. No post-hoc manipulation. Regulatory-ready documentation for 21 CFR Part 11 and ISO 17025.</p>
+                <p class="hero__description">Immutable QC (IQC) is middleware that captures measurements from HPLC, mass spectrometers, and environmental sensors, then signs them cryptographically and commits tamper-evident records to an immutable audit trail. No manual transcription. No post-hoc manipulation. Regulatory-ready documentation for 21 CFR Part 11 and ISO 17025.</p>
                 <div class="hero__actions">
-                    <a href="https://alpha.immutableqc.com/dashboard" target="_blank" class="btn btn--primary">Access Open Alpha</a>
+                    <a href="https://alpha.immutableqc.com/dashboard" target="_blank" rel="noopener noreferrer" class="btn btn--primary">Access Open Alpha</a>
                     <a href="#problem" class="btn btn--secondary">Read the Technical Overview</a>
                 </div>
             </div>
         </section>
 
-        <!-- THE PROBLEM: Establish the pain point -->
+        <!-- STATUS STRIP: makes current state unambiguous -->
+        <section class="status-strip" aria-label="Current project status">
+            <div class="container">
+                <ul class="status-strip__list">
+                    <li class="status-strip__item">
+                        <span class="status-strip__state status-strip__state--live">Live</span>
+                        <span class="status-strip__label">Web app, signing, and hash-chained ledger</span>
+                    </li>
+                    <li class="status-strip__item">
+                        <span class="status-strip__state status-strip__state--live">Live</span>
+                        <span class="status-strip__label">On-chain registry commitments</span>
+                    </li>
+                    <li class="status-strip__item">
+                        <span class="status-strip__state status-strip__state--progress">In progress</span>
+                        <span class="status-strip__label">Direct instrument capture (HPLC, MS)</span>
+                    </li>
+                    <li class="status-strip__item">
+                        <span class="status-strip__state status-strip__state--planned">Planned</span>
+                        <span class="status-strip__label">External auditor verification portal</span>
+                    </li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- PROBLEM -->
         <section class="problem" id="problem">
             <div class="container">
                 <span class="section__label">The Problem</span>
                 <h2 class="section__title">Laboratory Data Is Vulnerable at Every Step</h2>
-                
-                <div class="problem__grid">
-                    <div class="problem__card">
-                        <h3 class="problem__card-title">Manual Transcription Errors</h3>
-                        <p>Data moves from instrument to LIMS via manual entry or fragile CSV exports. Errors propagate. Values change. The chain of custody breaks before it begins.</p>
-                    </div>
-                    <div class="problem__card">
-                        <h3 class="problem__card-title">Undetectable Tampering</h3>
-                        <p>Without cryptographic verification, altered records are indistinguishable from authentic ones. Auditors must trust process—cannot verify integrity mathematically.</p>
-                    </div>
-                    <div class="problem__card">
-                        <h3 class="problem__card-title">Compliance Overhead</h3>
-                        <p>21 CFR Part 11 and ALCOA+ requirements demand complete, consistent, enduring records. Traditional systems generate paper trails, not mathematical proofs.</p>
-                    </div>
+                <div class="card-grid card-grid--3">
+                    <article class="card">
+                        <h3 class="card__title">Manual Transcription Errors</h3>
+                        <p class="card__text">Data moves from instrument to LIMS via manual entry or fragile CSV exports. Errors propagate. Values change. The chain of custody breaks before it begins.</p>
+                    </article>
+                    <article class="card">
+                        <h3 class="card__title">Undetectable Tampering</h3>
+                        <p class="card__text">Without cryptographic verification, altered records are indistinguishable from authentic ones. Auditors must trust process. They cannot verify integrity mathematically.</p>
+                    </article>
+                    <article class="card">
+                        <h3 class="card__title">Compliance Overhead</h3>
+                        <p class="card__text">21 CFR Part 11 and ALCOA+ requirements demand complete, consistent, enduring records. Traditional systems generate paper trails, not mathematical proofs.</p>
+                    </article>
                 </div>
-                
                 <div class="problem__stat">
-                    <p class="problem__stat-text">FDA Warning Letters 2023-2024 show <strong>data integrity violations</strong> as the leading cause of regulatory action against analytical laboratories.</p>
+                    <p class="problem__stat-text">FDA Warning Letters from 2023 to 2024 show <strong>data integrity violations</strong> as the leading cause of regulatory action against analytical laboratories.</p>
                 </div>
             </div>
         </section>
 
-        <!-- THE SOLUTION: What IQC actually does -->
+        <!-- SOLUTION -->
         <section class="solution" id="solution">
             <div class="container">
                 <span class="section__label">The Solution</span>
                 <h2 class="section__title">Cryptographic Signing at the Source</h2>
-                
-                <div class="solution__lead">
-                    <p>IQC sits between your instruments and your data systems. It captures measurements the moment they are generated—before human hands touch them—applying cryptographic signatures and committing tamper-evident records to a hash-chained ledger with on-chain attestation.</p>
+                <div class="section__lead">
+                    <p>IQC sits between your instruments and your data systems. It captures measurements the moment they are generated, before human hands touch them, applying cryptographic signatures and committing tamper-evident records to a hash-chained ledger with on-chain attestation.</p>
                 </div>
-                
-                <div class="solution__grid">
-                    <div class="solution__card">
-                        <div class="solution__icon">
+                <div class="card-grid card-grid--3">
+                    <article class="card card--feature">
+                        <div class="card__icon" aria-hidden="true">
                             <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><path d="M16 2L4 8v16l12 6 12-6V8L16 2z" stroke="currentColor" stroke-width="2"/><path d="M16 16l-6-3 6-3 6 3-6 3z" stroke="currentColor" stroke-width="2"/></svg>
                         </div>
-                        <h3 class="solution__card-title">Source-to-Ledger Provenance</h3>
-                        <p>Every measurement is signed at the instrument using ECDSA. The signature, timestamp, and instrument metadata form an unbreakable chain of custody from capture to audit.</p>
-                    </div>
-                    
-                    <div class="solution__card">
-                        <div class="solution__icon">
+                        <h3 class="card__title">Source-to-Ledger Provenance</h3>
+                        <p class="card__text">Every measurement is signed at the instrument using ECDSA. The signature, timestamp, and instrument metadata form an unbreakable chain of custody from capture to audit.</p>
+                    </article>
+                    <article class="card card--feature">
+                        <div class="card__icon" aria-hidden="true">
                             <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><rect x="4" y="8" width="24" height="16" rx="2" stroke="currentColor" stroke-width="2"/><path d="M8 16h16" stroke="currentColor" stroke-width="2"/></svg>
                         </div>
-                        <h3 class="solution__card-title">Zero Manual Transcription</h3>
-                        <p>Direct instrument integration eliminates the gap between measurement and record. No CSV exports. No copy-paste errors. No opportunity for manipulation.</p>
-                    </div>
-                    
-                    <div class="solution__card">
-                        <div class="solution__icon">
+                        <h3 class="card__title">Zero Manual Transcription</h3>
+                        <p class="card__text">Direct instrument integration eliminates the gap between measurement and record. No CSV exports. No copy-paste errors. No opportunity for manipulation.</p>
+                    </article>
+                    <article class="card card--feature">
+                        <div class="card__icon" aria-hidden="true">
                             <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="12" stroke="currentColor" stroke-width="2"/><path d="M12 16l3 3 5-6" stroke="currentColor" stroke-width="2"/></svg>
                         </div>
-                        <h3 class="solution__card-title">Mathematical Audit Trails</h3>
-                        <p>Regulators verify integrity via cryptographic proof, not process documentation. Hash-chained records with on-chain attestation provide third-party verifiable evidence of data integrity.</p>
-                    </div>
+                        <h3 class="card__title">Mathematical Audit Trails</h3>
+                        <p class="card__text">Regulators verify integrity via cryptographic proof, not process documentation. Hash-chained records with on-chain attestation provide third-party verifiable evidence of data integrity.</p>
+                    </article>
                 </div>
             </div>
         </section>
 
-        <!-- HOW IT WORKS: 4-step visual process -->
+        <!-- HOW IT WORKS -->
         <section class="how-it-works" id="how-it-works">
             <div class="container">
                 <span class="section__label">How It Works</span>
                 <h2 class="section__title">From Instrument to Immutable Record</h2>
-                
-                <div class="pipeline">
-                    <div class="pipeline__step">
+                <ol class="pipeline">
+                    <li class="pipeline__step">
                         <div class="pipeline__step-number">01</div>
                         <h3 class="pipeline__step-title">Connect</h3>
-                        <p class="pipeline__step-text">HPLC, mass spectrometers, pH meters, and environmental sensors connect to IQC via standardized protocols (RS-232, TCP/IP, file watchers).</p>
-                    </div>
-                    
-                    <div class="pipeline__connector">→</div>
-                    
-                    <div class="pipeline__step">
+                        <p class="pipeline__step-text">HPLC, mass spectrometers, pH meters, and environmental sensors connect via standardized protocols (RS-232, TCP/IP, file watchers).</p>
+                    </li>
+                    <li class="pipeline__connector" aria-hidden="true"><span class="pipeline__connector-line"></span></li>
+                    <li class="pipeline__step">
                         <div class="pipeline__step-number">02</div>
                         <h3 class="pipeline__step-title">Capture</h3>
-                        <p class="pipeline__step-text">Raw measurement data is intercepted at the point of generation—before it reaches any editable system. Calibration metadata is captured simultaneously.</p>
-                    </div>
-                    
-                    <div class="pipeline__connector">→</div>
-                    
-                    <div class="pipeline__step">
+                        <p class="pipeline__step-text">Raw measurement data is intercepted at the point of generation, before it reaches any editable system. Calibration metadata is captured simultaneously.</p>
+                    </li>
+                    <li class="pipeline__connector" aria-hidden="true"><span class="pipeline__connector-line"></span></li>
+                    <li class="pipeline__step">
                         <div class="pipeline__step-number">03</div>
-                        <h3 class="pipeline__step-title">Sign & Commit</h3>
+                        <h3 class="pipeline__step-title">Sign &amp; Commit</h3>
                         <p class="pipeline__step-text">IQC applies ECDSA signatures to each measurement, appends to a local hash-chained ledger (SQLite-backed), and submits a commitment to the on-chain registry.</p>
-                    </div>
-                    
-                    <div class="pipeline__connector">→</div>
-                    
-                    <div class="pipeline__step">
+                    </li>
+                    <li class="pipeline__connector" aria-hidden="true"><span class="pipeline__connector-line"></span></li>
+                    <li class="pipeline__step">
                         <div class="pipeline__step-number">04</div>
                         <h3 class="pipeline__step-title">Verify</h3>
-                        <p class="pipeline__step-text">Auditors verify integrity via public attestation records. Cryptographic proofs confirm data has not been altered since capture—without accessing proprietary raw data.</p>
-                    </div>
-                </div>
+                        <p class="pipeline__step-text">Auditors verify integrity via public attestation records. Cryptographic proofs confirm data has not been altered since capture, without accessing proprietary raw data.</p>
+                    </li>
+                </ol>
             </div>
         </section>
 
-        <!-- TECHNICAL CREDIBILITY: The research and stack -->
+        <!-- TECHNICAL -->
         <section class="technical" id="technical">
             <div class="container">
-                <span class="section__label">Technical Implementation</span>
-                <h2 class="section__title">Built on Proven Cryptographic Standards</h2>
-                
-                <div class="technical__intro">
-                    <p>IQC implements established cryptographic attestation patterns from supply chain security and distributed systems research—adapted for laboratory compliance requirements.</p>
+                <span class="section__label section__label--light">Technical Implementation</span>
+                <h2 class="section__title section__title--light">Built on Proven Cryptographic Standards</h2>
+                <div class="section__lead section__lead--light">
+                    <p>IQC implements established cryptographic attestation patterns from supply chain security and distributed systems research, adapted for laboratory compliance requirements.</p>
                 </div>
-                
-                <div class="technical__research">
-                    <h3 class="technical__subhead">Research Foundation</h3>
-                    <div class="research__grid">
-                        <div class="research__card">
-                            <h4>Sigstore</h4>
-                            <p>Certificate transparency and keyless signing infrastructure. IQC adapts Sigstore's patterns for short-lived signing keys and transparent attestation logs.</p>
-                            <a href="https://www.sigstore.dev" target="_blank">sigstore.dev →</a>
-                        </div>
-                        <div class="research__card">
-                            <h4>OpenTimestamps</h4>
-                            <p>Bitcoin-backed timestamping for proof of existence. IQC uses OpenTimestamps-style anchoring to provide third-party verifiable timestamps without blockchain bloat.</p>
-                            <a href="https://opentimestamps.org" target="_blank">opentimestamps.org →</a>
-                        </div>
-                        <div class="research__card">
-                            <h4>CLSI AUTO-VERIFICATION</h4>
-                            <p>Automated verification standards for clinical laboratories. IQC aligns with CLSI AUTO-10A guidelines for automated result verification and exception handling.</p>
-                            <a href="https://clsi.org/standards/products/automation-and-informatics/" target="_blank">clsi.org →</a>
-                        </div>
-                    </div>
+
+                <h3 class="technical__subhead">Research Foundation</h3>
+                <div class="card-grid card-grid--3">
+                    <article class="card card--dark">
+                        <h4 class="card__title card__title--accent">Sigstore</h4>
+                        <p class="card__text card__text--muted">Certificate transparency and keyless signing infrastructure. IQC adapts Sigstore patterns for short-lived signing keys and transparent attestation logs.</p>
+                        <a class="card__link" href="https://www.sigstore.dev" target="_blank" rel="noopener noreferrer">sigstore.dev →</a>
+                    </article>
+                    <article class="card card--dark">
+                        <h4 class="card__title card__title--accent">OpenTimestamps</h4>
+                        <p class="card__text card__text--muted">Bitcoin-backed timestamping for proof of existence. IQC uses OpenTimestamps-style anchoring for third-party verifiable timestamps without blockchain bloat.</p>
+                        <a class="card__link" href="https://opentimestamps.org" target="_blank" rel="noopener noreferrer">opentimestamps.org →</a>
+                    </article>
+                    <article class="card card--dark">
+                        <h4 class="card__title card__title--accent">CLSI AUTO-10A</h4>
+                        <p class="card__text card__text--muted">Automated verification standards for clinical laboratories. IQC aligns with CLSI AUTO-10A guidelines for automated result verification and exception handling.</p>
+                        <a class="card__link" href="https://clsi.org/standards/products/automation-and-informatics/" target="_blank" rel="noopener noreferrer">clsi.org →</a>
+                    </article>
                 </div>
-                
-                <div class="technical__stack">
-                    <h3 class="technical__subhead">Technology Stack</h3>
-                    <div class="stack__grid">
-                        <div class="stack__item">
-                            <span class="stack__name">Rust</span>
-                            <span class="stack__desc">Core middleware for performance and memory safety</span>
-                        </div>
-                        <div class="stack__item">
-                            <span class="stack__name">SQLite</span>
-                            <span class="stack__desc">Local hash-chained ledger with SQL interface</span>
-                        </div>
-                        <div class="stack__item">
-                            <span class="stack__name">ECDSA (secp256k1)</span>
-                            <span class="stack__desc">Cryptographic signing at instrument level</span>
-                        </div>
-                        <div class="stack__item">
-                            <span class="stack__name">SHA-256</span>
-                            <span class="stack__desc">Merkle tree construction for tamper evidence</span>
-                        </div>
-                        <div class="stack__item">
-                            <span class="stack__name">On-Chain Registry</span>
-                            <span class="stack__desc">Periodic Merkle root commitments for third-party verification</span>
-                        </div>
-                        <div class="stack__item">
-                            <span class="stack__name">OpenAPI</span>
-                            <span class="stack__desc">RESTful integration with LIMS and ELN systems</span>
-                        </div>
-                    </div>
+
+                <h3 class="technical__subhead technical__subhead--spaced">Technology Stack</h3>
+                <div class="card-grid card-grid--3 card-grid--tight">
+                    <div class="stack__item"><span class="stack__name">Rust</span><span class="stack__desc">Core middleware for performance and memory safety</span></div>
+                    <div class="stack__item"><span class="stack__name">SQLite</span><span class="stack__desc">Local hash-chained ledger with SQL interface</span></div>
+                    <div class="stack__item"><span class="stack__name">ECDSA (secp256k1)</span><span class="stack__desc">Cryptographic signing at instrument level</span></div>
+                    <div class="stack__item"><span class="stack__name">SHA-256</span><span class="stack__desc">Merkle tree construction for tamper evidence</span></div>
+                    <div class="stack__item"><span class="stack__name">On-Chain Registry</span><span class="stack__desc">Periodic Merkle root commitments for verification</span></div>
+                    <div class="stack__item"><span class="stack__name">OpenAPI</span><span class="stack__desc">RESTful integration with LIMS and ELN systems</span></div>
                 </div>
             </div>
         </section>
 
-        <!-- CTA: Clear action -->
+        <!-- RESEARCH / METHODOLOGY -->
+        <section class="research" id="research">
+            <div class="container">
+                <span class="section__label">Methodology</span>
+                <h2 class="section__title">Evidence-Based Product Development</h2>
+                <div class="section__lead">
+                    <p>IQC interface work is grounded in a documented Pain Model and a multi-model UI/UX auditing playbook. Every design decision is traced to a real user job, constraint, or compliance outcome before code is written.</p>
+                </div>
+                <div class="card-grid card-grid--2">
+                    <article class="card">
+                        <h3 class="card__title">Pain Model &amp; Critical User Journeys</h3>
+                        <p class="card__text">A versioned artifact defining primary personas (technician, QC analyst, QA director, auditor) and the source-to-ledger journeys where failure breaks trust or compliance. It governs all prioritization.</p>
+                    </article>
+                    <article class="card">
+                        <h3 class="card__title">Multi-Model Auditing Playbook</h3>
+                        <p class="card__text">Structured, claim-card reviews run across multiple frontier models against the highest-risk flows. Findings feed directly into prioritized engineering work, not subjective opinion.</p>
+                    </article>
+                </div>
+                <div class="research__cta">
+                    <a class="btn btn--outline" href="https://github.com/fabreu08/IQC-ui-ux-review" target="_blank" rel="noopener noreferrer">View the UI/UX research repository →</a>
+                </div>
+            </div>
+        </section>
+
+        <!-- CTA -->
         <section class="cta" id="access">
             <div class="container">
                 <h2 class="cta__title">Deploy Source-to-Ledger Integrity</h2>
-                <p class="cta__text">IQC Alpha is now open for early laboratory partners. We are onboarding analytical labs with HPLC, mass spectrometry, and environmental monitoring instrumentation. Contact us with your instrument list and compliance requirements.</p>
+                <p class="cta__text">IQC Alpha is open for early laboratory partners. We are onboarding analytical labs running HPLC, mass spectrometry, and environmental monitoring instrumentation. Contact us with your instrument list and compliance requirements.</p>
                 <div class="cta__actions">
-                    <a href="https://alpha.immutableqc.com/dashboard" target="_blank" class="btn btn--primary btn--large">Access Open Alpha</a>
-                    <a href="mailto:hi@immutableqc.com" class="btn btn--secondary btn--large">Contact Engineering Team</a>
+                    <a href="https://alpha.immutableqc.com/dashboard" target="_blank" rel="noopener noreferrer" class="btn btn--primary btn--large">Access Open Alpha</a>
+                    <a href="mailto:hi@immutableqc.com" class="btn btn--secondary-dark btn--large">Contact Engineering Team</a>
                 </div>
             </div>
         </section>
@@ -229,8 +246,8 @@
     <footer class="footer">
         <div class="footer__container">
             <div class="footer__brand">
-                <a href="#" class="footer__logo">
-                    <span class="footer__logo-icon">◉</span>
+                <a href="#hero" class="footer__logo">
+                    <span class="footer__logo-icon" aria-hidden="true">◉</span>
                     Immutable<span class="footer__logo-accent">QC</span>
                 </a>
                 <p class="footer__tagline">Cryptographically signed laboratory data.</p>
@@ -242,15 +259,15 @@
                         <li><a href="#problem">The Problem</a></li>
                         <li><a href="#solution">Solution</a></li>
                         <li><a href="#technical">Technical</a></li>
-                        <li><a href="https://alpha.immutableqc.com" target="_blank">Open Alpha</a></li>
+                        <li><a href="https://alpha.immutableqc.com" target="_blank" rel="noopener noreferrer">Open Alpha</a></li>
                     </ul>
                 </div>
                 <div class="footer__col">
-                    <h4 class="footer__heading">Resources</h4>
+                    <h4 class="footer__heading">Research</h4>
                     <ul>
-                        <li><a href="https://www.sigstore.dev" target="_blank">Sigstore</a></li>
-                        <li><a href="https://opentimestamps.org" target="_blank">OpenTimestamps</a></li>
-                        <li><a href="https://clsi.org" target="_blank">CLSI Standards</a></li>
+                        <li><a href="https://github.com/fabreu08/IQC-ui-ux-review" target="_blank" rel="noopener noreferrer">UI/UX Research Repo</a></li>
+                        <li><a href="https://www.sigstore.dev" target="_blank" rel="noopener noreferrer">Sigstore</a></li>
+                        <li><a href="https://opentimestamps.org" target="_blank" rel="noopener noreferrer">OpenTimestamps</a></li>
                     </ul>
                 </div>
                 <div class="footer__col">
