@@ -142,7 +142,7 @@
         <section class="roadmap" id="roadmap">
             <div class="container">
                 <span class="section__label section__label--light">Strategic Milestones</span>
-                <h2 class="section__title section__title--light">The Roadmap</h2>
+                <h2 class="section__title section__title--light">Roadmap</h2>
 
                 <div class="phase phase--active" data-phase="1">
                     <div class="phase__header">
@@ -152,8 +152,8 @@
                         </div>
                         <div class="phase__summary">
                             <span class="phase__status phase__status--live">In Progress</span>
-                            <h3 class="phase__title">Phase 1: Foundation</h3>
-                            <span class="phase__timeline">Current — Q2 2026</span>
+                            <h3 class="phase__title">Phase 1: Core Pipeline</h3>
+                            <span class="phase__timeline">Now — Q3 2026</span>
                         </div>
                         <button class="phase__toggle" aria-expanded="false" aria-label="Toggle Phase 1 details">
                             <span class="phase__toggle-icon">+</span>
@@ -161,11 +161,11 @@
                     </div>
                     <div class="phase__body">
                         <ul class="phase__milestones">
-                            <li><strong>Source‑to‑Ledger MVP:</strong> Deliver an end‑to‑end pipeline where instrument/measurement events are captured at creation, cryptographically signed, hashed, and committed to a blockchain‑backed audit trail (tamper‑evident provenance).</li>
-                            <li><strong>QC Data Primitives &amp; “QC Packet” Schema:</strong> Define and implement the core data primitives for laboratory workflows (measurement metadata, device identity, timestamps, environmental conditions, operator/reviewer sign‑off) with strict schemas designed for verification and audit.</li>
-                            <li><strong>Evidence‑Grounded AI Extraction (Guardrailed):</strong> Implement AI‑assisted extraction/normalization from QC artifacts (logs, reports, exports) into the QC Packet schema, with validation rules and abstention behavior when evidence is insufficient.</li>
-                            <li><strong>Primary Instrument Onboarding (Environmental Sensors):</strong> Establish direct‑to‑ledger connectivity for environmental sensors (pH, temperature, conductivity, turbidity, O3) with repeatable onboarding, calibration metadata capture, and verification checks.</li>
-                            <li><strong>Reviewer Workflow &amp; Attestations (Optional Identity Layer):</strong> Ship a minimal reviewer UX for QC review/approval and signed attestations, with an optional roadmap path to proof‑of‑personhood style identity for anti‑sybil reviewer integrity.</li>
+                            <li><strong>Source-to-Ledger Capture:</strong> End-to-end flow for capturing measurements at the instrument, applying cryptographic signatures, and committing tamper-evident records to a hash-chained ledger + on-chain registry.</li>
+                            <li><strong>QC Packet Schema &amp; Review Workflow:</strong> Define the core data model for packaging readings with metadata, operator sign-off, and reviewer attestations. Ship the minimal reviewer interface for approval/rejection with full audit trail.</li>
+                            <li><strong>Guardrailed AI Assistance:</strong> Add AI-assisted parsing and normalization for common lab exports (starting with HPLC), with strong validation and clear "cannot process" behavior when confidence is low.</li>
+                            <li><strong>Core Instrument Support:</strong> Reliable direct-to-ledger support for the most common environmental and analytical sensors (pH, temperature, conductivity, HPLC), including calibration metadata.</li>
+                            <li><strong>Staking &amp; On-Chain Commitments:</strong> Make the staking requirement and on-chain commit flow reliable and understandable for users who need immutable, third-party verifiable records.</li>
                         </ul>
                     </div>
                 </div>
@@ -178,8 +178,8 @@
                         </div>
                         <div class="phase__summary">
                             <span class="phase__status phase__status--upcoming">Upcoming</span>
-                            <h3 class="phase__title">Phase 2: Integration &amp; Scale</h3>
-                            <span class="phase__timeline">Q4 2026</span>
+                            <h3 class="phase__title">Phase 2: Scale &amp; Integration</h3>
+                            <span class="phase__timeline">Q4 2026 – Q1 2027</span>
                         </div>
                         <button class="phase__toggle" aria-expanded="false" aria-label="Toggle Phase 2 details">
                             <span class="phase__toggle-icon">+</span>
@@ -187,11 +187,11 @@
                     </div>
                     <div class="phase__body">
                         <ul class="phase__milestones">
-                            <li><strong>Enterprise LIMS/ELN Synchronicity:</strong> Ship production‑grade connectors and bidirectional sync patterns so IQC can push verified results/provenance into lab systems and pull required context (sample IDs, methods, specs, approvals) from platforms like LabWare, Benchling, and Quartzy.</li>
-                            <li><strong>IQC API Suite (Developer Platform):</strong> Release a stable API surface (REST + webhooks/eventing where appropriate) for ingesting measurement events, retrieving QC packets, verifying signatures/hashes, and exporting audit‑ready reports.</li>
-                            <li><strong>Expanded Instrument Coverage:</strong> Scale onboarding beyond initial sensors by supporting 50+ instrument models via validated adapters (file‑based, direct, or API‑driven ingestion), with calibration/maintenance metadata captured as part of the provenance trail.</li>
-                            <li><strong>Multi‑Site Orchestration &amp; Governance:</strong> Deploy centralized management for distributed labs (tenant controls, role‑based access, policy enforcement, key management, retention), while maintaining consistent “source‑to‑ledger” integrity across sites.</li>
-                            <li><strong>AI‑Assisted QC at Scale:</strong> Operationalize the AI pipeline from Phase 1 for high‑throughput environments: automated exception triage, inconsistency detection across runs/sites, and reviewer workload reduction — backed by measurable extraction accuracy and abstention rules.</li>
+                            <li><strong>LIMS / ELN Integrations:</strong> Production connectors to common lab systems (Benchling, LabWare, etc.) so verified IQC results flow into existing workflows without duplicate entry.</li>
+                            <li><strong>Public API &amp; Developer Platform:</strong> Stable REST API + webhooks for ingesting data, retrieving QC packets, and verifying provenance programmatically.</li>
+                            <li><strong>Broader Instrument Support:</strong> Validated support for the most common analytical and environmental instruments beyond the initial set, with consistent metadata capture.</li>
+                            <li><strong>Multi-Site &amp; Team Features:</strong> Role-based access, team workspaces, and basic governance controls for labs running IQC across multiple sites or departments.</li>
+                            <li><strong>Production AI Pipeline:</strong> Harden and scale the guardrailed AI features from Phase 1 for real lab throughput, with clear accuracy metrics and human oversight loops.</li>
                         </ul>
                     </div>
                 </div>
@@ -202,9 +202,9 @@
                             <span class="phase__dot"></span>
                         </div>
                         <div class="phase__summary">
-                            <span class="phase__status phase__status--future">Planned</span>
-                            <h3 class="phase__title">Phase 3: Autonomous Evolution</h3>
-                            <span class="phase__timeline">H1 2027</span>
+                            <span class="phase__status phase__status--future">Future</span>
+                            <h3 class="phase__title">Phase 3: Advanced Capabilities</h3>
+                            <span class="phase__timeline">2027+</span>
                         </div>
                         <button class="phase__toggle" aria-expanded="false" aria-label="Toggle Phase 3 details">
                             <span class="phase__toggle-icon">+</span>
@@ -212,11 +212,10 @@
                     </div>
                     <div class="phase__body">
                         <ul class="phase__milestones">
-                            <li><strong>Real‑Time Edge Intelligence:</strong> Deploy autonomous edge agents that monitor instrument streams and environmental sensors in real time to flag anomalies, drift, calibration issues, and protocol deviations at the moment of analysis (not after results are finalized).</li>
-                            <li><strong>Predictive Compliance &amp; Risk Scoring:</strong> Move from periodic/post‑audit detection to continuous compliance posture: automated risk scoring per instrument, method, site, and dataset, with early warnings when trends suggest an out‑of‑spec event or documentation gap is likely.</li>
-                            <li><strong>Self‑Healing Data Integrity:</strong> Automate verification and remediation workflows across the audit trail; e.g., detect missing signatures/metadata, trigger re‑attestation or re‑capture flows, and run periodic integrity checks so tampering or pipeline failures are caught quickly and can be corrected without breaking provenance.</li>
-                            <li><strong>Privacy‑Preserving Verification (Selective Disclosure):</strong> Enable third parties to verify integrity and reviewer attestations without exposing raw sensitive data, using cryptographic proofs/verification patterns appropriate for regulated environments.</li>
-                            <li><strong>Closed‑Loop Quality Improvement:</strong> Use aggregated, permissioned signals across sites to continuously improve anomaly models, reduce false positives, and codify “what good looks like” for QC; turning every verified run into training/evaluation data for better automation.</li>
+                            <li><strong>Real-time Monitoring Agents:</strong> Optional edge components that can stream live instrument data and flag obvious anomalies or calibration drift as it happens.</li>
+                            <li><strong>Advanced Analytics &amp; Risk Views:</strong> Aggregated dashboards and trend analysis across instruments, methods, and sites to help labs spot systemic issues earlier.</li>
+                            <li><strong>Stronger Cryptographic Verification:</strong> Explore selective disclosure and zero-knowledge techniques so external parties can verify integrity without accessing raw proprietary data.</li>
+                            <li><strong>Continuous Improvement Loop:</strong> Use anonymized, permissioned data from participating labs to improve detection models and best-practice recommendations over time.</li>
                         </ul>
                     </div>
                 </div>
