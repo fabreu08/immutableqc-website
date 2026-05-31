@@ -73,7 +73,7 @@ a {
     color: inherit;
 }
 
-ul {
+ul, ol {
     list-style: none;
 }
 
@@ -445,7 +445,14 @@ strong {
    HOW IT WORKS — PIPELINE (alignment fixed)
    ============================================================ */
 .how-it-works { padding: 100px 0; background-color: var(--color-white); }
-.pipeline { display: flex; align-items: flex-start; gap: 0; }
+.pipeline {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
 .pipeline__step { flex: 1 1 0; min-width: 200px; text-align: center; padding: 0 8px; }
 .pipeline__step-number {
     display: flex; align-items: center; justify-content: center;
