@@ -624,6 +624,7 @@ strong {
 }
 
 .footer__bottom {
+    width: 100%;
     margin-top: 48px;
     padding-top: 24px;
     border-top: 1px solid rgba(255, 255, 255, 0.08);
