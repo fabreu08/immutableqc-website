@@ -312,7 +312,9 @@ strong {
     position: relative;
     z-index: 2;
     max-width: 720px;
+    margin: 0 auto;
     padding: 140px 40px 100px;
+    text-align: center;
 }
 
 .hero__badge {
@@ -364,6 +366,7 @@ strong {
     display: flex;
     gap: 16px;
     flex-wrap: wrap;
+    justify-content: center;
 }
 
 /* ============================================================
@@ -544,4 +547,97 @@ strong {
     .hero__subheadline { font-size: 1rem; }
     .btn--large { padding: 16px 28px; font-size: 0.95rem; }
     .footer__links { gap: 32px; }
+}
+/* ============================================================
+   FOOTER - Centered container + columns
+   ============================================================ */
+.footer {
+    background: var(--color-navy-900);
+    color: rgba(255, 255, 255, 0.6);
+    padding: 60px 0 30px;
+    font-size: 0.9rem;
+}
+
+.footer__container {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding: 0 24px;
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 48px;
+}
+
+.footer__brand {
+    flex: 0 0 auto;
+}
+
+.footer__logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--color-white);
+    margin-bottom: 8px;
+}
+
+.footer__logo-icon {
+    color: var(--color-blue-400);
+}
+
+.footer__logo-accent {
+    color: var(--color-blue-400);
+}
+
+.footer__tagline {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.footer__links {
+    display: flex;
+    gap: 48px;
+    flex-wrap: wrap;
+}
+
+.footer__col h4 {
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-blue-300);
+    margin-bottom: 12px;
+}
+
+.footer__col ul li {
+    margin-bottom: 8px;
+}
+
+.footer__col a {
+    color: rgba(255, 255, 255, 0.6);
+    transition: color 0.2s ease;
+}
+
+.footer__col a:hover {
+    color: var(--color-white);
+}
+
+.footer__bottom {
+    margin-top: 48px;
+    padding-top: 24px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    text-align: center;
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+@media (max-width: 768px) {
+    .footer__container {
+        flex-direction: column;
+        gap: 40px;
+    }
+    .footer__links {
+        gap: 32px;
+    }
 }
