@@ -343,23 +343,23 @@ strong {
     font-weight: 800;
     letter-spacing: -0.04em;
     line-height: 1.05;
-    margin-bottom: 20px;
+    margin-bottom: 28px;
 }
 
 .hero__subheadline {
     font-size: 1.25rem;
     font-weight: 500;
     color: var(--color-blue-300);
-    margin-bottom: 24px;
+    margin-bottom: 32px;
     line-height: 1.4;
 }
 
 .hero__description {
     font-size: 1.05rem;
-    line-height: 1.7;
+    line-height: 1.75;
     color: rgba(255,255,255,0.75);
     max-width: 620px;
-    margin-bottom: 36px;
+    margin: 0 auto 48px;
 }
 
 .hero__actions {
@@ -494,9 +494,9 @@ strong {
 /* ============================================================
    CTA
    ============================================================ */
-.cta { padding: 100px 0; background-color: var(--color-white); text-align: center; }
-.cta__title { font-size: clamp(1.75rem, 4vw, 2.5rem); font-weight: 800; color: var(--color-navy-800); letter-spacing: -0.03em; margin-bottom: 16px; }
-.cta__text { font-size: 1.05rem; color: var(--color-slate-500); max-width: 640px; margin: 0 auto 36px; line-height: 1.8; }
+.cta { padding: 120px 0; background-color: var(--color-white); text-align: center; }
+.cta__title { font-size: clamp(1.75rem, 4vw, 2.5rem); font-weight: 800; color: var(--color-navy-800); letter-spacing: -0.03em; margin-bottom: 20px; }
+.cta__text { font-size: 1.05rem; color: var(--color-slate-500); max-width: 640px; margin: 0 auto 48px; line-height: 1.85; }
 .cta__actions { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
 .btn--secondary-dark { background: transparent; color: var(--color-navy-800); border-color: var(--color-slate-300); }
 .btn--secondary-dark:hover { border-color: var(--color-navy-700); background: var(--color-slate-50); }
