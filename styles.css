@@ -985,3 +985,200 @@ strong {
         gap: 32px;
     }
 }
+/* ============================================================
+   NEW SECTIONS — 2026 REWRITE (Problem, Solution, Technical)
+   ============================================================ */
+
+/* Problem Section */
+.problem {
+    padding: 100px 0;
+    background-color: var(--color-slate-50);
+}
+
+.problem__grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    margin-bottom: 48px;
+}
+
+.problem__card {
+    background-color: var(--color-white);
+    border: 1px solid var(--color-slate-200);
+    border-radius: 12px;
+    padding: 28px 24px;
+    transition: transform var(--transition-medium), box-shadow var(--transition-medium);
+}
+
+.problem__card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-md);
+}
+
+.problem__card-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--color-navy-800);
+    margin-bottom: 12px;
+}
+
+.problem__stat {
+    background-color: var(--color-navy-800);
+    color: var(--color-white);
+    padding: 28px 32px;
+    border-radius: 12px;
+    text-align: center;
+}
+
+.problem__stat-text {
+    font-size: 1.05rem;
+    line-height: 1.6;
+    max-width: 720px;
+    margin: 0 auto;
+}
+
+/* Solution Section */
+.solution {
+    padding: 100px 0;
+    background-color: var(--color-white);
+}
+
+.solution__lead {
+    max-width: 720px;
+    margin: 0 auto 56px;
+    text-align: center;
+    font-size: 1.15rem;
+    color: var(--color-slate-600);
+}
+
+.solution__grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+}
+
+.solution__card {
+    background-color: var(--color-slate-50);
+    border: 1px solid var(--color-slate-200);
+    border-radius: 14px;
+    padding: 32px 24px;
+    transition: all var(--transition-medium);
+}
+
+.solution__card:hover {
+    border-color: var(--color-blue-400);
+    box-shadow: var(--shadow-md);
+}
+
+.solution__icon {
+    color: var(--color-blue-500);
+    margin-bottom: 20px;
+}
+
+.solution__card-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--color-navy-800);
+    margin-bottom: 12px;
+}
+
+/* Technical Section */
+.technical {
+    padding: 100px 0;
+    background: linear-gradient(170deg, var(--color-navy-800) 0%, var(--color-navy-900) 100%);
+    color: var(--color-white);
+}
+
+.technical__intro {
+    max-width: 720px;
+    margin: 0 auto 48px;
+    text-align: center;
+    font-size: 1.1rem;
+    color: rgba(255, 255, 255, 0.75);
+}
+
+.technical__subhead {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--color-blue-300);
+    margin-bottom: 20px;
+    letter-spacing: 0.5px;
+}
+
+.research__grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    margin-bottom: 56px;
+}
+
+.research__card {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 28px 24px;
+    transition: all var(--transition-medium);
+}
+
+.research__card:hover {
+    background: rgba(255, 255, 255, 0.07);
+    border-color: rgba(96, 165, 250, 0.3);
+}
+
+.research__card h4 {
+    color: var(--color-blue-300);
+    font-size: 1rem;
+    margin-bottom: 10px;
+}
+
+.research__card p {
+    font-size: 0.95rem;
+    color: rgba(255, 255, 255, 0.65);
+    line-height: 1.6;
+    margin-bottom: 12px;
+}
+
+.research__card a {
+    font-size: 0.85rem;
+    color: var(--color-blue-400);
+    font-weight: 500;
+}
+
+.stack__grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+}
+
+.stack__item {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    padding: 18px 20px;
+}
+
+.stack__name {
+    display: block;
+    font-weight: 700;
+    color: var(--color-white);
+    font-size: 0.95rem;
+    margin-bottom: 4px;
+}
+
+.stack__desc {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.55);
+    line-height: 1.5;
+}
+
+/* Responsive adjustments for new sections */
+@media (max-width: 900px) {
+    .problem__grid,
+    .solution__grid,
+    .research__grid,
+    .stack__grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Hide old roadmap styles if still present in CSS (safe to keep for now) */

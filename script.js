@@ -56,43 +56,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    // ---------- Roadmap Phase Toggle (Accordion) ----------
-    phaseHeaders.forEach(header => {
-        header.addEventListener('click', function () {
-            const phase = this.parentElement;
-            const body = phase.querySelector('.phase__body');
-            const toggle = phase.querySelector('.phase__toggle');
-            const isOpen = body.classList.contains('phase__body--open');
-
-            // Close all other phases
-            document.querySelectorAll('.phase__body--open').forEach(openBody => {
-                if (openBody !== body) {
-                    openBody.classList.remove('phase__body--open');
-                    const siblingToggle = openBody.closest('.phase').querySelector('.phase__toggle');
-                    if (siblingToggle) {
-                        siblingToggle.setAttribute('aria-expanded', 'false');
-                    }
-                }
-            });
-
-            // Toggle current phase
-            if (isOpen) {
-                body.classList.remove('phase__body--open');
-                toggle.setAttribute('aria-expanded', 'false');
-            } else {
-                body.classList.add('phase__body--open');
-                toggle.setAttribute('aria-expanded', 'true');
-            }
-        });
-    });
-
-    // Open Phase 1 by default (it's the current phase)
-    const phaseOneBody = document.querySelector('.phase--active .phase__body');
-    const phaseOneToggle = document.querySelector('.phase--active .phase__toggle');
-    if (phaseOneBody && phaseOneToggle) {
-        phaseOneBody.classList.add('phase__body--open');
-        phaseOneToggle.setAttribute('aria-expanded', 'true');
-    }
+    // Roadmap phase accordion logic removed — Roadmap section replaced with Technical Implementation in the 2026 rewrite.
 
     // ---------- Smooth Scroll Offset for Fixed Nav ----------
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
@@ -115,7 +79,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // ---------- Intersection Observer for Scroll Animations ----------
     const animatedElements = document.querySelectorAll(
-        '.advantage__card, .about__card, .pipeline__step, .phase'
+        '.problem__card, .solution__card, .pipeline__step, .research__card, .stack__item'
     );
 
     if ('IntersectionObserver' in window) {
