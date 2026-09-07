@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IQC Open Alpha</title>
+  <meta name="description" content="Immutable QC Open Alpha — synthetic laboratory integrity console.">
+  <meta name="theme-color" content="#07090b">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="console.css">
+</head>
+<body class="console-body">
+  <div class="console">
+    <aside class="console__side">
+      <a class="nav__logo" href="/">
+        <svg class="nav__mark" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="8.2" fill="none" stroke="currentColor" stroke-width="1.6"/>
+          <circle cx="12" cy="12" r="2.4" fill="currentColor"/>
+        </svg>
+        <span>Immutable<span class="accent">QC</span></span>
+      </a>
+      <nav class="console__nav" id="nav"></nav>
+      <p class="console__disclaimer">DEMO / SYNTHETIC DATA. Signatures are SHA-256 demo keys, not production ECDSA-secp256k1.</p>
+    </aside>
+    <div class="console__main">
+      <header class="console__top">
+        <a class="nav__logo" href="/">
+          <svg class="nav__mark" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="8.2" fill="none" stroke="currentColor" stroke-width="1.6"/>
+            <circle cx="12" cy="12" r="2.4" fill="currentColor"/>
+          </svg>
+          <span>Immutable<span class="accent">QC</span></span>
+        </a>
+        <span class="badge">Alpha v0.1</span>
+      </header>
+      <main class="console__page" id="app">Loading ledger…</main>
+      <nav class="console__mobile" id="mobileNav"></nav>
+    </div>
+  </div>
+  <script src="console.js"></script>
+</body>
+</html>
