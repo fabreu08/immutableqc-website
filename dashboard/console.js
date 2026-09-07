@@ -2,6 +2,16 @@ const GENESIS = "0".repeat(64);
 const DEMO_FP = "iqc-demo/fp-7a3c9e";
 const enc = new TextEncoder();
 
+const BASE_SEPOLIA = {
+  chainId: "0x14a34",
+  chainIdDec: 84532,
+  chainName: "Base Sepolia",
+  rpcUrls: ["https://sepolia.base.org"],
+  nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+  blockExplorerUrls: ["https://sepolia.basescan.org"],
+  faucet: "https://www.coinbase.com/faucets/base-ethereum-sepolia-faucet",
+};
+
 const INSTRUMENTS = [
   { id: "HPLC-01", name: "Alliance HPLC", type: "HPLC", protocol: "TCP/IP", firmware: "emp3-4.2.1", captureStatus: "in-progress", lastHeartbeat: "2026-09-07T15:48:00.000Z" },
   { id: "MS-02", name: "QToF Mass Spec", type: "MS", protocol: "TCP/IP", firmware: "masslynx-4.2", captureStatus: "in-progress", lastHeartbeat: "2026-09-07T15:46:22.000Z" },
@@ -38,15 +48,31 @@ const state = {
   tamperedSeq: null,
   selectedPacket: null,
   ingesting: false,
+  bootError: null,
+  wallet: {
+    address: null,
+    chainId: null,
+    status: "disconnected",
+    error: null,
+    publishingId: null,
+  },
 };
 
 async function sha256Hex(data) {
+  if (!crypto || !crypto.subtle) {
+    throw new Error("Web Crypto unavailable (need HTTPS or localhost).");
+  }
   const buf = await crypto.subtle.digest("SHA-256", enc.encode(data));
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 function shortHash(h) {
   return h.slice(0, 10) + "…" + h.slice(-4);
+}
+
+function shortAddr(a) {
+  if (!a) return "";
+  return a.slice(0, 6) + "…" + a.slice(-4);
 }
 
 function canonical(p) {
@@ -135,6 +161,7 @@ async function commitIfDue(packets, commitments) {
     from_seq: batch[0].seq,
     to_seq: batch[batch.length - 1].seq,
     packet_ids: batch.map((p) => p.packet_id),
+    onchain: null,
   };
   return {
     packets: packets.map((p) => (batch.some((b) => b.packet_id === p.packet_id) ? { ...p, commitment_batch_id: id } : p)),
@@ -175,10 +202,10 @@ async function seed() {
 
 function esc(s) {
   return String(s)
-    .replaceAll("&", "&")
-    .replaceAll("<", "<")
-    .replaceAll(">", ">")
-    .replaceAll('"', """);
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
 }
 
 function go(view) {
@@ -186,31 +213,198 @@ function go(view) {
   render();
 }
 
+function onCorrectChain() {
+  return Number(state.wallet.chainId) === BASE_SEPOLIA.chainIdDec || state.wallet.chainId === BASE_SEPOLIA.chainId;
+}
+
+function ethereum() {
+  return typeof window !== "undefined" ? window.ethereum : null;
+}
+
+async function ensureBaseSepolia() {
+  const eth = ethereum();
+  if (!eth) throw new Error("MetaMask not installed");
+  try {
+    await eth.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: BASE_SEPOLIA.chainId }],
+    });
+  } catch (err) {
+    if (err && (err.code === 4902 || String(err.message || "").includes("Unrecognized chain"))) {
+      await eth.request({
+        method: "wallet_addEthereumChain",
+        params: [
+          {
+            chainId: BASE_SEPOLIA.chainId,
+            chainName: BASE_SEPOLIA.chainName,
+            rpcUrls: BASE_SEPOLIA.rpcUrls,
+            nativeCurrency: BASE_SEPOLIA.nativeCurrency,
+            blockExplorerUrls: BASE_SEPOLIA.blockExplorerUrls,
+          },
+        ],
+      });
+    } else {
+      throw err;
+    }
+  }
+  const chainId = await eth.request({ method: "eth_chainId" });
+  state.wallet.chainId = chainId;
+}
+
+async function connectWallet() {
+  state.wallet.error = null;
+  const eth = ethereum();
+  if (!eth) {
+    state.wallet.status = "missing";
+    state.wallet.error = "Install MetaMask to connect. Wallet is testnet-only for registry roots.";
+    render();
+    return;
+  }
+  try {
+    state.wallet.status = "connecting";
+    render();
+    const accounts = await eth.request({ method: "eth_requestAccounts" });
+    state.wallet.address = accounts[0] || null;
+    await ensureBaseSepolia();
+    state.wallet.status = state.wallet.address ? "connected" : "disconnected";
+    if (!onCorrectChain()) {
+      state.wallet.error = "Wrong network. Switch to Base Sepolia (TESTNET) to publish.";
+    }
+  } catch (err) {
+    state.wallet.status = "disconnected";
+    state.wallet.error = (err && err.message) || "Connection rejected.";
+  }
+  render();
+}
+
+function disconnectWallet() {
+  state.wallet.address = null;
+  state.wallet.chainId = null;
+  state.wallet.status = "disconnected";
+  state.wallet.error = null;
+  state.wallet.publishingId = null;
+  render();
+}
+
+function attachWalletListeners() {
+  const eth = ethereum();
+  if (!eth || eth.__iqcListeners) return;
+  eth.__iqcListeners = true;
+  eth.on &&
+    eth.on("accountsChanged", (accounts) => {
+      state.wallet.address = accounts && accounts[0] ? accounts[0] : null;
+      if (!state.wallet.address) {
+        state.wallet.status = "disconnected";
+      }
+      render();
+    });
+  eth.on &&
+    eth.on("chainChanged", (chainId) => {
+      state.wallet.chainId = chainId;
+      if (!onCorrectChain()) {
+        state.wallet.error = "Wrong network. Switch to Base Sepolia (TESTNET) to publish.";
+      } else {
+        state.wallet.error = null;
+      }
+      render();
+    });
+}
+
+async function publishCommitment(id) {
+  const c = state.commitments.find((x) => x.id === id);
+  if (!c) return;
+  state.wallet.error = null;
+  state.wallet.publishingId = id;
+  render();
+
+  const eth = ethereum();
+  if (!eth) {
+    state.wallet.status = "missing";
+    state.wallet.error = "Install MetaMask to publish. TESTNET only.";
+    state.wallet.publishingId = null;
+    render();
+    return;
+  }
+  if (!state.wallet.address) {
+    await connectWallet();
+    if (!state.wallet.address) {
+      state.wallet.publishingId = null;
+      render();
+      return;
+    }
+  }
+  try {
+    await ensureBaseSepolia();
+    if (!onCorrectChain()) {
+      state.wallet.error = "Wrong network. Switch to Base Sepolia before publishing.";
+      state.wallet.publishingId = null;
+      render();
+      return;
+    }
+    const rootHex = c.merkle_root.startsWith("0x") ? c.merkle_root : "0x" + c.merkle_root;
+    const txHash = await eth.request({
+      method: "eth_sendTransaction",
+      params: [
+        {
+          from: state.wallet.address,
+          to: state.wallet.address,
+          value: "0x0",
+          data: rootHex,
+        },
+      ],
+    });
+    c.onchain = {
+      network: "Base Sepolia",
+      chainId: BASE_SEPOLIA.chainIdDec,
+      txHash,
+      published_at: new Date().toISOString(),
+      label: "TESTNET",
+    };
+  } catch (err) {
+    const msg = (err && (err.message || err.data?.message)) || String(err);
+    const low = msg.toLowerCase();
+    if (low.includes("insufficient funds") || low.includes("insufficient balance") || err.code === -32000) {
+      state.wallet.error =
+        "Needs Base Sepolia ETH to publish. Get testnet ETH from a faucet, then retry.";
+    } else if (low.includes("user rejected") || err.code === 4001) {
+      state.wallet.error = "Publish cancelled in MetaMask.";
+    } else {
+      state.wallet.error = msg;
+    }
+  }
+  state.wallet.publishingId = null;
+  render();
+}
+
 async function ingest(id) {
   if (state.ingesting) return;
   state.ingesting = true;
   render();
-  const inst = INSTRUMENTS.find((x) => x.id === id);
-  const ordered = state.packets.slice().sort((a, b) => a.seq - b.seq);
-  const prev = ordered.length ? ordered[ordered.length - 1].hashes.record_sha256 : GENESIS;
-  const seq = (ordered[ordered.length - 1]?.seq || 0) + 1;
-  const sealed = await seal(
-    {
-      packet_id: "pkt-" + Math.random().toString(16).slice(2, 10),
-      seq,
-      captured_at: new Date().toISOString(),
-      instrument: { id: inst.id, type: inst.type, protocol: inst.protocol, firmware: inst.firmware },
-      measurement: demoMeasurement(id, seq),
-      calibration: { cal_id: "cal-" + inst.id + "-2026-08", valid_until: "2026-10-01T00:00:00.000Z" },
-      operator_id: "op.reyes",
-    },
-    prev,
-  );
-  const next = await commitIfDue(state.packets.concat(sealed), state.commitments);
-  state.packets = next.packets;
-  state.commitments = next.commitments;
-  state.chain = await verifyChain(state.packets);
-  state.tamperedSeq = null;
+  try {
+    const inst = INSTRUMENTS.find((x) => x.id === id);
+    const ordered = state.packets.slice().sort((a, b) => a.seq - b.seq);
+    const prev = ordered.length ? ordered[ordered.length - 1].hashes.record_sha256 : GENESIS;
+    const seq = (ordered[ordered.length - 1]?.seq || 0) + 1;
+    const sealed = await seal(
+      {
+        packet_id: "pkt-" + Math.random().toString(16).slice(2, 10),
+        seq,
+        captured_at: new Date().toISOString(),
+        instrument: { id: inst.id, type: inst.type, protocol: inst.protocol, firmware: inst.firmware },
+        measurement: demoMeasurement(id, seq),
+        calibration: { cal_id: "cal-" + inst.id + "-2026-08", valid_until: "2026-10-01T00:00:00.000Z" },
+        operator_id: "op.reyes",
+      },
+      prev,
+    );
+    const next = await commitIfDue(state.packets.concat(sealed), state.commitments);
+    state.packets = next.packets;
+    state.commitments = next.commitments;
+    state.chain = await verifyChain(state.packets);
+    state.tamperedSeq = null;
+  } catch (err) {
+    state.bootError = (err && err.message) || String(err);
+  }
   state.ingesting = false;
   render();
 }
@@ -228,12 +422,17 @@ async function tamper() {
 }
 
 async function resetLab() {
-  const seeded = await seed();
-  state.packets = seeded.packets;
-  state.commitments = seeded.commitments;
-  state.chain = await verifyChain(state.packets);
-  state.tamperedSeq = null;
-  state.labName = "IQC Alpha Lab";
+  try {
+    const seeded = await seed();
+    state.packets = seeded.packets;
+    state.commitments = seeded.commitments;
+    state.chain = await verifyChain(state.packets);
+    state.tamperedSeq = null;
+    state.labName = "IQC Alpha Lab";
+    state.bootError = null;
+  } catch (err) {
+    state.bootError = (err && err.message) || String(err);
+  }
   render();
 }
 
@@ -261,6 +460,28 @@ function exportBundle() {
   a.click();
 }
 
+function renderWalletBar() {
+  const el = document.getElementById("walletBar");
+  if (!el) return;
+  const w = state.wallet;
+  let body = "";
+  if (w.status === "missing" || (!ethereum() && w.status !== "connected")) {
+    body = `<span class="wallet__meta">TESTNET · Base Sepolia</span>
+      <a class="btn btn--secondary" href="https://metamask.io/download/" target="_blank" rel="noopener">Install MetaMask</a>`;
+  } else if (w.address) {
+    const net = onCorrectChain()
+      ? '<span class="ok">Base Sepolia</span>'
+      : '<span class="bad">Wrong network</span>';
+    body = `<span class="wallet__meta">TESTNET · ${net} · <span class="hash">${esc(shortAddr(w.address))}</span></span>
+      ${!onCorrectChain() ? '<button class="btn btn--primary" id="switchChain">Switch to Base Sepolia</button>' : ""}
+      <button class="btn btn--secondary" id="disconnectWallet">Disconnect</button>`;
+  } else {
+    body = `<span class="wallet__meta">TESTNET · Base Sepolia · registry publish only</span>
+      <button class="btn btn--primary" id="connectWallet">${w.status === "connecting" ? "Connecting…" : "Connect MetaMask"}</button>`;
+  }
+  el.innerHTML = body + (w.error ? `<p class="wallet__err bad">${esc(w.error)}${String(w.error).includes("Needs Base Sepolia ETH") ? ` · <a href="${BASE_SEPOLIA.faucet}" target="_blank" rel="noopener">faucet</a>` : ""}</p>` : "");
+}
+
 function renderNav() {
   const links = NAV.map(
     (n) => `<a href="#${n.id}" class="${state.view === n.id ? "is-active" : ""}">${esc(n.label)}</a>`,
@@ -276,9 +497,9 @@ function viewDash() {
   const head = ordered.at(-1)?.hashes.record_sha256 || GENESIS;
   const last = state.commitments.at(-1);
   return `
-    <p class="kicker">Open Alpha · v0.1</p>
+    <p class="kicker">Open Alpha · v0.1 · DEMO / SYNTHETIC DATA</p>
     <h1>${esc(state.labName)}</h1>
-    <p class="intro">Working console with synthetic packets. HPLC/MS capture adapters are in progress — ingest is file/demo only.</p>
+    <p class="intro">Working console with synthetic packets. HPLC/MS capture adapters are in progress — ingest is file/demo only. MetaMask on Base Sepolia is for publishing Merkle roots only (TESTNET).</p>
     <div class="stats">
       <div class="stat"><span>Signed packets</span><strong>${state.packets.length}</strong></div>
       <div class="stat"><span>Integrity</span><strong class="${state.chain.ok ? "ok" : "bad"}">${state.chain.ok ? "OK" : "Break @ " + state.chain.breakAt}</strong></div>
@@ -293,6 +514,7 @@ function viewDash() {
     <div class="row-actions">
       <a class="btn btn--primary" href="#instruments">Ingest a demo run</a>
       <a class="btn btn--secondary" href="#ledger">Verify chain</a>
+      <a class="btn btn--secondary" href="#registry">Registry / publish</a>
     </div>`;
 }
 
@@ -367,20 +589,43 @@ function viewLedger() {
 
 function viewRegistry() {
   const pending = state.packets.filter((p) => !p.commitment_batch_id).length;
+  const canWrite = state.wallet.address && onCorrectChain();
   return `
     <h1>Public cryptographic registry</h1>
-    <p class="intro">Periodic Merkle roots of signed packets. Not a token, wallet, or mint.</p>
+    <p class="intro">Periodic Merkle roots of signed packets. Not a token, wallet login, or mint. Publish uses MetaMask on <strong>Base Sepolia (TESTNET)</strong> only.</p>
     <p class="hash">${pending} packet(s) waiting for the next batch of 3.</p>
+    <div class="panel">
+      <p class="kicker">Wallet</p>
+      ${
+        state.wallet.address
+          ? `<p class="intro">${esc(shortAddr(state.wallet.address))} · ${onCorrectChain() ? '<span class="ok">Base Sepolia</span>' : '<span class="bad">Wrong network — writes blocked</span>'}</p>
+             <div class="row-actions">
+               ${!onCorrectChain() ? '<button class="btn btn--primary" id="switchChain">Switch to Base Sepolia</button>' : ""}
+               <button class="btn btn--secondary" id="disconnectWallet">Disconnect</button>
+             </div>`
+          : ethereum()
+            ? `<div class="row-actions"><button class="btn btn--primary" id="connectWallet">Connect MetaMask</button></div>`
+            : `<p class="intro">MetaMask not detected.</p><div class="row-actions"><a class="btn btn--secondary" href="https://metamask.io/download/" target="_blank" rel="noopener">Install MetaMask</a></div>`
+      }
+      ${state.wallet.error ? `<p class="bad">${esc(state.wallet.error)}${String(state.wallet.error).includes("Needs Base Sepolia ETH") ? ` · <a href="${BASE_SEPOLIA.faucet}" target="_blank" rel="noopener">Get Base Sepolia ETH</a>` : ""}</p>` : ""}
+    </div>
     ${state.commitments
       .slice()
       .reverse()
-      .map(
-        (c) => `<article class="panel">
-      <p class="hash">${esc(c.id)}</p>
+      .map((c) => {
+        const publishing = state.wallet.publishingId === c.id;
+        const tx = c.onchain && c.onchain.txHash;
+        return `<article class="panel">
+      <p class="hash">${esc(c.id)} · <span class="kicker">TESTNET</span></p>
       <p class="intro">${new Date(c.created_at).toLocaleString()} · seq ${c.from_seq}–${c.to_seq}</p>
       <p class="hash">root ${esc(shortHash(c.merkle_root))}</p>
-    </article>`,
-      )
+      ${
+        tx
+          ? `<p class="ok">Published · <a href="https://sepolia.basescan.org/tx/${esc(tx)}" target="_blank" rel="noopener">${esc(shortHash(tx.replace(/^0x/, "")))}</a></p>`
+          : `<div class="row-actions"><button class="btn btn--primary" data-publish="${esc(c.id)}" ${publishing ? "disabled" : ""}>${publishing ? "Publishing…" : canWrite ? "Publish root to Base Sepolia" : "Connect & publish root"}</button></div>`
+      }
+    </article>`;
+      })
       .join("") || '<p class="intro">No commitments yet.</p>'}`;
 }
 
@@ -411,7 +656,7 @@ function viewAuditor() {
 function viewSettings() {
   return `
     <h1>Settings</h1>
-    <p class="intro">Single-lab demo workspace. No accounts.</p>
+    <p class="intro">Single-lab demo workspace. No accounts. Wallet is local disconnect only.</p>
     <label class="intro" for="lab">Lab name</label>
     <input id="lab" value="${esc(state.labName)}">
     <div class="row-actions">
@@ -422,7 +667,12 @@ function viewSettings() {
 
 function render() {
   renderNav();
+  renderWalletBar();
   const app = document.getElementById("app");
+  if (state.bootError) {
+    app.innerHTML = `<div class="panel"><h1>Console error</h1><p class="bad">${esc(state.bootError)}</p><div class="row-actions"><button class="btn btn--primary" id="reset">Retry / reset lab</button></div></div>`;
+    return;
+  }
   const views = {
     dash: viewDash,
     instruments: viewInstruments,
@@ -440,6 +690,29 @@ document.addEventListener("click", async (e) => {
   if (a) {
     e.preventDefault();
     go(a.getAttribute("href").slice(1));
+    return;
+  }
+  if (e.target.id === "connectWallet" || e.target.closest("#connectWallet")) {
+    await connectWallet();
+    return;
+  }
+  if (e.target.id === "disconnectWallet" || e.target.closest("#disconnectWallet")) {
+    disconnectWallet();
+    return;
+  }
+  if (e.target.id === "switchChain" || e.target.closest("#switchChain")) {
+    try {
+      await ensureBaseSepolia();
+      state.wallet.error = onCorrectChain() ? null : "Still on wrong network.";
+    } catch (err) {
+      state.wallet.error = (err && err.message) || String(err);
+    }
+    render();
+    return;
+  }
+  const pub = e.target.closest("[data-publish]");
+  if (pub) {
+    await publishCommitment(pub.getAttribute("data-publish"));
     return;
   }
   const ingestBtn = e.target.closest("[data-ingest]");
@@ -486,11 +759,20 @@ window.addEventListener("hashchange", () => {
   render();
 });
 
-seed().then(async (seeded) => {
-  state.packets = seeded.packets;
-  state.commitments = seeded.commitments;
-  state.chain = await verifyChain(state.packets);
-  const id = location.hash.slice(1);
-  if (NAV.some((n) => n.id === id)) state.view = id;
+attachWalletListeners();
+
+(async function boot() {
+  try {
+    const seeded = await seed();
+    state.packets = seeded.packets;
+    state.commitments = seeded.commitments;
+    state.chain = await verifyChain(state.packets);
+    const id = location.hash.slice(1);
+    if (NAV.some((n) => n.id === id)) state.view = id;
+    state.bootError = null;
+  } catch (err) {
+    state.bootError = (err && err.message) || String(err);
+    console.error("IQC boot failed", err);
+  }
   render();
-});
+})();

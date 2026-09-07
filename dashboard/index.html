@@ -11,7 +11,13 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
-  <link rel="stylesheet" href="console.css">
+  <link rel="stylesheet" href="/dashboard/console.css">
+  <script>
+    // Ensure trailing slash so relative assets never break if absolute paths regress.
+    if (location.pathname === '/dashboard') {
+      location.replace('/dashboard/' + location.search + location.hash);
+    }
+  </script>
 </head>
 <body class="console-body">
   <div class="console">
@@ -37,10 +43,11 @@
         </a>
         <span class="badge">Alpha v0.1</span>
       </header>
+      <div class="console__wallet" id="walletBar"></div>
       <main class="console__page" id="app">Loading ledger…</main>
       <nav class="console__mobile" id="mobileNav"></nav>
     </div>
   </div>
-  <script src="console.js"></script>
+  <script src="/dashboard/console.js"></script>
 </body>
 </html>
