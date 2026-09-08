@@ -202,10 +202,10 @@ async function seed() {
 
 function esc(s) {
   return String(s)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
+    .split("&").join("&amp;")
+    .split("<").join("&lt;")
+    .split(">").join("&gt;")
+    .split('"').join("&quot;");
 }
 
 function go(view) {
@@ -218,7 +218,11 @@ function onCorrectChain() {
 }
 
 function ethereum() {
-  return typeof window !== "undefined" ? window.ethereum : null;
+  try {
+    return typeof window !== "undefined" ? window.ethereum : null;
+  } catch (err) {
+    return null;
+  }
 }
 
 async function ensureBaseSepolia() {
@@ -287,27 +291,31 @@ function disconnectWallet() {
 }
 
 function attachWalletListeners() {
-  const eth = ethereum();
-  if (!eth || eth.__iqcListeners) return;
-  eth.__iqcListeners = true;
-  eth.on &&
-    eth.on("accountsChanged", (accounts) => {
-      state.wallet.address = accounts && accounts[0] ? accounts[0] : null;
-      if (!state.wallet.address) {
-        state.wallet.status = "disconnected";
-      }
-      render();
-    });
-  eth.on &&
-    eth.on("chainChanged", (chainId) => {
-      state.wallet.chainId = chainId;
-      if (!onCorrectChain()) {
-        state.wallet.error = "Wrong network. Switch to Base Sepolia (TESTNET) to publish.";
-      } else {
-        state.wallet.error = null;
-      }
-      render();
-    });
+  try {
+    const eth = ethereum();
+    if (!eth || eth.__iqcListeners) return;
+    eth.__iqcListeners = true;
+    if (typeof eth.on === "function") {
+      eth.on("accountsChanged", (accounts) => {
+        state.wallet.address = accounts && accounts[0] ? accounts[0] : null;
+        if (!state.wallet.address) {
+          state.wallet.status = "disconnected";
+        }
+        render();
+      });
+      eth.on("chainChanged", (chainId) => {
+        state.wallet.chainId = chainId;
+        if (!onCorrectChain()) {
+          state.wallet.error = "Wrong network. Switch to Base Sepolia (TESTNET) to publish.";
+        } else {
+          state.wallet.error = null;
+        }
+        render();
+      });
+    }
+  } catch (err) {
+    console.warn("IQC wallet listeners skipped", err);
+  }
 }
 
 async function publishCommitment(id) {
@@ -494,8 +502,8 @@ function renderNav() {
 
 function viewDash() {
   const ordered = state.packets.slice().sort((a, b) => a.seq - b.seq);
-  const head = ordered.at(-1)?.hashes.record_sha256 || GENESIS;
-  const last = state.commitments.at(-1);
+  const head = (ordered.length ? ordered[ordered.length - 1].hashes.record_sha256 : GENESIS);
+  const last = state.commitments.length ? state.commitments[state.commitments.length - 1] : null;
   return `
     <p class="kicker">Open Alpha · v0.1 · DEMO / SYNTHETIC DATA</p>
     <h1>${esc(state.labName)}</h1>
@@ -666,23 +674,31 @@ function viewSettings() {
 }
 
 function render() {
-  renderNav();
-  renderWalletBar();
   const app = document.getElementById("app");
-  if (state.bootError) {
-    app.innerHTML = `<div class="panel"><h1>Console error</h1><p class="bad">${esc(state.bootError)}</p><div class="row-actions"><button class="btn btn--primary" id="reset">Retry / reset lab</button></div></div>`;
-    return;
+  try {
+    renderNav();
+    renderWalletBar();
+    if (state.bootError) {
+      app.innerHTML = `<div class="panel"><h1>Console error</h1><p class="bad">${esc(state.bootError)}</p><div class="row-actions"><button class="btn btn--primary" id="reset">Retry / reset lab</button></div></div>`;
+      return;
+    }
+    const views = {
+      dash: viewDash,
+      instruments: viewInstruments,
+      packets: viewPackets,
+      ledger: viewLedger,
+      registry: viewRegistry,
+      auditor: viewAuditor,
+      settings: viewSettings,
+    };
+    app.innerHTML = (views[state.view] || viewDash)();
+  } catch (err) {
+    console.error("IQC render failed", err);
+    const msg = (err && err.message) || String(err);
+    if (app) {
+      app.innerHTML = `<div class="panel"><h1>Console error</h1><p class="bad">${esc(msg)}</p><div class="row-actions"><button class="btn btn--primary" id="reset">Retry / reset lab</button></div></div>`;
+    }
   }
-  const views = {
-    dash: viewDash,
-    instruments: viewInstruments,
-    packets: viewPackets,
-    ledger: viewLedger,
-    registry: viewRegistry,
-    auditor: viewAuditor,
-    settings: viewSettings,
-  };
-  app.innerHTML = (views[state.view] || viewDash)();
 }
 
 document.addEventListener("click", async (e) => {
