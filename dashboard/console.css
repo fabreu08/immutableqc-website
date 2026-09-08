@@ -67,3 +67,12 @@ pre { overflow: auto; max-height: 320px; font-family: var(--mono); font-size: 11
 @media (min-width: 860px) {
   .console__wallet { padding: 10px 28px; }
 }
+
+.tx-result {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in oklab, var(--primary) 35%, var(--border));
+  background: color-mix(in oklab, var(--primary) 8%, var(--surface));
+}
+.tx-result .hash { margin: 8px 0; }

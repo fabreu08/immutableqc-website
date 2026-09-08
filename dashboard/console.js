@@ -75,6 +75,57 @@ function shortAddr(a) {
   return a.slice(0, 6) + "…" + a.slice(-4);
 }
 
+function basescanTxUrl(txHash) {
+  const h = String(txHash || "");
+  return "https://sepolia.basescan.org/tx/" + (h.startsWith("0x") ? h : "0x" + h);
+}
+
+const ONCHAIN_STORE_KEY = "iqc-onchain-v1";
+
+function loadOnchainStore() {
+  try {
+    return JSON.parse(localStorage.getItem(ONCHAIN_STORE_KEY) || "{}") || {};
+  } catch (err) {
+    return {};
+  }
+}
+
+function saveOnchainStore(store) {
+  try {
+    localStorage.setItem(ONCHAIN_STORE_KEY, JSON.stringify(store));
+  } catch (err) {}
+}
+
+function persistOnchain(commitment) {
+  if (!commitment || !commitment.onchain || !commitment.onchain.txHash) return;
+  const store = loadOnchainStore();
+  store[commitment.id] = commitment.onchain;
+  store["root:" + commitment.merkle_root] = commitment.onchain;
+  saveOnchainStore(store);
+}
+
+function restoreOnchain(commitments) {
+  const store = loadOnchainStore();
+  return commitments.map((c) => {
+    const hit = store[c.id] || store["root:" + c.merkle_root];
+    return hit ? { ...c, onchain: hit } : c;
+  });
+}
+
+function renderPublishedTx(onchain) {
+  if (!onchain || !onchain.txHash) return "";
+  const tx = onchain.txHash;
+  const url = basescanTxUrl(tx);
+  return `<div class="tx-result">
+      <p class="ok">Published on Base Sepolia · TESTNET</p>
+      <p class="hash">tx ${esc(tx)}</p>
+      <div class="row-actions">
+        <a class="btn btn--primary" href="${esc(url)}" target="_blank" rel="noopener">View on Basescan</a>
+        <button class="btn btn--secondary" data-copy-tx="${esc(tx)}">Copy tx hash</button>
+      </div>
+    </div>`;
+  }
+
 function canonical(p) {
   return JSON.stringify({
     packet_id: p.packet_id,
@@ -442,26 +493,27 @@ async function publishCommitment(id) {
   const c = state.commitments.find((x) => x.id === id);
   if (!c) return;
   state.wallet.error = null;
+  state.wallet.lastPublishError = null;
   state.wallet.publishingId = id;
   render();
 
-  const eth = ethereum();
-  if (!eth) {
-    state.wallet.status = "missing";
-    state.wallet.error = providerErrorMessage();
-    state.wallet.publishingId = null;
-    render();
-    return;
-  }
-  if (!state.wallet.address) {
-    await connectWallet();
+  try {
     if (!state.wallet.address) {
+      await connectWallet();
+      if (!state.wallet.address) {
+        state.wallet.publishingId = null;
+        render();
+        return;
+      }
+    }
+    const eth = (await resolveProvider(1500)) || ethereum();
+    if (!eth || typeof eth.request !== "function") {
+      state.wallet.status = "missing";
+      state.wallet.error = providerErrorMessage();
       state.wallet.publishingId = null;
       render();
       return;
     }
-  }
-  try {
     await ensureBaseSepolia();
     if (!onCorrectChain()) {
       state.wallet.error = "Wrong network. Switch to Base Sepolia before publishing.";
@@ -470,24 +522,35 @@ async function publishCommitment(id) {
       return;
     }
     const rootHex = c.merkle_root.startsWith("0x") ? c.merkle_root : "0x" + c.merkle_root;
+    // 0-ETH self-tx carrying merkle root in calldata (TESTNET attestation)
+    const txParams = {
+      from: state.wallet.address,
+      to: state.wallet.address,
+      value: "0x0",
+      data: rootHex,
+    };
+    try {
+      const gas = await eth.request({ method: "eth_estimateGas", params: [txParams] });
+      if (gas) txParams.gas = gas;
+    } catch (err) {
+      // MetaMask will estimate if omitted
+    }
     const txHash = await eth.request({
       method: "eth_sendTransaction",
-      params: [
-        {
-          from: state.wallet.address,
-          to: state.wallet.address,
-          value: "0x0",
-          data: rootHex,
-        },
-      ],
+      params: [txParams],
     });
     c.onchain = {
       network: "Base Sepolia",
       chainId: BASE_SEPOLIA.chainIdDec,
       txHash,
+      merkle_root: c.merkle_root,
       published_at: new Date().toISOString(),
       label: "TESTNET",
+      explorer: basescanTxUrl(txHash),
     };
+    persistOnchain(c);
+    state.wallet.lastTxHash = txHash;
+    state.view = "registry";
   } catch (err) {
     const msg = (err && (err.message || err.data?.message)) || String(err);
     const low = msg.toLowerCase();
@@ -499,6 +562,7 @@ async function publishCommitment(id) {
     } else {
       state.wallet.error = msg;
     }
+    state.wallet.lastPublishError = state.wallet.error;
   }
   state.wallet.publishingId = null;
   render();
@@ -553,7 +617,7 @@ async function resetLab() {
   try {
     const seeded = await seed();
     state.packets = seeded.packets;
-    state.commitments = seeded.commitments;
+    state.commitments = restoreOnchain(seeded.commitments);
     state.chain = await verifyChain(state.packets);
     state.tamperedSeq = null;
     state.labName = "IQC Alpha Lab";
@@ -649,10 +713,35 @@ function viewDash() {
       <p class="hash">${esc(shortHash(head))}</p>
       <p class="intro">${last ? "Last registry commitment " + new Date(last.created_at).toLocaleString() : "No registry commitment yet — three unbatched packets trigger one."}</p>
     </div>
+    <div class="panel">
+      <p class="kicker">On-chain registry · Base Sepolia TESTNET</p>
+      <p class="intro">Publish a Merkle root from the latest commitment batch. This sends a 0-ETH transaction with the root in calldata — not a token transfer.</p>
+      ${
+        last
+          ? `<p class="hash">Latest commitment ${esc(last.id)} · root ${esc(shortHash(last.merkle_root))}</p>
+             ${
+               last.onchain && last.onchain.txHash
+                 ? renderPublishedTx(last.onchain)
+                 : `<div class="row-actions">
+                      <button class="btn btn--primary" data-publish="${esc(last.id)}" ${state.wallet.publishingId === last.id ? "disabled" : ""}>${
+                        state.wallet.publishingId === last.id
+                          ? "Publishing…"
+                          : state.wallet.address
+                            ? "Publish root to Base Sepolia"
+                            : "Connect & publish root"
+                      }</button>
+                      <a class="btn btn--secondary" href="#registry">All commitments</a>
+                    </div>`
+             }`
+          : `<p class="intro">No commitment yet — ingest until a batch of 3 packets is sealed.</p>
+             <div class="row-actions"><a class="btn btn--primary" href="#instruments">Ingest a demo run</a></div>`
+      }
+      ${state.wallet.error && state.wallet.publishingId === null ? `<p class="bad">${esc(state.wallet.error)}${String(state.wallet.error).includes("Needs Base Sepolia ETH") ? ` · <a href="${BASE_SEPOLIA.faucet}" target="_blank" rel="noopener">faucet</a>` : ""}</p>` : ""}
+    </div>
     <div class="row-actions">
       <a class="btn btn--primary" href="#instruments">Ingest a demo run</a>
       <a class="btn btn--secondary" href="#ledger">Verify chain</a>
-      <a class="btn btn--secondary" href="#registry">Registry / publish</a>
+      <a class="btn btn--secondary" href="#registry">Registry</a>
     </div>`;
 }
 
@@ -754,14 +843,13 @@ function viewRegistry() {
       .reverse()
       .map((c) => {
         const publishing = state.wallet.publishingId === c.id;
-        const tx = c.onchain && c.onchain.txHash;
         return `<article class="panel">
       <p class="hash">${esc(c.id)} · <span class="kicker">TESTNET</span></p>
       <p class="intro">${new Date(c.created_at).toLocaleString()} · seq ${c.from_seq}–${c.to_seq}</p>
-      <p class="hash">root ${esc(shortHash(c.merkle_root))}</p>
+      <p class="hash">root ${esc(c.merkle_root)}</p>
       ${
-        tx
-          ? `<p class="ok">Published · <a href="https://sepolia.basescan.org/tx/${esc(tx)}" target="_blank" rel="noopener">${esc(shortHash(tx.replace(/^0x/, "")))}</a></p>`
+        c.onchain && c.onchain.txHash
+          ? renderPublishedTx(c.onchain)
           : `<div class="row-actions"><button class="btn btn--primary" data-publish="${esc(c.id)}" ${publishing ? "disabled" : ""}>${publishing ? "Publishing…" : canWrite ? "Publish root to Base Sepolia" : "Connect & publish root"}</button></div>`
       }
     </article>`;
@@ -913,7 +1001,7 @@ attachWalletListeners();
   try {
     const seeded = await seed();
     state.packets = seeded.packets;
-    state.commitments = seeded.commitments;
+    state.commitments = restoreOnchain(seeded.commitments);
     state.chain = await verifyChain(state.packets);
     const id = location.hash.slice(1);
     if (NAV.some((n) => n.id === id)) state.view = id;
