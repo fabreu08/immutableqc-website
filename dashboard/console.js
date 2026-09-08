@@ -10,6 +10,9 @@ const BASE_SEPOLIA = {
   nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
   blockExplorerUrls: ["https://sepolia.basescan.org"],
   faucet: "https://www.coinbase.com/faucets/base-ethereum-sepolia-faucet",
+  // Coinbase/smart wallets reject calldata to the user's own ("internal") account.
+  // Publish sends 0-ETH + root calldata to this public sink instead (TESTNET attestation).
+  attestationSink: "0x000000000000000000000000000000000000dEaD",
 };
 
 const INSTRUMENTS = [
@@ -522,10 +525,11 @@ async function publishCommitment(id) {
       return;
     }
     const rootHex = c.merkle_root.startsWith("0x") ? c.merkle_root : "0x" + c.merkle_root;
-    // 0-ETH self-tx carrying merkle root in calldata (TESTNET attestation)
+    // 0-ETH attestation tx: root in calldata, NOT to self (smart wallets block data→internal).
+    const sink = BASE_SEPOLIA.attestationSink;
     const txParams = {
       from: state.wallet.address,
-      to: state.wallet.address,
+      to: sink,
       value: "0x0",
       data: rootHex,
     };
@@ -533,17 +537,32 @@ async function publishCommitment(id) {
       const gas = await eth.request({ method: "eth_estimateGas", params: [txParams] });
       if (gas) txParams.gas = gas;
     } catch (err) {
-      // MetaMask will estimate if omitted
+      // Wallet will estimate if omitted
     }
-    const txHash = await eth.request({
-      method: "eth_sendTransaction",
-      params: [txParams],
-    });
+    let txHash;
+    try {
+      txHash = await eth.request({
+        method: "eth_sendTransaction",
+        params: [txParams],
+      });
+    } catch (err) {
+      const msg = String((err && (err.message || err.data && err.data.message)) || err || "");
+      if (/internal accounts cannot include data/i.test(msg) || /cannot include data/i.test(msg)) {
+        // Last resort: still avoid self; rethrow with clearer guidance
+        throw new Error(
+          "This wallet blocks calldata to your own account. Publishing now uses a public sink (" +
+            sink +
+            "). Hard-refresh and retry; if it still fails, use MetaMask extension (EOA) on Base Sepolia.",
+        );
+      }
+      throw err;
+    }
     c.onchain = {
       network: "Base Sepolia",
       chainId: BASE_SEPOLIA.chainIdDec,
       txHash,
       merkle_root: c.merkle_root,
+      to: sink,
       published_at: new Date().toISOString(),
       label: "TESTNET",
       explorer: basescanTxUrl(txHash),
@@ -559,6 +578,9 @@ async function publishCommitment(id) {
         "Needs Base Sepolia ETH to publish. Get testnet ETH from a faucet, then retry.";
     } else if (low.includes("user rejected") || err.code === 4001) {
       state.wallet.error = "Publish cancelled in MetaMask.";
+    } else if (low.includes("internal accounts cannot include data") || low.includes("cannot include data")) {
+      state.wallet.error =
+        "Wallet blocked calldata to your account. Hard-refresh — publish now targets a public sink. Prefer MetaMask EOA if it still fails.";
     } else {
       state.wallet.error = msg;
     }
@@ -715,7 +737,7 @@ function viewDash() {
     </div>
     <div class="panel">
       <p class="kicker">On-chain registry · Base Sepolia TESTNET</p>
-      <p class="intro">Publish a Merkle root from the latest commitment batch. This sends a 0-ETH transaction with the root in calldata — not a token transfer.</p>
+      <p class="intro">Publish a Merkle root from the latest commitment batch. Sends a 0-ETH Base Sepolia tx with the root in calldata to a public attestation sink (not a token transfer).</p>
       ${
         last
           ? `<p class="hash">Latest commitment ${esc(last.id)} · root ${esc(shortHash(last.merkle_root))}</p>
