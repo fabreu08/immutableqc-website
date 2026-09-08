@@ -217,12 +217,47 @@ function onCorrectChain() {
   return Number(state.wallet.chainId) === BASE_SEPOLIA.chainIdDec || state.wallet.chainId === BASE_SEPOLIA.chainId;
 }
 
+function isUsableProvider(p) {
+  return !!(p && typeof p.request === "function");
+}
+
 function ethereum() {
   try {
-    return typeof window !== "undefined" ? window.ethereum : null;
+    if (typeof window === "undefined") return null;
+    const eth = window.ethereum;
+    if (!eth) return null;
+
+    // Multi-wallet: ethereum.providers[] (MetaMask + others)
+    const list = [];
+    if (Array.isArray(eth.providers)) list.push(...eth.providers);
+    if (Array.isArray(eth)) list.push(...eth);
+    list.push(eth);
+
+    const unique = [];
+    for (const p of list) {
+      if (p && unique.indexOf(p) === -1) unique.push(p);
+    }
+
+    const metamask = unique.find((p) => p && p.isMetaMask && isUsableProvider(p));
+    if (metamask) return metamask;
+
+    const any = unique.find(isUsableProvider);
+    if (any) return any;
+
+    // Injected object without EIP-1193 request (common with conflicting extensions)
+    return null;
   } catch (err) {
     return null;
   }
+}
+
+function providerErrorMessage() {
+  try {
+    if (typeof window !== "undefined" && window.ethereum) {
+      return "A wallet object was found but eth.request is missing. Disable other wallet extensions or use MetaMask’s ‘select this account’ / default wallet, then retry.";
+    }
+  } catch (err) {}
+  return "Install MetaMask to connect. Wallet is testnet-only for registry roots.";
 }
 
 async function ensureBaseSepolia() {
@@ -260,7 +295,13 @@ async function connectWallet() {
   const eth = ethereum();
   if (!eth) {
     state.wallet.status = "missing";
-    state.wallet.error = "Install MetaMask to connect. Wallet is testnet-only for registry roots.";
+    state.wallet.error = providerErrorMessage();
+    render();
+    return;
+  }
+  if (typeof eth.request !== "function") {
+    state.wallet.status = "missing";
+    state.wallet.error = providerErrorMessage();
     render();
     return;
   }
@@ -328,7 +369,7 @@ async function publishCommitment(id) {
   const eth = ethereum();
   if (!eth) {
     state.wallet.status = "missing";
-    state.wallet.error = "Install MetaMask to publish. TESTNET only.";
+    state.wallet.error = providerErrorMessage();
     state.wallet.publishingId = null;
     render();
     return;
