@@ -51,7 +51,7 @@ h1, h2 { font-weight: 500; letter-spacing: -0.03em; line-height: 1.1; margin: 0;
     text-align: center;
 }
 
-/* —— Nav —— */
+/* -- Nav -- */
 .nav {
     position: sticky;
     top: 0;
@@ -123,7 +123,7 @@ h1, h2 { font-weight: 500; letter-spacing: -0.03em; line-height: 1.1; margin: 0;
     transition: transform 120ms ease, opacity 120ms ease;
 }
 
-/* —— Hero —— */
+/* -- Hero -- */
 .hero {
     position: relative;
     min-height: calc(100vh - 56px);
@@ -214,7 +214,7 @@ h1, h2 { font-weight: 500; letter-spacing: -0.03em; line-height: 1.1; margin: 0;
 }
 .seal-loop { width: 100%; height: auto; display: block; }
 
-/* Hero seal loop (~8s) — CSS driven */
+/* Hero seal loop (~8s) - CSS driven */
 .seal-loop .value,
 .seal-loop .hash,
 .seal-loop .sig,
@@ -307,7 +307,7 @@ h1, h2 { font-weight: 500; letter-spacing: -0.03em; line-height: 1.1; margin: 0;
     96%, 100% { opacity: 0.4; }
 }
 
-/* —— Status —— */
+/* -- Status -- */
 .status { border-bottom: 1px solid var(--border); }
 .status__row {
     display: flex;
@@ -332,7 +332,7 @@ h1, h2 { font-weight: 500; letter-spacing: -0.03em; line-height: 1.1; margin: 0;
 .progress { color: var(--progress); }
 .planned { color: var(--planned); }
 
-/* —— How it works —— */
+/* -- How it works -- */
 .how {
     padding: 96px 0 0;
     border-bottom: 1px solid var(--border);
@@ -432,7 +432,7 @@ h1, h2 { font-weight: 500; letter-spacing: -0.03em; line-height: 1.1; margin: 0;
     display: block;
 }
 
-/* —— Tamper —— */
+/* -- Tamper -- */
 .tamper {
     padding: 88px 0 64px;
     border-bottom: 1px solid var(--border);
@@ -497,7 +497,7 @@ h1, h2 { font-weight: 500; letter-spacing: -0.03em; line-height: 1.1; margin: 0;
     80%, 100% { stroke: #8fd4c4; opacity: 1; }
 }
 
-/* —— Footnote / audience / footer —— */
+/* -- Footnote / audience / footer -- */
 .footnote {
     padding: 40px 0 24px;
 }
@@ -540,7 +540,7 @@ h1, h2 { font-weight: 500; letter-spacing: -0.03em; line-height: 1.1; margin: 0;
     font-size: 12px;
 }
 
-/* —— Mobile —— */
+/* -- Mobile -- */
 @media (max-width: 860px) {
     .nav__links {
         display: none;

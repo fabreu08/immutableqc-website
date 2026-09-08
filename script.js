@@ -125,7 +125,7 @@ document.addEventListener("DOMContentLoaded", function () {
         function updateHowFromScroll() {
             if (!stepEls.length) return;
 
-            // Desktop: tall track with sticky stage — map scroll progress to step
+            // Desktop: tall track with sticky stage: map scroll progress to step
             if (howTrack && howTrack.offsetHeight > window.innerHeight * 1.2) {
                 var rect = howTrack.getBoundingClientRect();
                 var trackH = howTrack.offsetHeight;
