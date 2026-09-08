@@ -1,1 +1,250 @@
-PLACEHOLDER
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Immutable QC | Laboratory data that cannot be altered</title>
+    <meta name="description" content="Signed at the instrument. Hash-chained audit trails — mathematical proof of integrity for laboratory data.">
+    <meta name="theme-color" content="#07090b">
+    <meta property="og:title" content="Immutable QC">
+    <meta property="og:description" content="Laboratory data that cannot be altered. Cryptographic signing at the instrument.">
+    <meta property="og:image" content="https://immutableqc.com/og.jpg">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header class="nav" id="navbar">
+        <div class="nav__container">
+            <a href="#hero" class="nav__logo">
+                <svg class="nav__mark" viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="12" cy="12" r="8.2" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                    <circle cx="12" cy="12" r="2.4" fill="currentColor"/>
+                </svg>
+                <span>Immutable<span class="accent">QC</span></span>
+            </a>
+            <ul class="nav__links" id="navLinks">
+                <li><a href="#how-it-works" class="nav__link">How it works</a></li>
+                <li><a href="/dashboard/" class="nav__cta">Open Alpha</a></li>
+            </ul>
+            <button class="nav__toggle" id="navToggle" aria-label="Toggle navigation" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+    </header>
+
+    <main>
+        <section class="hero" id="hero">
+            <div class="hero__grid" aria-hidden="true"></div>
+            <div class="wrap hero__layout">
+                <div class="hero__copy">
+                    <p class="badge"><span class="badge__dot"></span> Open Alpha · v0.1</p>
+                    <h1 class="hero__title">Laboratory data that cannot be altered</h1>
+                    <p class="hero__sub">Signed at the instrument, hash-chained audit trail — mathematical proof, not paperwork.</p>
+                    <div class="actions">
+                        <a class="btn btn--primary" href="/dashboard/">Access Open Alpha</a>
+                        <a class="btn btn--secondary" href="#how-it-works">See how it works</a>
+                    </div>
+                </div>
+                <div class="hero__visual" id="heroVisual" aria-hidden="true">
+                    <svg class="seal-loop" viewBox="0 0 320 220" role="img">
+                        <defs>
+                            <linearGradient id="chainGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" stop-color="#8fd4c4" stop-opacity="0.2"/>
+                                <stop offset="100%" stop-color="#8fd4c4" stop-opacity="0.9"/>
+                            </linearGradient>
+                        </defs>
+                        <!-- Instrument panel -->
+                        <rect class="panel" x="16" y="28" width="140" height="88" rx="10" fill="#101418" stroke="#1e2624"/>
+                        <text class="label" x="28" y="50" fill="#5c6562" font-family="IBM Plex Mono, monospace" font-size="9">MEASUREMENT</text>
+                        <text class="value" x="28" y="78" fill="#e8ebe9" font-family="IBM Plex Mono, monospace" font-size="22" font-weight="500">12.847</text>
+                        <text class="unit" x="28" y="98" fill="#8b9390" font-family="IBM Plex Mono, monospace" font-size="10">mg/L · HPLC-UV</text>
+
+                        <!-- Seal / hash write -->
+                        <g class="seal">
+                            <rect x="176" y="36" width="128" height="72" rx="10" fill="#101418" stroke="#1e2624"/>
+                            <text x="188" y="56" fill="#5c6562" font-family="IBM Plex Mono, monospace" font-size="9">SEAL</text>
+                            <text class="hash" x="188" y="78" fill="#8fd4c4" font-family="IBM Plex Mono, monospace" font-size="11">sha256:a7f3…</text>
+                            <text class="sig" x="188" y="96" fill="#8b9390" font-family="IBM Plex Mono, monospace" font-size="9">sig · DEMO-SHA256</text>
+                        </g>
+
+                        <!-- Chain link prev → record -->
+                        <g class="chain">
+                            <rect class="prev" x="16" y="140" width="100" height="52" rx="8" fill="#101418" stroke="#1e2624"/>
+                            <text x="28" y="162" fill="#5c6562" font-family="IBM Plex Mono, monospace" font-size="9">PREV</text>
+                            <text x="28" y="178" fill="#8b9390" font-family="IBM Plex Mono, monospace" font-size="10">#0041</text>
+                            <path class="link" d="M116 166 H156" stroke="url(#chainGrad)" stroke-width="2" fill="none" stroke-linecap="round"/>
+                            <circle class="link-dot" cx="136" cy="166" r="3" fill="#8fd4c4"/>
+                            <rect class="record" x="156" y="140" width="148" height="52" rx="8" fill="#101418" stroke="#1e2624"/>
+                            <text x="168" y="162" fill="#5c6562" font-family="IBM Plex Mono, monospace" font-size="9">RECORD</text>
+                            <text x="168" y="178" fill="#e8ebe9" font-family="IBM Plex Mono, monospace" font-size="10">#0042 · chained</text>
+                        </g>
+
+                        <!-- Verify check -->
+                        <g class="verify">
+                            <circle class="verify-ring" cx="292" cy="48" r="14" fill="none" stroke="#8fd4c4" stroke-width="1.5"/>
+                            <path class="verify-check" d="M285 48 L290 53 L300 42" fill="none" stroke="#8fd4c4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </g>
+                    </svg>
+                    <p class="demo-tag">DEMO · SYNTHETIC</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="status" aria-label="Current project status">
+            <div class="status__row wrap">
+                <div><span class="live">Live</span><span class="status__text">signing + ledger</span></div>
+                <div><span class="live">Live</span><span class="status__text">public registry</span></div>
+                <div><span class="progress">In progress</span><span class="status__text">instrument capture</span></div>
+                <div><span class="planned">Planned</span><span class="status__text">auditor portal</span></div>
+            </div>
+        </section>
+
+        <section id="how-it-works" class="how">
+            <div class="wrap how__inner">
+                <p class="kicker">How it works</p>
+                <h2 class="how__title">From instrument to immutable record</h2>
+                <div class="how__track" id="howTrack">
+                <div class="how__stage">
+                    <ol class="how__steps" id="howSteps">
+                        <li class="how__step is-active" data-step="0">
+                            <button type="button" class="how__btn" data-step="0">
+                                <span class="how__num">01</span>
+                                <span class="how__label">Connect</span>
+                                <span class="how__desc">Link HPLC, MS, analyzers, and sensors via RS-232, TCP/IP, or file watchers.</span>
+                            </button>
+                        </li>
+                        <li class="how__step" data-step="1">
+                            <button type="button" class="how__btn" data-step="1">
+                                <span class="how__num">02</span>
+                                <span class="how__label">Capture</span>
+                                <span class="how__desc">Intercept raw measurements at generation — calibration metadata included.</span>
+                            </button>
+                        </li>
+                        <li class="how__step" data-step="2">
+                            <button type="button" class="how__btn" data-step="2">
+                                <span class="how__num">03</span>
+                                <span class="how__label">Sign &amp; commit</span>
+                                <span class="how__desc">Sign each record, append to a hash-chained ledger, publish periodic roots.</span>
+                            </button>
+                        </li>
+                        <li class="how__step" data-step="3">
+                            <button type="button" class="how__btn" data-step="3">
+                                <span class="how__num">04</span>
+                                <span class="how__label">Verify</span>
+                                <span class="how__desc">Prove integrity without exposing proprietary methods or raw results.</span>
+                            </button>
+                        </li>
+                    </ol>
+                    <div class="how__diagram" id="howDiagram" aria-hidden="true">
+                        <svg class="diagram-svg" viewBox="0 0 360 280">
+                            <!-- Beat 0: Connect -->
+                            <g class="diag diag--0 is-shown">
+                                <rect x="40" y="40" width="80" height="48" rx="8" fill="#101418" stroke="#8fd4c4"/>
+                                <text x="80" y="68" text-anchor="middle" fill="#e8ebe9" font-family="IBM Plex Mono, monospace" font-size="11">HPLC</text>
+                                <rect x="140" y="40" width="80" height="48" rx="8" fill="#101418" stroke="#1e2624"/>
+                                <text x="180" y="68" text-anchor="middle" fill="#8b9390" font-family="IBM Plex Mono, monospace" font-size="11">MS</text>
+                                <rect x="240" y="40" width="80" height="48" rx="8" fill="#101418" stroke="#1e2624"/>
+                                <text x="280" y="68" text-anchor="middle" fill="#8b9390" font-family="IBM Plex Mono, monospace" font-size="11">Sensor</text>
+                                <path d="M80 88 V140 H180 V160" stroke="#8fd4c4" stroke-width="1.5" fill="none" opacity="0.7"/>
+                                <path d="M180 88 V160" stroke="#1e2624" stroke-width="1.5" fill="none"/>
+                                <path d="M280 88 V140 H180 V160" stroke="#1e2624" stroke-width="1.5" fill="none"/>
+                                <rect x="120" y="160" width="120" height="56" rx="10" fill="#101418" stroke="#8fd4c4"/>
+                                <text x="180" y="194" text-anchor="middle" fill="#8fd4c4" font-family="IBM Plex Mono, monospace" font-size="12">IQC gateway</text>
+                            </g>
+                            <!-- Beat 1: Capture -->
+                            <g class="diag diag--1">
+                                <rect x="60" y="50" width="240" height="100" rx="12" fill="#101418" stroke="#1e2624"/>
+                                <text x="80" y="80" fill="#5c6562" font-family="IBM Plex Mono, monospace" font-size="10">RAW STREAM</text>
+                                <text x="80" y="110" fill="#e8ebe9" font-family="IBM Plex Mono, monospace" font-size="18">12.847 mg/L</text>
+                                <text x="80" y="132" fill="#8b9390" font-family="IBM Plex Mono, monospace" font-size="10">cal · 2026-09-07T14:22Z</text>
+                                <rect x="100" y="180" width="160" height="44" rx="8" fill="#101418" stroke="#8fd4c4"/>
+                                <text x="180" y="207" text-anchor="middle" fill="#8fd4c4" font-family="IBM Plex Mono, monospace" font-size="11">captured · sealed buffer</text>
+                            </g>
+                            <!-- Beat 2: Sign & commit -->
+                            <g class="diag diag--2">
+                                <rect x="40" y="40" width="100" height="60" rx="8" fill="#101418" stroke="#1e2624"/>
+                                <text x="90" y="66" text-anchor="middle" fill="#8b9390" font-family="IBM Plex Mono, monospace" font-size="10">#0041</text>
+                                <text x="90" y="84" text-anchor="middle" fill="#5c6562" font-family="IBM Plex Mono, monospace" font-size="9">prev hash</text>
+                                <path d="M140 70 H180" stroke="#8fd4c4" stroke-width="2"/>
+                                <rect x="180" y="30" width="140" height="80" rx="10" fill="#101418" stroke="#8fd4c4"/>
+                                <text x="250" y="58" text-anchor="middle" fill="#e8ebe9" font-family="IBM Plex Mono, monospace" font-size="11">#0042 signed</text>
+                                <text x="250" y="78" text-anchor="middle" fill="#8fd4c4" font-family="IBM Plex Mono, monospace" font-size="10">DEMO · SHA-256</text>
+                                <path d="M250 110 V150" stroke="#8fd4c4" stroke-width="1.5" stroke-dasharray="4 3"/>
+                                <rect x="100" y="150" width="160" height="50" rx="8" fill="#101418" stroke="#1e2624"/>
+                                <text x="180" y="180" text-anchor="middle" fill="#8b9390" font-family="IBM Plex Mono, monospace" font-size="11">root → public registry</text>
+                            </g>
+                            <!-- Beat 3: Verify -->
+                            <g class="diag diag--3">
+                                <rect x="50" y="50" width="160" height="90" rx="10" fill="#101418" stroke="#1e2624"/>
+                                <text x="70" y="80" fill="#5c6562" font-family="IBM Plex Mono, monospace" font-size="10">AUDIT QUERY</text>
+                                <text x="70" y="104" fill="#e8ebe9" font-family="IBM Plex Mono, monospace" font-size="12">record #0042</text>
+                                <text x="70" y="124" fill="#8b9390" font-family="IBM Plex Mono, monospace" font-size="10">chain intact</text>
+                                <circle cx="280" cy="95" r="36" fill="none" stroke="#8fd4c4" stroke-width="2"/>
+                                <path d="M264 96 L274 106 L298 80" fill="none" stroke="#8fd4c4" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                                <text x="180" y="200" text-anchor="middle" fill="#8fd4c4" font-family="IBM Plex Mono, monospace" font-size="12">verified · no exposure</text>
+                            </g>
+                        </svg>
+                        <p class="demo-tag">DEMO · SYNTHETIC</p>
+                    </div>
+                </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="tamper" id="tamper" aria-label="Tamper detection demonstration">
+            <div class="wrap tamper__inner">
+                <p class="kicker">Tamper evident</p>
+                <h2 class="tamper__title">Change one value. The chain notices.</h2>
+                <div class="tamper__stage" id="tamperStage" aria-hidden="true">
+                    <svg class="tamper-svg" viewBox="0 0 480 160">
+                        <g class="tamper-value">
+                            <rect x="20" y="40" width="120" height="70" rx="10" fill="#101418" stroke="#1e2624"/>
+                            <text x="36" y="68" fill="#5c6562" font-family="IBM Plex Mono, monospace" font-size="10">VALUE</text>
+                            <text class="tv" x="36" y="94" fill="#e8ebe9" font-family="IBM Plex Mono, monospace" font-size="20">12.847</text>
+                        </g>
+                        <path class="tamper-link" d="M140 75 H200" stroke="#8fd4c4" stroke-width="2"/>
+                        <g class="tamper-hash">
+                            <rect x="200" y="40" width="140" height="70" rx="10" fill="#101418" stroke="#1e2624"/>
+                            <text x="216" y="68" fill="#5c6562" font-family="IBM Plex Mono, monospace" font-size="10">CHAIN</text>
+                            <text class="th" x="216" y="94" fill="#8fd4c4" font-family="IBM Plex Mono, monospace" font-size="14">a7f3…c91</text>
+                        </g>
+                        <path class="tamper-link2" d="M340 75 H390" stroke="#8fd4c4" stroke-width="2"/>
+                        <g class="tamper-check">
+                            <circle class="tc-ring" cx="430" cy="75" r="28" fill="none" stroke="#8fd4c4" stroke-width="2"/>
+                            <path class="tc-mark" d="M416 76 L426 86 L446 64" fill="none" stroke="#8fd4c4" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </g>
+                    </svg>
+                    <p class="demo-tag">DEMO · SYNTHETIC</p>
+                </div>
+            </div>
+        </section>
+
+        <aside class="footnote wrap">
+            <p>Industry context: FDA Warning Letters frequently cite data integrity failures in analytical labs. Immutable QC targets cryptographic evidence aligned with 21 CFR Part 11 and ISO 17025 — not a substitute for validation.</p>
+        </aside>
+
+        <section class="audience wrap" aria-label="Who it's for">
+            <p class="audience__line">Pharma QC · Environmental · Contract labs</p>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="wrap footer__row">
+            <a href="#hero" class="nav__logo">
+                <svg class="nav__mark" viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="12" cy="12" r="8.2" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                    <circle cx="12" cy="12" r="2.4" fill="currentColor"/>
+                </svg>
+                <span>Immutable<span class="accent">QC</span></span>
+            </a>
+            <a href="mailto:hi@immutableqc.com">hi@immutableqc.com</a>
+            <a href="https://github.com/fabreu08/IQC-ui-ux-review" target="_blank" rel="noopener noreferrer">Research</a>
+            <span class="legal">© 2026</span>
+        </div>
+    </footer>
+    <script src="script.js"></script>
+</body>
+</html>
