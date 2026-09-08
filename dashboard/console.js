@@ -217,52 +217,113 @@ function onCorrectChain() {
   return Number(state.wallet.chainId) === BASE_SEPOLIA.chainIdDec || state.wallet.chainId === BASE_SEPOLIA.chainId;
 }
 
+const eip6963Providers = [];
+
 function isUsableProvider(p) {
   return !!(p && typeof p.request === "function");
 }
 
+function providerInfo(detail) {
+  // EIP-6963 detail: { info, provider }
+  if (detail && detail.provider) return detail;
+  return null;
+}
+
+function rememberEip6963(detail) {
+  const item = providerInfo(detail);
+  if (!item || !isUsableProvider(item.provider)) return;
+  const rdns = item.info && item.info.rdns;
+  const exists = eip6963Providers.some((x) => (rdns && x.info && x.info.rdns === rdns) || x.provider === item.provider);
+  if (!exists) eip6963Providers.push(item);
+}
+
+function requestEip6963Providers() {
+  try {
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(new Event("eip6963:requestProvider"));
+  } catch (err) {}
+}
+
+function collectInjectedProviders() {
+  const list = [];
+  try {
+    for (const item of eip6963Providers) {
+      if (item && item.provider) list.push(item.provider);
+    }
+    const eth = typeof window !== "undefined" ? window.ethereum : null;
+    if (eth) {
+      if (Array.isArray(eth.providers)) list.push(...eth.providers);
+      if (Array.isArray(eth)) list.push(...eth);
+      list.push(eth);
+    }
+  } catch (err) {}
+  const unique = [];
+  for (const p of list) {
+    if (p && unique.indexOf(p) === -1) unique.push(p);
+  }
+  return unique;
+}
+
 function ethereum() {
   try {
-    if (typeof window === "undefined") return null;
-    const eth = window.ethereum;
-    if (!eth) return null;
+    const unique = collectInjectedProviders();
+    if (!unique.length) return null;
 
-    // Multi-wallet: ethereum.providers[] (MetaMask + others)
-    const list = [];
-    if (Array.isArray(eth.providers)) list.push(...eth.providers);
-    if (Array.isArray(eth)) list.push(...eth);
-    list.push(eth);
-
-    const unique = [];
-    for (const p of list) {
-      if (p && unique.indexOf(p) === -1) unique.push(p);
-    }
+    // Prefer MetaMask by flag or EIP-6963 rdns
+    const byRdns = eip6963Providers.find(
+      (x) => x.info && /metamask/i.test(String(x.info.rdns || x.info.name || "")) && isUsableProvider(x.provider),
+    );
+    if (byRdns) return byRdns.provider;
 
     const metamask = unique.find((p) => p && p.isMetaMask && isUsableProvider(p));
     if (metamask) return metamask;
 
+    // Some MetaMask builds expose provider under providers without isMetaMask on the top-level shim
+    const nested = unique.find((p) => p && p.provider && p.provider.isMetaMask && isUsableProvider(p.provider));
+    if (nested) return nested.provider;
+
     const any = unique.find(isUsableProvider);
     if (any) return any;
-
-    // Injected object without EIP-1193 request (common with conflicting extensions)
     return null;
   } catch (err) {
     return null;
   }
 }
 
-function providerErrorMessage() {
+function hasAnyWalletInjection() {
   try {
-    if (typeof window !== "undefined" && window.ethereum) {
-      return "A wallet object was found but eth.request is missing. Disable other wallet extensions or use MetaMask’s ‘select this account’ / default wallet, then retry.";
-    }
+    if (eip6963Providers.length) return true;
+    if (typeof window !== "undefined" && window.ethereum) return true;
   } catch (err) {}
-  return "Install MetaMask to connect. Wallet is testnet-only for registry roots.";
+  return false;
+}
+
+function providerErrorMessage() {
+  if (hasAnyWalletInjection()) {
+    return "Wallet detected but not usable yet. Open the MetaMask extension, unlock it, set it as your default wallet, disable other wallet extensions, then click Connect again.";
+  }
+  return "MetaMask was not detected in this browser tab. Open MetaMask, unlock it, then click Connect. If you use a different browser profile, install/enable MetaMask there.";
+}
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function resolveProvider(timeoutMs) {
+  requestEip6963Providers();
+  const started = Date.now();
+  let eth = ethereum();
+  while (!eth && Date.now() - started < timeoutMs) {
+    await wait(100);
+    requestEip6963Providers();
+    eth = ethereum();
+  }
+  return eth;
 }
 
 async function ensureBaseSepolia() {
-  const eth = ethereum();
-  if (!eth) throw new Error("MetaMask not installed");
+  const eth = ethereum() || (await resolveProvider(800));
+  if (!eth) throw new Error("MetaMask not detected in this tab");
   try {
     await eth.request({
       method: "wallet_switchEthereumChain",
@@ -292,22 +353,16 @@ async function ensureBaseSepolia() {
 
 async function connectWallet() {
   state.wallet.error = null;
-  const eth = ethereum();
-  if (!eth) {
-    state.wallet.status = "missing";
-    state.wallet.error = providerErrorMessage();
-    render();
-    return;
-  }
-  if (typeof eth.request !== "function") {
-    state.wallet.status = "missing";
-    state.wallet.error = providerErrorMessage();
-    render();
-    return;
-  }
+  state.wallet.status = "connecting";
+  render();
   try {
-    state.wallet.status = "connecting";
-    render();
+    const eth = await resolveProvider(1500);
+    if (!eth || typeof eth.request !== "function") {
+      state.wallet.status = hasAnyWalletInjection() ? "disconnected" : "missing";
+      state.wallet.error = providerErrorMessage();
+      render();
+      return;
+    }
     const accounts = await eth.request({ method: "eth_requestAccounts" });
     state.wallet.address = accounts[0] || null;
     await ensureBaseSepolia();
@@ -315,6 +370,7 @@ async function connectWallet() {
     if (!onCorrectChain()) {
       state.wallet.error = "Wrong network. Switch to Base Sepolia (TESTNET) to publish.";
     }
+    attachWalletListeners();
   } catch (err) {
     state.wallet.status = "disconnected";
     state.wallet.error = (err && err.message) || "Connection rejected.";
@@ -333,6 +389,29 @@ function disconnectWallet() {
 
 function attachWalletListeners() {
   try {
+    if (typeof window !== "undefined" && !window.__iqcEip6963) {
+      window.__iqcEip6963 = true;
+      window.addEventListener("eip6963:announceProvider", (event) => {
+        rememberEip6963(event.detail);
+        if (state.wallet.status === "missing") {
+          state.wallet.status = "disconnected";
+          state.wallet.error = null;
+          render();
+        }
+      });
+      requestEip6963Providers();
+      window.addEventListener(
+        "ethereum#initialized",
+        () => {
+          if (state.wallet.status === "missing" && ethereum()) {
+            state.wallet.status = "disconnected";
+            state.wallet.error = null;
+            render();
+          }
+        },
+        { once: true },
+      );
+    }
     const eth = ethereum();
     if (!eth || eth.__iqcListeners) return;
     eth.__iqcListeners = true;
@@ -514,10 +593,7 @@ function renderWalletBar() {
   if (!el) return;
   const w = state.wallet;
   let body = "";
-  if (w.status === "missing" || (!ethereum() && w.status !== "connected")) {
-    body = `<span class="wallet__meta">TESTNET · Base Sepolia</span>
-      <a class="btn btn--secondary" href="https://metamask.io/download/" target="_blank" rel="noopener">Install MetaMask</a>`;
-  } else if (w.address) {
+  if (w.address) {
     const net = onCorrectChain()
       ? '<span class="ok">Base Sepolia</span>'
       : '<span class="bad">Wrong network</span>';
@@ -526,9 +602,22 @@ function renderWalletBar() {
       <button class="btn btn--secondary" id="disconnectWallet">Disconnect</button>`;
   } else {
     body = `<span class="wallet__meta">TESTNET · Base Sepolia · registry publish only</span>
-      <button class="btn btn--primary" id="connectWallet">${w.status === "connecting" ? "Connecting…" : "Connect MetaMask"}</button>`;
+      <button class="btn btn--primary" id="connectWallet">${w.status === "connecting" ? "Connecting…" : "Connect MetaMask"}</button>
+      <a class="btn btn--secondary" href="https://metamask.io/download/" target="_blank" rel="noopener">Get MetaMask</a>`;
   }
-  el.innerHTML = body + (w.error ? `<p class="wallet__err bad">${esc(w.error)}${String(w.error).includes("Needs Base Sepolia ETH") ? ` · <a href="${BASE_SEPOLIA.faucet}" target="_blank" rel="noopener">faucet</a>` : ""}</p>` : "");
+  el.innerHTML =
+    body +
+    (w.error
+      ? `<p class="wallet__err bad">${esc(w.error)}${
+          String(w.error).includes("Needs Base Sepolia ETH")
+            ? ` · <a href="${BASE_SEPOLIA.faucet}" target="_blank" rel="noopener">faucet</a>`
+            : ""
+        }${
+          w.status === "missing"
+            ? ` · <a href="https://metamask.io/download/" target="_blank" rel="noopener">install</a>`
+            : ""
+        }</p>`
+      : "");
 }
 
 function renderNav() {
@@ -652,9 +741,11 @@ function viewRegistry() {
                ${!onCorrectChain() ? '<button class="btn btn--primary" id="switchChain">Switch to Base Sepolia</button>' : ""}
                <button class="btn btn--secondary" id="disconnectWallet">Disconnect</button>
              </div>`
-          : ethereum()
-            ? `<div class="row-actions"><button class="btn btn--primary" id="connectWallet">Connect MetaMask</button></div>`
-            : `<p class="intro">MetaMask not detected.</p><div class="row-actions"><a class="btn btn--secondary" href="https://metamask.io/download/" target="_blank" rel="noopener">Install MetaMask</a></div>`
+          : `<div class="row-actions">
+               <button class="btn btn--primary" id="connectWallet">${state.wallet.status === "connecting" ? "Connecting…" : "Connect MetaMask"}</button>
+               <a class="btn btn--secondary" href="https://metamask.io/download/" target="_blank" rel="noopener">Get MetaMask</a>
+             </div>
+             <p class="intro">Unlock MetaMask in this browser profile, then Connect. Base Sepolia TESTNET only.</p>`
       }
       ${state.wallet.error ? `<p class="bad">${esc(state.wallet.error)}${String(state.wallet.error).includes("Needs Base Sepolia ETH") ? ` · <a href="${BASE_SEPOLIA.faucet}" target="_blank" rel="noopener">Get Base Sepolia ETH</a>` : ""}</p>` : ""}
     </div>
