@@ -3,51 +3,91 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IQC Open Alpha</title>
-  <meta name="description" content="Immutable QC Open Alpha — synthetic laboratory integrity console.">
+  <title>Immutable QC | Open Alpha console</title>
+  <meta name="description" content="Immutable QC Open Alpha: synthetic laboratory integrity console with a hash-chained ledger and testnet registry.">
   <meta name="theme-color" content="#07090b">
+  <meta name="robots" content="noindex">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css">
-  <link rel="stylesheet" href="/dashboard/console.css?v=20260907f">
+  <link rel="stylesheet" href="/styles.css?v=20260921">
+  <link rel="stylesheet" href="/dashboard/console.css?v=20260921">
   <script>
-    // Ensure trailing slash so relative assets never break if absolute paths regress.
+    // Keep the trailing slash so relative assets never break.
     if (location.pathname === '/dashboard') {
       location.replace('/dashboard/' + location.search + location.hash);
     }
+    // Boot watchdog (plain ES5 on purpose): if console.js fails to parse or
+    // throws before its first render, say so instead of hanging on a placeholder.
+    (function () {
+      var reported = false;
+      function report(msg) {
+        if (reported || window.__iqcBooted) return;
+        reported = true;
+        var app = document.getElementById('app');
+        if (!app) return;
+        app.innerHTML =
+          '<div class="boot-fail">' +
+          '<p class="kicker">Console did not start</p>' +
+          '<p class="boot-fail__msg"></p>' +
+          '<p class="boot-fail__hint">Try a hard refresh (Cmd+Shift+R or Ctrl+Shift+R). If it persists, open the page in a current version of Chrome, Safari, Firefox or Edge.</p>' +
+          '<p class="boot-fail__hint">If you got here from a wallet\'s in-app browser, open the link in your regular browser instead.</p>' +
+          '</div>';
+        app.querySelector('.boot-fail__msg').textContent = msg;
+      }
+      window.addEventListener('error', function (e) {
+        var src = (e && e.filename) || '';
+        if (src.indexOf('console.js') !== -1 || !src) {
+          report(((e && e.message) || 'Script error') + (src ? ' (' + src.split('/').pop() + (e.lineno ? ':' + e.lineno : '') + ')' : ''));
+        }
+      });
+      window.setTimeout(function () {
+        report('The ledger did not finish seeding within 8 seconds. Web Crypto may be blocked in this browser context.');
+      }, 8000);
+    })();
   </script>
 </head>
 <body class="console-body">
-  <div class="console">
-    <aside class="console__side">
-      <a class="nav__logo" href="/">
+  <div class="console" id="console">
+    <aside class="side" id="side">
+      <a class="nav__logo side__logo" href="/">
         <svg class="nav__mark" viewBox="0 0 24 24" aria-hidden="true">
           <circle cx="12" cy="12" r="8.2" fill="none" stroke="currentColor" stroke-width="1.6"/>
           <circle cx="12" cy="12" r="2.4" fill="currentColor"/>
         </svg>
         <span>Immutable<span class="accent">QC</span></span>
       </a>
-      <nav class="console__nav" id="nav"></nav>
-      <p class="console__disclaimer">DEMO / SYNTHETIC DATA. Signatures are SHA-256 demo keys, not production ECDSA-secp256k1.</p>
+      <nav class="side__nav" id="nav" aria-label="Console sections"></nav>
+      <div class="side__foot">
+        <div class="side__status" id="sideStatus"></div>
+        <p class="side__disclaimer">Demo · synthetic data. Signatures are SHA-256 demo keys, not production ECDSA. Registry writes go to Base Sepolia testnet only.</p>
+      </div>
     </aside>
-    <div class="console__main">
-      <header class="console__top">
-        <a class="nav__logo" href="/">
+
+    <div class="main">
+      <header class="top" id="top">
+        <a class="nav__logo top__logo" href="/">
           <svg class="nav__mark" viewBox="0 0 24 24" aria-hidden="true">
             <circle cx="12" cy="12" r="8.2" fill="none" stroke="currentColor" stroke-width="1.6"/>
             <circle cx="12" cy="12" r="2.4" fill="currentColor"/>
           </svg>
           <span>Immutable<span class="accent">QC</span></span>
         </a>
-        <span class="badge">Alpha v0.1</span>
+        <div class="top__title" id="topTitle"></div>
+        <div class="top__chips" id="topChips"></div>
       </header>
-      <div class="console__wallet" id="walletBar"></div>
-      <main class="console__page" id="app">Loading ledger…</main>
-      <nav class="console__mobile" id="mobileNav"></nav>
+      <nav class="tabs" id="tabs" aria-label="Console sections"></nav>
+      <main class="page" id="app" aria-live="polite">
+        <div class="boot">
+          <span class="boot__dot"></span>
+          <span>Seeding synthetic ledger…</span>
+        </div>
+      </main>
     </div>
   </div>
-  <script src="/dashboard/console.js?v=20260907f"></script>
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+  <noscript><div class="boot-fail"><p class="kicker">JavaScript required</p><p class="boot-fail__msg">The console signs and verifies records in your browser, so it needs JavaScript enabled.</p></div></noscript>
+  <script src="/dashboard/console.js?v=20260921"></script>
 </body>
 </html>

@@ -1,1036 +1,1444 @@
-const GENESIS = "0".repeat(64);
-const DEMO_FP = "iqc-demo/fp-7a3c9e";
-const enc = new TextEncoder();
+/* Immutable QC Open Alpha console
+   Synthetic lab: signed QC packets, hash-chained ledger, Merkle commitments,
+   optional testnet publish. Everything runs in the browser. No accounts. */
+(function () {
+  "use strict";
 
-const BASE_SEPOLIA = {
-  chainId: "0x14a34",
-  chainIdDec: 84532,
-  chainName: "Base Sepolia",
-  rpcUrls: ["https://sepolia.base.org"],
-  nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
-  blockExplorerUrls: ["https://sepolia.basescan.org"],
-  faucet: "https://www.coinbase.com/faucets/base-ethereum-sepolia-faucet",
-  // Coinbase/smart wallets reject calldata to the user's own ("internal") account.
-  // Publish sends 0-ETH + root calldata to this public sink instead (TESTNET attestation).
-  attestationSink: "0x000000000000000000000000000000000000dEaD",
-};
+  var GENESIS = "0".repeat(64);
+  var DEMO_FP = "iqc-demo/fp-7a3c9e";
+  var VERSION = "0.1";
+  var BATCH_SIZE = 3;
 
-const INSTRUMENTS = [
-  { id: "HPLC-01", name: "Alliance HPLC", type: "HPLC", protocol: "TCP/IP", firmware: "emp3-4.2.1", captureStatus: "in-progress", lastHeartbeat: "2026-09-07T15:48:00.000Z" },
-  { id: "MS-02", name: "QToF Mass Spec", type: "MS", protocol: "TCP/IP", firmware: "masslynx-4.2", captureStatus: "in-progress", lastHeartbeat: "2026-09-07T15:46:22.000Z" },
-  { id: "PH-BENCH", name: "Bench pH meter", type: "pH", protocol: "RS-232", firmware: "ph-2.11", captureStatus: "live-file", lastHeartbeat: "2026-09-07T15:50:11.000Z" },
-  { id: "ENV-RACK", name: "Environmental rack", type: "env", protocol: "file-watcher", firmware: "env-1.0.8", captureStatus: "live-file", lastHeartbeat: "2026-09-07T15:50:40.000Z" },
-];
-
-const DEMOS = {
-  "HPLC-01": [
-    { analyte: "Caffeine", method_id: "USP-caff-01", value: 12.41, unit: "µg/mL", qc_level: "QC1" },
-    { analyte: "Ibuprofen", method_id: "USP-ibu-02", value: 98.2, unit: "%", qc_level: "assay" },
-  ],
-  "MS-02": [{ analyte: "Nitrosamine NDMA", method_id: "MS-ndma-3", value: 0.18, unit: "ng/mL", qc_level: "LOQ" }],
-  "PH-BENCH": [{ analyte: "Buffer pH", method_id: "pH-buf-a", value: 7.12, unit: "pH", qc_level: "cal" }],
-  "ENV-RACK": [{ analyte: "Lab temperature", method_id: "env-t-1", value: 21.4, unit: "°C", qc_level: "monitor" }],
-};
-
-const NAV = [
-  { id: "dash", label: "Dashboard" },
-  { id: "instruments", label: "Instruments" },
-  { id: "packets", label: "QC packets" },
-  { id: "ledger", label: "Ledger" },
-  { id: "registry", label: "Registry" },
-  { id: "auditor", label: "Auditor" },
-  { id: "settings", label: "Settings" },
-];
-
-const state = {
-  labName: "IQC Alpha Lab",
-  view: "dash",
-  packets: [],
-  commitments: [],
-  chain: { ok: true },
-  tamperedSeq: null,
-  selectedPacket: null,
-  ingesting: false,
-  bootError: null,
-  wallet: {
-    address: null,
-    chainId: null,
-    status: "disconnected",
-    error: null,
-    publishingId: null,
-  },
-};
-
-async function sha256Hex(data) {
-  if (!crypto || !crypto.subtle) {
-    throw new Error("Web Crypto unavailable (need HTTPS or localhost).");
-  }
-  const buf = await crypto.subtle.digest("SHA-256", enc.encode(data));
-  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-function shortHash(h) {
-  return h.slice(0, 10) + "…" + h.slice(-4);
-}
-
-function shortAddr(a) {
-  if (!a) return "";
-  return a.slice(0, 6) + "…" + a.slice(-4);
-}
-
-function basescanTxUrl(txHash) {
-  const h = String(txHash || "");
-  return "https://sepolia.basescan.org/tx/" + (h.startsWith("0x") ? h : "0x" + h);
-}
-
-const ONCHAIN_STORE_KEY = "iqc-onchain-v1";
-
-function loadOnchainStore() {
-  try {
-    return JSON.parse(localStorage.getItem(ONCHAIN_STORE_KEY) || "{}") || {};
-  } catch (err) {
-    return {};
-  }
-}
-
-function saveOnchainStore(store) {
-  try {
-    localStorage.setItem(ONCHAIN_STORE_KEY, JSON.stringify(store));
-  } catch (err) {}
-}
-
-function persistOnchain(commitment) {
-  if (!commitment || !commitment.onchain || !commitment.onchain.txHash) return;
-  const store = loadOnchainStore();
-  store[commitment.id] = commitment.onchain;
-  store["root:" + commitment.merkle_root] = commitment.onchain;
-  saveOnchainStore(store);
-}
-
-function restoreOnchain(commitments) {
-  const store = loadOnchainStore();
-  return commitments.map((c) => {
-    const hit = store[c.id] || store["root:" + c.merkle_root];
-    return hit ? { ...c, onchain: hit } : c;
-  });
-}
-
-function renderPublishedTx(onchain) {
-  if (!onchain || !onchain.txHash) return "";
-  const tx = onchain.txHash;
-  const url = basescanTxUrl(tx);
-  return `<div class="tx-result">
-      <p class="ok">Published on Base Sepolia · TESTNET</p>
-      <p class="hash">tx ${esc(tx)}</p>
-      <div class="row-actions">
-        <a class="btn btn--primary" href="${esc(url)}" target="_blank" rel="noopener">View on Basescan</a>
-        <button class="btn btn--secondary" data-copy-tx="${esc(tx)}">Copy tx hash</button>
-      </div>
-    </div>`;
-  }
-
-function canonical(p) {
-  return JSON.stringify({
-    packet_id: p.packet_id,
-    seq: p.seq,
-    captured_at: p.captured_at,
-    instrument: p.instrument,
-    measurement: p.measurement,
-    calibration: p.calibration,
-    operator_id: p.operator_id,
-  });
-}
-
-async function signRecord(recordSha) {
-  return sha256Hex("IQC-DEMO-KEY-v0.1|" + recordSha);
-}
-
-function demoMeasurement(id, n) {
-  const options = DEMOS[id] || DEMOS["PH-BENCH"];
-  const base = options[n % options.length];
-  const jitter = ((n % 7) - 3) * 0.01;
-  return { ...base, value: Number((base.value + jitter).toFixed(3)) };
-}
-
-async function seal(draft, prev) {
-  const payload = canonical(draft);
-  const payload_sha256 = await sha256Hex(payload);
-  const record_sha256 = await sha256Hex(payload_sha256 + "|" + prev + "|" + draft.seq);
-  const sig = await signRecord(record_sha256);
-  return {
-    ...draft,
-    commitment_batch_id: null,
-    hashes: { payload_sha256, prev_record_sha256: prev, record_sha256 },
-    signature: { alg: "DEMO-SHA256", pubkey_fingerprint: DEMO_FP, sig },
+  var BASE_SEPOLIA = {
+    chainId: "0x14a34",
+    chainIdDec: 84532,
+    chainName: "Base Sepolia",
+    rpcUrls: ["https://sepolia.base.org"],
+    nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+    blockExplorerUrls: ["https://sepolia.basescan.org"],
+    faucet: "https://www.coinbase.com/faucets/base-ethereum-sepolia-faucet",
+    // Coinbase/smart wallets reject calldata to the user's own account.
+    // Publish sends 0-ETH + root calldata to this public sink instead (testnet attestation).
+    attestationSink: "0x000000000000000000000000000000000000dEaD",
   };
-}
 
-async function merkleRoot(hashes) {
-  if (!hashes.length) return GENESIS;
-  let layer = hashes.slice();
-  while (layer.length > 1) {
-    const next = [];
-    for (let i = 0; i < layer.length; i += 2) {
-      const a = layer[i];
-      const b = layer[i + 1] || layer[i];
-      next.push(await sha256Hex(a + b));
-    }
-    layer = next;
-  }
-  return layer[0];
-}
-
-async function verifyPacket(packet, prev) {
-  const reasons = [];
-  const payloadHash = await sha256Hex(canonical(packet));
-  if (payloadHash !== packet.hashes.payload_sha256) reasons.push("Payload hash mismatch.");
-  if (packet.hashes.prev_record_sha256 !== prev) reasons.push("Previous-record hash mismatch.");
-  const recordHash = await sha256Hex(payloadHash + "|" + packet.hashes.prev_record_sha256 + "|" + packet.seq);
-  if (recordHash !== packet.hashes.record_sha256) reasons.push("Record hash mismatch.");
-  if ((await signRecord(packet.hashes.record_sha256)) !== packet.signature.sig) reasons.push("Demo signature invalid.");
-  return { ok: reasons.length === 0, reasons };
-}
-
-async function verifyChain(packets) {
-  const ordered = packets.slice().sort((a, b) => a.seq - b.seq);
-  let prev = GENESIS;
-  for (const p of ordered) {
-    const r = await verifyPacket(p, prev);
-    if (!r.ok) return { ok: false, breakAt: p.seq, reason: r.reasons[0] };
-    prev = p.hashes.record_sha256;
-  }
-  return { ok: true };
-}
-
-async function commitIfDue(packets, commitments) {
-  const unbatched = packets.filter((p) => !p.commitment_batch_id);
-  if (unbatched.length < 3) return { packets, commitments };
-  const batch = unbatched.slice(0, 3);
-  const id = "cmt-" + Math.random().toString(16).slice(2, 10);
-  const root = await merkleRoot(batch.map((p) => p.hashes.record_sha256));
-  const commitment = {
-    id,
-    created_at: new Date().toISOString(),
-    merkle_root: root,
-    from_seq: batch[0].seq,
-    to_seq: batch[batch.length - 1].seq,
-    packet_ids: batch.map((p) => p.packet_id),
-    onchain: null,
-  };
-  return {
-    packets: packets.map((p) => (batch.some((b) => b.packet_id === p.packet_id) ? { ...p, commitment_batch_id: id } : p)),
-    commitments: commitments.concat(commitment),
-  };
-}
-
-async function seed() {
-  const drafts = [
-    { inst: "HPLC-01", at: "2026-09-07T13:02:00.000Z", n: 0 },
-    { inst: "MS-02", at: "2026-09-07T13:18:00.000Z", n: 0 },
-    { inst: "PH-BENCH", at: "2026-09-07T13:41:00.000Z", n: 0 },
-    { inst: "ENV-RACK", at: "2026-09-07T14:05:00.000Z", n: 0 },
-    { inst: "HPLC-01", at: "2026-09-07T14:22:00.000Z", n: 1 },
+  var INSTRUMENTS = [
+    { id: "HPLC-01", name: "Alliance HPLC", type: "HPLC", protocol: "TCP/IP", firmware: "emp3-4.2.1", captureStatus: "in-progress", heartbeatAgoMs: 140000 },
+    { id: "MS-02", name: "QToF mass spec", type: "MS", protocol: "TCP/IP", firmware: "masslynx-4.2", captureStatus: "in-progress", heartbeatAgoMs: 238000 },
+    { id: "PH-BENCH", name: "Bench pH meter", type: "pH", protocol: "RS-232", firmware: "ph-2.11", captureStatus: "live-file", heartbeatAgoMs: 9000 },
+    { id: "ENV-RACK", name: "Environmental rack", type: "env", protocol: "file-watcher", firmware: "env-1.0.8", captureStatus: "live-file", heartbeatAgoMs: 4000 },
   ];
-  const packets = [];
-  let prev = GENESIS;
-  for (let i = 0; i < drafts.length; i++) {
-    const d = drafts[i];
-    const inst = INSTRUMENTS.find((x) => x.id === d.inst);
-    const sealed = await seal(
+
+  var DEMOS = {
+    "HPLC-01": [
+      { analyte: "Caffeine", method_id: "USP-caff-01", value: 12.41, unit: "µg/mL", qc_level: "QC1" },
+      { analyte: "Ibuprofen", method_id: "USP-ibu-02", value: 98.2, unit: "%", qc_level: "assay" },
+    ],
+    "MS-02": [{ analyte: "Nitrosamine NDMA", method_id: "MS-ndma-3", value: 0.18, unit: "ng/mL", qc_level: "LOQ" }],
+    "PH-BENCH": [{ analyte: "Buffer pH", method_id: "pH-buf-a", value: 7.12, unit: "pH", qc_level: "cal" }],
+    "ENV-RACK": [{ analyte: "Lab temperature", method_id: "env-t-1", value: 21.4, unit: "°C", qc_level: "monitor" }],
+  };
+
+  var SAMPLE_PREFIX = { "HPLC-01": "S-2231", "MS-02": "S-2231", "PH-BENCH": "BUF", "ENV-RACK": "ENV-LAB1" };
+
+  var AMEND_FIELDS = [
+    { id: "sample_id", label: "Sample ID", type: "text" },
+    { id: "collected_at", label: "Collection date", type: "date" },
+    { id: "dilution_factor", label: "Dilution factor", type: "number" },
+  ];
+
+  var NAV = [
+    { id: "dash", label: "Dashboard", group: "Lab", icon: "dash" },
+    { id: "instruments", label: "Instruments", group: "Lab", icon: "inst" },
+    { id: "packets", label: "Records", group: "Lab", icon: "list" },
+    { id: "ledger", label: "Ledger", group: "Integrity", icon: "chain" },
+    { id: "registry", label: "Registry", group: "Integrity", icon: "globe" },
+    { id: "auditor", label: "Auditor", group: "Integrity", icon: "shield" },
+    { id: "settings", label: "Settings", group: "", icon: "gear" },
+  ];
+
+  var ICONS = {
+    dash: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>',
+    inst: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="3" width="12" height="9" rx="1.5"/><path d="M5 12v2M11 12v2M5 7h2M9 7h2"/></svg>',
+    list: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3 4h10M3 8h10M3 12h7"/></svg>',
+    chain: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.5" y="5" width="5" height="6" rx="1.2"/><rect x="9.5" y="5" width="5" height="6" rx="1.2"/><path d="M6.5 8h3"/></svg>',
+    globe: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M2 8h12M8 2c2 2 2 10 0 12M8 2c-2 2-2 10 0 12"/></svg>',
+    shield: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 2l5 2v4c0 3-2.2 5-5 6-2.8-1-5-3-5-6V4l5-2z"/><path d="M5.5 8l1.8 1.8L10.5 6.5"/></svg>',
+    gear: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.8v1.8M8 12.4v1.8M1.8 8h1.8M12.4 8h1.8M3.6 3.6l1.3 1.3M11.1 11.1l1.3 1.3M3.6 12.4l1.3-1.3M11.1 4.9l1.3-1.3"/></svg>',
+    copy: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 5.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/></svg>',
+    check: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"/></svg>',
+    cross: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>',
+  };
+
+  var state = {
+    booting: true,
+    labName: "IQC Alpha Lab",
+    view: "dash",
+    packets: [],
+    commitments: [],
+    chain: { ok: true, results: {} },
+    lastVerifiedAt: null,
+    tamperedSeq: null,
+    selectedPacket: null,
+    amendOpen: false,
+    ingesting: false,
+    sealing: false,
+    bootError: null,
+    verifyOut: null,
+    wallet: { address: null, chainId: null, status: "disconnected", error: null, publishingId: null, lastTxHash: null, lastPublishError: null },
+  };
+
+  /* ---------------- crypto ---------------- */
+
+  function utf8Bytes(str) {
+    if (typeof TextEncoder !== "undefined") return new TextEncoder().encode(str);
+    var s = unescape(encodeURIComponent(str));
+    var out = new Uint8Array(s.length);
+    for (var i = 0; i < s.length; i++) out[i] = s.charCodeAt(i);
+    return out;
+  }
+
+  function toHex(bytes) {
+    var h = "";
+    for (var i = 0; i < bytes.length; i++) h += (bytes[i] < 16 ? "0" : "") + bytes[i].toString(16);
+    return h;
+  }
+
+  var K256 = [
+    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+    0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+    0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+    0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+    0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+    0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
+  ];
+
+  function rotr(x, n) { return (x >>> n) | (x << (32 - n)); }
+
+  // Pure JS SHA-256, used only when Web Crypto is unavailable (in-app browsers, odd contexts).
+  function sha256Sync(msg) {
+    var l = msg.length;
+    var padLen = ((l + 9 + 63) >> 6) << 6;
+    var m = new Uint8Array(padLen);
+    m.set(msg);
+    m[l] = 0x80;
+    var bitLo = (l * 8) >>> 0;
+    var bitHi = Math.floor((l * 8) / 4294967296);
+    m[padLen - 8] = (bitHi >>> 24) & 255; m[padLen - 7] = (bitHi >>> 16) & 255; m[padLen - 6] = (bitHi >>> 8) & 255; m[padLen - 5] = bitHi & 255;
+    m[padLen - 4] = (bitLo >>> 24) & 255; m[padLen - 3] = (bitLo >>> 16) & 255; m[padLen - 2] = (bitLo >>> 8) & 255; m[padLen - 1] = bitLo & 255;
+    var H = [0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19];
+    var w = new Uint32Array(64);
+    for (var off = 0; off < padLen; off += 64) {
+      var i;
+      for (i = 0; i < 16; i++) w[i] = (m[off + 4 * i] << 24) | (m[off + 4 * i + 1] << 16) | (m[off + 4 * i + 2] << 8) | m[off + 4 * i + 3];
+      for (i = 16; i < 64; i++) {
+        var s0 = rotr(w[i - 15], 7) ^ rotr(w[i - 15], 18) ^ (w[i - 15] >>> 3);
+        var s1 = rotr(w[i - 2], 17) ^ rotr(w[i - 2], 19) ^ (w[i - 2] >>> 10);
+        w[i] = (w[i - 16] + s0 + w[i - 7] + s1) >>> 0;
+      }
+      var a = H[0], b = H[1], c = H[2], d = H[3], e = H[4], f = H[5], g = H[6], h = H[7];
+      for (i = 0; i < 64; i++) {
+        var S1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25);
+        var ch = (e & f) ^ (~e & g);
+        var t1 = (h + S1 + ch + K256[i] + w[i]) >>> 0;
+        var S0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22);
+        var maj = (a & b) ^ (a & c) ^ (b & c);
+        var t2 = (S0 + maj) >>> 0;
+        h = g; g = f; f = e; e = (d + t1) >>> 0; d = c; c = b; b = a; a = (t1 + t2) >>> 0;
+      }
+      H[0] = (H[0] + a) >>> 0; H[1] = (H[1] + b) >>> 0; H[2] = (H[2] + c) >>> 0; H[3] = (H[3] + d) >>> 0;
+      H[4] = (H[4] + e) >>> 0; H[5] = (H[5] + f) >>> 0; H[6] = (H[6] + g) >>> 0; H[7] = (H[7] + h) >>> 0;
+    }
+    var out = new Uint8Array(32);
+    for (var j = 0; j < 8; j++) {
+      out[4 * j] = H[j] >>> 24; out[4 * j + 1] = (H[j] >>> 16) & 255; out[4 * j + 2] = (H[j] >>> 8) & 255; out[4 * j + 3] = H[j] & 255;
+    }
+    return out;
+  }
+
+  var cryptoMode = "webcrypto";
+  async function sha256Hex(data) {
+    var bytes = utf8Bytes(data);
+    if (cryptoMode === "webcrypto") {
+      try {
+        if (typeof crypto !== "undefined" && crypto.subtle && typeof crypto.subtle.digest === "function") {
+          var buf = await crypto.subtle.digest("SHA-256", bytes);
+          return toHex(new Uint8Array(buf));
+        }
+      } catch (err) { /* fall through to JS */ }
+      cryptoMode = "js";
+    }
+    return toHex(sha256Sync(bytes));
+  }
+
+  /* ---------------- packet model ---------------- */
+
+  function canonical(p) {
+    return JSON.stringify({
+      packet_id: p.packet_id,
+      seq: p.seq,
+      captured_at: p.captured_at,
+      instrument: p.instrument,
+      sample: p.sample || null,
+      measurement: p.measurement,
+      calibration: p.calibration,
+      operator_id: p.operator_id,
+      amends: p.amends || null,
+    });
+  }
+
+  async function signRecord(recordSha) {
+    return sha256Hex("IQC-DEMO-KEY-v0.1|" + recordSha);
+  }
+
+  function demoMeasurement(id, n) {
+    var options = DEMOS[id] || DEMOS["PH-BENCH"];
+    var base = options[n % options.length];
+    var jitter = ((n % 7) - 3) * 0.01;
+    return { analyte: base.analyte, method_id: base.method_id, value: Number((base.value + jitter).toFixed(3)), unit: base.unit, qc_level: base.qc_level };
+  }
+
+  function demoSample(instId, n, collectedAt) {
+    var prefix = SAMPLE_PREFIX[instId] || "S";
+    var suffix = instId === "ENV-RACK" ? "" : "-" + String.fromCharCode(65 + (n % 26));
+    return { sample_id: prefix + suffix, collected_at: collectedAt, dilution_factor: 1 };
+  }
+
+  async function seal(draft, prev) {
+    var payload = canonical(draft);
+    var payload_sha256 = await sha256Hex(payload);
+    var record_sha256 = await sha256Hex(payload_sha256 + "|" + prev + "|" + draft.seq);
+    var sig = await signRecord(record_sha256);
+    var sealed = {};
+    for (var k in draft) if (Object.prototype.hasOwnProperty.call(draft, k)) sealed[k] = draft[k];
+    sealed.commitment_batch_id = null;
+    sealed.hashes = { payload_sha256: payload_sha256, prev_record_sha256: prev, record_sha256: record_sha256 };
+    sealed.signature = { alg: "DEMO-SHA256", pubkey_fingerprint: DEMO_FP, sig: sig };
+    return sealed;
+  }
+
+  async function merkleRoot(hashes) {
+    if (!hashes.length) return GENESIS;
+    var layer = hashes.slice();
+    while (layer.length > 1) {
+      var next = [];
+      for (var i = 0; i < layer.length; i += 2) {
+        var a = layer[i];
+        var b = layer[i + 1] || layer[i];
+        next.push(await sha256Hex(a + b));
+      }
+      layer = next;
+    }
+    return layer[0];
+  }
+
+  function ordered(packets) {
+    return (packets || state.packets).slice().sort(function (a, b) { return a.seq - b.seq; });
+  }
+
+  function findPacket(id) {
+    for (var i = 0; i < state.packets.length; i++) if (state.packets[i].packet_id === id) return state.packets[i];
+    return null;
+  }
+
+  function amendmentsOf(packetId) {
+    return ordered().filter(function (p) { return p.amends && p.amends.packet_id === packetId; });
+  }
+
+  function effectiveSample(p) {
+    var s = {};
+    var base = p.sample || {};
+    for (var k in base) if (Object.prototype.hasOwnProperty.call(base, k)) s[k] = base[k];
+    amendmentsOf(p.packet_id).forEach(function (a) { if (a.amends && a.amends.field) s[a.amends.field] = a.amends.to; });
+    return s;
+  }
+
+  async function verifyPacket(packet, prev, all) {
+    var reasons = [];
+    var payloadHash = await sha256Hex(canonical(packet));
+    if (payloadHash !== packet.hashes.payload_sha256) reasons.push("Payload hash mismatch: a signed field was changed after sealing.");
+    if (packet.hashes.prev_record_sha256 !== prev) reasons.push("Previous-record hash mismatch: chain link broken.");
+    var recordHash = await sha256Hex(payloadHash + "|" + packet.hashes.prev_record_sha256 + "|" + packet.seq);
+    if (recordHash !== packet.hashes.record_sha256) reasons.push("Record hash mismatch.");
+    if ((await signRecord(packet.hashes.record_sha256)) !== packet.signature.sig) reasons.push("Demo signature invalid.");
+    if (packet.amends) {
+      var list = all || state.packets;
+      var original = null;
+      for (var i = 0; i < list.length; i++) if (list[i].packet_id === packet.amends.packet_id) original = list[i];
+      if (!original) reasons.push("Amended record " + packet.amends.packet_id + " not found in ledger.");
+      else if (original.hashes.record_sha256 !== packet.amends.record_sha256) reasons.push("Amendment link mismatch: original record hash changed.");
+    }
+    return { ok: reasons.length === 0, reasons: reasons };
+  }
+
+  async function verifyChain(packets) {
+    var list = ordered(packets);
+    var prev = GENESIS;
+    var results = {};
+    var first = null;
+    for (var i = 0; i < list.length; i++) {
+      var p = list[i];
+      var r = await verifyPacket(p, prev, packets);
+      results[p.seq] = r;
+      if (!r.ok && !first) first = { breakAt: p.seq, reason: r.reasons[0] };
+      prev = p.hashes.record_sha256;
+    }
+    state.lastVerifiedAt = Date.now();
+    return first ? { ok: false, breakAt: first.breakAt, reason: first.reason, results: results } : { ok: true, results: results };
+  }
+
+  async function commitIfDue(packets, commitments) {
+    var unbatched = packets.filter(function (p) { return !p.commitment_batch_id; });
+    if (unbatched.length < BATCH_SIZE) return { packets: packets, commitments: commitments };
+    var batch = unbatched.slice(0, BATCH_SIZE);
+    var id = "cmt-" + Math.random().toString(16).slice(2, 10);
+    var root = await merkleRoot(batch.map(function (p) { return p.hashes.record_sha256; }));
+    var commitment = {
+      id: id,
+      created_at: new Date().toISOString(),
+      merkle_root: root,
+      from_seq: batch[0].seq,
+      to_seq: batch[batch.length - 1].seq,
+      packet_ids: batch.map(function (p) { return p.packet_id; }),
+      leaves: batch.map(function (p) { return p.hashes.record_sha256; }),
+      onchain: null,
+    };
+    var ids = {};
+    batch.forEach(function (b) { ids[b.packet_id] = true; });
+    var nextPackets = packets.map(function (p) {
+      if (!ids[p.packet_id]) return p;
+      var q = {};
+      for (var k in p) if (Object.prototype.hasOwnProperty.call(p, k)) q[k] = p[k];
+      q.commitment_batch_id = id;
+      return q;
+    });
+    return commitIfDue(nextPackets, commitments.concat(commitment));
+  }
+
+  async function seed() {
+    var now = Date.now();
+    var drafts = [
+      { inst: "HPLC-01", n: 0, agoMin: 372 },
+      { inst: "MS-02", n: 0, agoMin: 325 },
+      { inst: "PH-BENCH", n: 0, agoMin: 281 },
+      { inst: "ENV-RACK", n: 0, agoMin: 240 },
+      { inst: "HPLC-01", n: 1, agoMin: 196 },
+    ];
+    var packets = [];
+    var prev = GENESIS;
+    for (var i = 0; i < drafts.length; i++) {
+      var d = drafts[i];
+      var inst = instrumentById(d.inst);
+      var at = new Date(now - d.agoMin * 60000).toISOString();
+      var sealed = await seal(
+        {
+          packet_id: "pkt-seed-" + String(i + 1).padStart(2, "0"),
+          seq: i + 1,
+          captured_at: at,
+          instrument: { id: inst.id, type: inst.type, protocol: inst.protocol, firmware: inst.firmware },
+          sample: demoSample(inst.id, i, new Date(now - (d.agoMin + 90) * 60000).toISOString().slice(0, 10)),
+          measurement: demoMeasurement(d.inst, d.n),
+          calibration: { cal_id: "cal-" + inst.id + "-2026-08", valid_until: "2026-10-01T00:00:00.000Z" },
+          operator_id: i % 2 === 0 ? "op.reyes" : "op.chen",
+          amends: null,
+        },
+        prev,
+      );
+      packets.push(sealed);
+      prev = sealed.hashes.record_sha256;
+    }
+    // One seeded amendment so the link-back is visible from the first load.
+    var original = packets[0];
+    var amendment = await seal(
       {
-        packet_id: "pkt-seed-" + String(i + 1).padStart(2, "0"),
-        seq: i + 1,
-        captured_at: d.at,
-        instrument: { id: inst.id, type: inst.type, protocol: inst.protocol, firmware: inst.firmware },
-        measurement: demoMeasurement(d.inst, d.n),
-        calibration: { cal_id: "cal-" + inst.id + "-2026-08", valid_until: "2026-10-01T00:00:00.000Z" },
-        operator_id: i % 2 === 0 ? "op.reyes" : null,
+        packet_id: "pkt-seed-06",
+        seq: 6,
+        captured_at: new Date(now - 22 * 60000).toISOString(),
+        instrument: original.instrument,
+        sample: { sample_id: original.sample.sample_id, collected_at: original.sample.collected_at, dilution_factor: 2.5 },
+        measurement: original.measurement,
+        calibration: original.calibration,
+        operator_id: "op.reyes",
+        amends: {
+          packet_id: original.packet_id,
+          seq: original.seq,
+          record_sha256: original.hashes.record_sha256,
+          field: "dilution_factor",
+          from: 1,
+          to: 2.5,
+          reason: "Prep sheet shows a 1:2.5 dilution; factor was entered as 1.00 at capture.",
+        },
       },
       prev,
     );
-    packets.push(sealed);
-    prev = sealed.hashes.record_sha256;
+    packets.push(amendment);
+    return commitIfDue(packets, []);
   }
-  return commitIfDue(packets, []);
-}
 
-function esc(s) {
-  return String(s)
-    .split("&").join("&amp;")
-    .split("<").join("&lt;")
-    .split(">").join("&gt;")
-    .split('"').join("&quot;");
-}
+  function instrumentById(id) {
+    for (var i = 0; i < INSTRUMENTS.length; i++) if (INSTRUMENTS[i].id === id) return INSTRUMENTS[i];
+    return INSTRUMENTS[0];
+  }
 
-function go(view) {
-  state.view = view;
-  render();
-}
+  function nextSeq() {
+    var list = ordered();
+    return (list.length ? list[list.length - 1].seq : 0) + 1;
+  }
 
-function onCorrectChain() {
-  return Number(state.wallet.chainId) === BASE_SEPOLIA.chainIdDec || state.wallet.chainId === BASE_SEPOLIA.chainId;
-}
+  function headHash() {
+    var list = ordered();
+    return list.length ? list[list.length - 1].hashes.record_sha256 : GENESIS;
+  }
 
-const eip6963Providers = [];
-
-function isUsableProvider(p) {
-  return !!(p && typeof p.request === "function");
-}
-
-function providerInfo(detail) {
-  // EIP-6963 detail: { info, provider }
-  if (detail && detail.provider) return detail;
-  return null;
-}
-
-function rememberEip6963(detail) {
-  const item = providerInfo(detail);
-  if (!item || !isUsableProvider(item.provider)) return;
-  const rdns = item.info && item.info.rdns;
-  const exists = eip6963Providers.some((x) => (rdns && x.info && x.info.rdns === rdns) || x.provider === item.provider);
-  if (!exists) eip6963Providers.push(item);
-}
-
-function requestEip6963Providers() {
-  try {
-    if (typeof window === "undefined") return;
-    window.dispatchEvent(new Event("eip6963:requestProvider"));
-  } catch (err) {}
-}
-
-function collectInjectedProviders() {
-  const list = [];
-  try {
-    for (const item of eip6963Providers) {
-      if (item && item.provider) list.push(item.provider);
+  async function ingest(id) {
+    if (state.ingesting) return;
+    state.ingesting = true;
+    render();
+    try {
+      var inst = instrumentById(id);
+      var seq = nextSeq();
+      var now = new Date();
+      var sealed = await seal(
+        {
+          packet_id: "pkt-" + Math.random().toString(16).slice(2, 10),
+          seq: seq,
+          captured_at: now.toISOString(),
+          instrument: { id: inst.id, type: inst.type, protocol: inst.protocol, firmware: inst.firmware },
+          sample: demoSample(inst.id, seq, now.toISOString().slice(0, 10)),
+          measurement: demoMeasurement(id, seq),
+          calibration: { cal_id: "cal-" + inst.id + "-2026-08", valid_until: "2026-10-01T00:00:00.000Z" },
+          operator_id: "op.reyes",
+          amends: null,
+        },
+        headHash(),
+      );
+      var next = await commitIfDue(state.packets.concat(sealed), state.commitments);
+      var committedNow = next.commitments.length > state.commitments.length;
+      state.packets = next.packets;
+      state.commitments = next.commitments;
+      state.chain = await verifyChain(state.packets);
+      state.tamperedSeq = null;
+      state.selectedPacket = sealed.packet_id;
+      toast("Sealed seq " + seq + " from " + inst.id + (committedNow ? " · batch committed, root ready to publish" : ""), "ok");
+    } catch (err) {
+      state.bootError = (err && err.message) || String(err);
     }
-    const eth = typeof window !== "undefined" ? window.ethereum : null;
-    if (eth) {
-      if (Array.isArray(eth.providers)) list.push(...eth.providers);
-      if (Array.isArray(eth)) list.push(...eth);
-      list.push(eth);
-    }
-  } catch (err) {}
-  const unique = [];
-  for (const p of list) {
-    if (p && unique.indexOf(p) === -1) unique.push(p);
+    state.ingesting = false;
+    render();
   }
-  return unique;
-}
 
-function ethereum() {
-  try {
-    const unique = collectInjectedProviders();
-    if (!unique.length) return null;
-
-    // Prefer MetaMask by flag or EIP-6963 rdns
-    const byRdns = eip6963Providers.find(
-      (x) => x.info && /metamask/i.test(String(x.info.rdns || x.info.name || "")) && isUsableProvider(x.provider),
-    );
-    if (byRdns) return byRdns.provider;
-
-    const metamask = unique.find((p) => p && p.isMetaMask && isUsableProvider(p));
-    if (metamask) return metamask;
-
-    // Some MetaMask builds expose provider under providers without isMetaMask on the top-level shim
-    const nested = unique.find((p) => p && p.provider && p.provider.isMetaMask && isUsableProvider(p.provider));
-    if (nested) return nested.provider;
-
-    const any = unique.find(isUsableProvider);
-    if (any) return any;
-    return null;
-  } catch (err) {
-    return null;
-  }
-}
-
-function hasAnyWalletInjection() {
-  try {
-    if (eip6963Providers.length) return true;
-    if (typeof window !== "undefined" && window.ethereum) return true;
-  } catch (err) {}
-  return false;
-}
-
-function providerErrorMessage() {
-  if (hasAnyWalletInjection()) {
-    return "Wallet detected but not usable yet. Open the MetaMask extension, unlock it, set it as your default wallet, disable other wallet extensions, then click Connect again.";
-  }
-  return "MetaMask was not detected in this browser tab. Open MetaMask, unlock it, then click Connect. If you use a different browser profile, install/enable MetaMask there.";
-}
-
-function wait(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function resolveProvider(timeoutMs) {
-  requestEip6963Providers();
-  const started = Date.now();
-  let eth = ethereum();
-  while (!eth && Date.now() - started < timeoutMs) {
-    await wait(100);
-    requestEip6963Providers();
-    eth = ethereum();
-  }
-  return eth;
-}
-
-async function ensureBaseSepolia() {
-  const eth = ethereum() || (await resolveProvider(800));
-  if (!eth) throw new Error("MetaMask not detected in this tab");
-  try {
-    await eth.request({
-      method: "wallet_switchEthereumChain",
-      params: [{ chainId: BASE_SEPOLIA.chainId }],
-    });
-  } catch (err) {
-    if (err && (err.code === 4902 || String(err.message || "").includes("Unrecognized chain"))) {
-      await eth.request({
-        method: "wallet_addEthereumChain",
-        params: [
-          {
-            chainId: BASE_SEPOLIA.chainId,
-            chainName: BASE_SEPOLIA.chainName,
-            rpcUrls: BASE_SEPOLIA.rpcUrls,
-            nativeCurrency: BASE_SEPOLIA.nativeCurrency,
-            blockExplorerUrls: BASE_SEPOLIA.blockExplorerUrls,
-          },
-        ],
-      });
+  async function amendPacket(originalId, field, rawValue, reason) {
+    var original = findPacket(originalId);
+    var def = null;
+    for (var i = 0; i < AMEND_FIELDS.length; i++) if (AMEND_FIELDS[i].id === field) def = AMEND_FIELDS[i];
+    if (!original || !def) return { ok: false, error: "Unknown record or field." };
+    var current = effectiveSample(original);
+    var value = rawValue;
+    if (def.type === "number") {
+      value = Number(rawValue);
+      if (!isFinite(value) || value <= 0) return { ok: false, error: "Dilution factor must be a positive number." };
     } else {
-      throw err;
+      value = String(rawValue || "").trim();
+      if (!value) return { ok: false, error: def.label + " cannot be empty." };
     }
-  }
-  const chainId = await eth.request({ method: "eth_chainId" });
-  state.wallet.chainId = chainId;
-}
-
-async function connectWallet() {
-  state.wallet.error = null;
-  state.wallet.status = "connecting";
-  render();
-  try {
-    const eth = await resolveProvider(1500);
-    if (!eth || typeof eth.request !== "function") {
-      state.wallet.status = hasAnyWalletInjection() ? "disconnected" : "missing";
-      state.wallet.error = providerErrorMessage();
+    if (value === current[field]) return { ok: false, error: "New value matches the current value." };
+    if (!reason || !String(reason).trim()) return { ok: false, error: "A reason is required for the audit trail." };
+    state.sealing = true;
+    render();
+    try {
+      var sample = {};
+      for (var k in current) if (Object.prototype.hasOwnProperty.call(current, k)) sample[k] = current[k];
+      sample[field] = value;
+      var seq = nextSeq();
+      var sealed = await seal(
+        {
+          packet_id: "pkt-" + Math.random().toString(16).slice(2, 10),
+          seq: seq,
+          captured_at: new Date().toISOString(),
+          instrument: original.instrument,
+          sample: sample,
+          measurement: original.measurement,
+          calibration: original.calibration,
+          operator_id: "op.reyes",
+          amends: {
+            packet_id: original.packet_id,
+            seq: original.seq,
+            record_sha256: original.hashes.record_sha256,
+            field: field,
+            from: current[field],
+            to: value,
+            reason: String(reason).trim(),
+          },
+        },
+        headHash(),
+      );
+      var next = await commitIfDue(state.packets.concat(sealed), state.commitments);
+      state.packets = next.packets;
+      state.commitments = next.commitments;
+      state.chain = await verifyChain(state.packets);
+      state.selectedPacket = sealed.packet_id;
+      state.amendOpen = false;
+      toast("Amendment sealed as seq " + seq + " · linked to seq " + original.seq, "ok");
+      state.sealing = false;
       render();
-      return;
+      return { ok: true };
+    } catch (err) {
+      state.sealing = false;
+      render();
+      return { ok: false, error: (err && err.message) || String(err) };
     }
-    const accounts = await eth.request({ method: "eth_requestAccounts" });
-    state.wallet.address = accounts[0] || null;
-    await ensureBaseSepolia();
-    state.wallet.status = state.wallet.address ? "connected" : "disconnected";
-    if (!onCorrectChain()) {
-      state.wallet.error = "Wrong network. Switch to Base Sepolia (TESTNET) to publish.";
-    }
-    attachWalletListeners();
-  } catch (err) {
-    state.wallet.status = "disconnected";
-    state.wallet.error = (err && err.message) || "Connection rejected.";
   }
-  render();
-}
 
-function disconnectWallet() {
-  state.wallet.address = null;
-  state.wallet.chainId = null;
-  state.wallet.status = "disconnected";
-  state.wallet.error = null;
-  state.wallet.publishingId = null;
-  render();
-}
+  async function tamper() {
+    var list = ordered().filter(function (p) { return !p.amends; });
+    if (!list.length) return;
+    var target = list[Math.floor(list.length / 2)];
+    state.packets = state.packets.map(function (p) {
+      if (p.seq !== target.seq) return p;
+      var q = {};
+      for (var k in p) if (Object.prototype.hasOwnProperty.call(p, k)) q[k] = p[k];
+      q.measurement = { analyte: p.measurement.analyte, method_id: p.measurement.method_id, value: Number((p.measurement.value + 1.11).toFixed(3)), unit: p.measurement.unit, qc_level: p.measurement.qc_level };
+      return q;
+    });
+    state.tamperedSeq = target.seq;
+    state.chain = await verifyChain(state.packets);
+    state.selectedPacket = target.packet_id;
+    toast("Edited seq " + target.seq + " in place without resigning. The walk now fails there.", "bad");
+    render();
+  }
 
-function attachWalletListeners() {
-  try {
-    if (typeof window !== "undefined" && !window.__iqcEip6963) {
-      window.__iqcEip6963 = true;
-      window.addEventListener("eip6963:announceProvider", (event) => {
-        rememberEip6963(event.detail);
-        if (state.wallet.status === "missing") {
-          state.wallet.status = "disconnected";
-          state.wallet.error = null;
-          render();
-        }
+  async function resetLab() {
+    try {
+      var seeded = await seed();
+      state.packets = seeded.packets;
+      state.commitments = restoreOnchain(seeded.commitments);
+      state.chain = await verifyChain(state.packets);
+      state.tamperedSeq = null;
+      state.selectedPacket = null;
+      state.amendOpen = false;
+      state.verifyOut = null;
+      state.bootError = null;
+      toast("Synthetic lab reset.", "ok");
+    } catch (err) {
+      state.bootError = (err && err.message) || String(err);
+    }
+    render();
+  }
+
+  function exportBundle() {
+    var blob = new Blob(
+      [JSON.stringify({
+        exported_at: new Date().toISOString(),
+        lab: state.labName,
+        version: VERSION,
+        disclaimer: "DEMO / SYNTHETIC DATA. Demo SHA-256 signatures, not production keys.",
+        chain: { ok: state.chain.ok, breakAt: state.chain.breakAt || null, reason: state.chain.reason || null, head: headHash() },
+        commitments: state.commitments,
+        packets: ordered(),
+      }, null, 2)],
+      { type: "application/json" },
+    );
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "iqc-audit-bundle.json";
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    toast("Audit bundle downloaded.", "ok");
+  }
+
+  /* ---------------- on-chain store ---------------- */
+
+  var ONCHAIN_STORE_KEY = "iqc-onchain-v1";
+
+  function loadOnchainStore() {
+    try { return JSON.parse(localStorage.getItem(ONCHAIN_STORE_KEY) || "{}") || {}; } catch (err) { return {}; }
+  }
+  function saveOnchainStore(store) {
+    try { localStorage.setItem(ONCHAIN_STORE_KEY, JSON.stringify(store)); } catch (err) { /* private mode */ }
+  }
+  function persistOnchain(commitment) {
+    if (!commitment || !commitment.onchain || !commitment.onchain.txHash) return;
+    var store = loadOnchainStore();
+    store[commitment.id] = commitment.onchain;
+    store["root:" + commitment.merkle_root] = commitment.onchain;
+    saveOnchainStore(store);
+  }
+  function restoreOnchain(commitments) {
+    var store = loadOnchainStore();
+    return commitments.map(function (c) {
+      var hit = store[c.id] || store["root:" + c.merkle_root];
+      if (!hit) return c;
+      var q = {};
+      for (var k in c) if (Object.prototype.hasOwnProperty.call(c, k)) q[k] = c[k];
+      q.onchain = hit;
+      return q;
+    });
+  }
+
+  /* ---------------- wallet (MetaMask / EIP-6963) ---------------- */
+
+  function onCorrectChain() {
+    return Number(state.wallet.chainId) === BASE_SEPOLIA.chainIdDec || state.wallet.chainId === BASE_SEPOLIA.chainId;
+  }
+
+  var eip6963Providers = [];
+
+  function isUsableProvider(p) { return !!(p && typeof p.request === "function"); }
+
+  function rememberEip6963(detail) {
+    if (!detail || !detail.provider || !isUsableProvider(detail.provider)) return;
+    var rdns = detail.info && detail.info.rdns;
+    var exists = eip6963Providers.some(function (x) { return (rdns && x.info && x.info.rdns === rdns) || x.provider === detail.provider; });
+    if (!exists) eip6963Providers.push(detail);
+  }
+
+  function requestEip6963Providers() {
+    try { window.dispatchEvent(new Event("eip6963:requestProvider")); } catch (err) { /* ignore */ }
+  }
+
+  function collectInjectedProviders() {
+    var list = [];
+    try {
+      eip6963Providers.forEach(function (item) { if (item && item.provider) list.push(item.provider); });
+      var eth = window.ethereum;
+      if (eth) {
+        if (Array.isArray(eth.providers)) list = list.concat(eth.providers);
+        if (Array.isArray(eth)) list = list.concat(eth);
+        list.push(eth);
+      }
+    } catch (err) { /* ignore */ }
+    var unique = [];
+    list.forEach(function (p) { if (p && unique.indexOf(p) === -1) unique.push(p); });
+    return unique;
+  }
+
+  function ethereum() {
+    try {
+      var unique = collectInjectedProviders();
+      if (!unique.length) return null;
+      var byRdns = null;
+      eip6963Providers.forEach(function (x) {
+        if (!byRdns && x.info && /metamask/i.test(String(x.info.rdns || x.info.name || "")) && isUsableProvider(x.provider)) byRdns = x;
       });
+      if (byRdns) return byRdns.provider;
+      var metamask = null, nested = null, any = null;
+      unique.forEach(function (p) {
+        if (!metamask && p && p.isMetaMask && isUsableProvider(p)) metamask = p;
+        if (!nested && p && p.provider && p.provider.isMetaMask && isUsableProvider(p.provider)) nested = p.provider;
+        if (!any && isUsableProvider(p)) any = p;
+      });
+      return metamask || nested || any || null;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function hasAnyWalletInjection() {
+    try { return !!(eip6963Providers.length || window.ethereum); } catch (err) { return false; }
+  }
+
+  function providerErrorMessage() {
+    if (hasAnyWalletInjection()) {
+      return "Wallet detected but not usable yet. Open MetaMask, unlock it, set it as the default wallet, disable other wallet extensions, then connect again.";
+    }
+    return "MetaMask was not detected in this browser tab. Install or unlock it, then connect.";
+  }
+
+  function wait(ms) { return new Promise(function (resolve) { setTimeout(resolve, ms); }); }
+
+  async function resolveProvider(timeoutMs) {
+    requestEip6963Providers();
+    var started = Date.now();
+    var eth = ethereum();
+    while (!eth && Date.now() - started < timeoutMs) {
+      await wait(100);
       requestEip6963Providers();
-      window.addEventListener(
-        "ethereum#initialized",
-        () => {
+      eth = ethereum();
+    }
+    return eth;
+  }
+
+  async function ensureBaseSepolia() {
+    var eth = ethereum() || (await resolveProvider(800));
+    if (!eth) throw new Error("MetaMask not detected in this tab");
+    try {
+      await eth.request({ method: "wallet_switchEthereumChain", params: [{ chainId: BASE_SEPOLIA.chainId }] });
+    } catch (err) {
+      if (err && (err.code === 4902 || String(err.message || "").indexOf("Unrecognized chain") !== -1)) {
+        await eth.request({
+          method: "wallet_addEthereumChain",
+          params: [{ chainId: BASE_SEPOLIA.chainId, chainName: BASE_SEPOLIA.chainName, rpcUrls: BASE_SEPOLIA.rpcUrls, nativeCurrency: BASE_SEPOLIA.nativeCurrency, blockExplorerUrls: BASE_SEPOLIA.blockExplorerUrls }],
+        });
+      } else {
+        throw err;
+      }
+    }
+    state.wallet.chainId = await eth.request({ method: "eth_chainId" });
+  }
+
+  async function connectWallet() {
+    state.wallet.error = null;
+    state.wallet.status = "connecting";
+    render();
+    try {
+      var eth = await resolveProvider(1500);
+      if (!eth || typeof eth.request !== "function") {
+        state.wallet.status = hasAnyWalletInjection() ? "disconnected" : "missing";
+        state.wallet.error = providerErrorMessage();
+        render();
+        return;
+      }
+      var accounts = await eth.request({ method: "eth_requestAccounts" });
+      state.wallet.address = (accounts && accounts[0]) || null;
+      await ensureBaseSepolia();
+      state.wallet.status = state.wallet.address ? "connected" : "disconnected";
+      if (!onCorrectChain()) state.wallet.error = "Wrong network. Switch to Base Sepolia (testnet) to publish.";
+      attachWalletListeners();
+    } catch (err) {
+      state.wallet.status = "disconnected";
+      state.wallet.error = (err && err.message) || "Connection rejected.";
+    }
+    render();
+  }
+
+  function disconnectWallet() {
+    state.wallet.address = null;
+    state.wallet.chainId = null;
+    state.wallet.status = "disconnected";
+    state.wallet.error = null;
+    state.wallet.publishingId = null;
+    render();
+  }
+
+  function attachWalletListeners() {
+    try {
+      if (!window.__iqcEip6963) {
+        window.__iqcEip6963 = true;
+        window.addEventListener("eip6963:announceProvider", function (event) {
+          rememberEip6963(event.detail);
+          if (state.wallet.status === "missing") {
+            state.wallet.status = "disconnected";
+            state.wallet.error = null;
+            render();
+          }
+        });
+        requestEip6963Providers();
+        window.addEventListener("ethereum#initialized", function () {
           if (state.wallet.status === "missing" && ethereum()) {
             state.wallet.status = "disconnected";
             state.wallet.error = null;
             render();
           }
-        },
-        { once: true },
-      );
+        }, { once: true });
+      }
+      var eth = ethereum();
+      if (!eth || eth.__iqcListeners) return;
+      eth.__iqcListeners = true;
+      if (typeof eth.on === "function") {
+        eth.on("accountsChanged", function (accounts) {
+          state.wallet.address = accounts && accounts[0] ? accounts[0] : null;
+          if (!state.wallet.address) state.wallet.status = "disconnected";
+          render();
+        });
+        eth.on("chainChanged", function (chainId) {
+          state.wallet.chainId = chainId;
+          state.wallet.error = onCorrectChain() ? null : "Wrong network. Switch to Base Sepolia (testnet) to publish.";
+          render();
+        });
+      }
+    } catch (err) {
+      console.warn("IQC wallet listeners skipped", err);
     }
-    const eth = ethereum();
-    if (!eth || eth.__iqcListeners) return;
-    eth.__iqcListeners = true;
-    if (typeof eth.on === "function") {
-      eth.on("accountsChanged", (accounts) => {
-        state.wallet.address = accounts && accounts[0] ? accounts[0] : null;
-        if (!state.wallet.address) {
-          state.wallet.status = "disconnected";
-        }
-        render();
-      });
-      eth.on("chainChanged", (chainId) => {
-        state.wallet.chainId = chainId;
-        if (!onCorrectChain()) {
-          state.wallet.error = "Wrong network. Switch to Base Sepolia (TESTNET) to publish.";
-        } else {
-          state.wallet.error = null;
-        }
-        render();
-      });
-    }
-  } catch (err) {
-    console.warn("IQC wallet listeners skipped", err);
   }
-}
 
-async function publishCommitment(id) {
-  const c = state.commitments.find((x) => x.id === id);
-  if (!c) return;
-  state.wallet.error = null;
-  state.wallet.lastPublishError = null;
-  state.wallet.publishingId = id;
-  render();
-
-  try {
-    if (!state.wallet.address) {
-      await connectWallet();
+  async function publishCommitment(id) {
+    var c = null;
+    state.commitments.forEach(function (x) { if (x.id === id) c = x; });
+    if (!c) return;
+    state.wallet.error = null;
+    state.wallet.lastPublishError = null;
+    state.wallet.publishingId = id;
+    render();
+    try {
       if (!state.wallet.address) {
+        await connectWallet();
+        if (!state.wallet.address) { state.wallet.publishingId = null; render(); return; }
+      }
+      var eth = (await resolveProvider(1500)) || ethereum();
+      if (!eth || typeof eth.request !== "function") {
+        state.wallet.status = "missing";
+        state.wallet.error = providerErrorMessage();
         state.wallet.publishingId = null;
         render();
         return;
       }
-    }
-    const eth = (await resolveProvider(1500)) || ethereum();
-    if (!eth || typeof eth.request !== "function") {
-      state.wallet.status = "missing";
-      state.wallet.error = providerErrorMessage();
-      state.wallet.publishingId = null;
-      render();
-      return;
-    }
-    await ensureBaseSepolia();
-    if (!onCorrectChain()) {
-      state.wallet.error = "Wrong network. Switch to Base Sepolia before publishing.";
-      state.wallet.publishingId = null;
-      render();
-      return;
-    }
-    const rootHex = c.merkle_root.startsWith("0x") ? c.merkle_root : "0x" + c.merkle_root;
-    // 0-ETH attestation tx: root in calldata, NOT to self (smart wallets block data→internal).
-    const sink = BASE_SEPOLIA.attestationSink;
-    const txParams = {
-      from: state.wallet.address,
-      to: sink,
-      value: "0x0",
-      data: rootHex,
-    };
-    try {
-      const gas = await eth.request({ method: "eth_estimateGas", params: [txParams] });
-      if (gas) txParams.gas = gas;
-    } catch (err) {
-      // Wallet will estimate if omitted
-    }
-    let txHash;
-    try {
-      txHash = await eth.request({
-        method: "eth_sendTransaction",
-        params: [txParams],
-      });
-    } catch (err) {
-      const msg = String((err && (err.message || err.data && err.data.message)) || err || "");
-      if (/internal accounts cannot include data/i.test(msg) || /cannot include data/i.test(msg)) {
-        // Last resort: still avoid self; rethrow with clearer guidance
-        throw new Error(
-          "This wallet blocks calldata to your own account. Publishing now uses a public sink (" +
-            sink +
-            "). Hard-refresh and retry; if it still fails, use MetaMask extension (EOA) on Base Sepolia.",
-        );
-      }
-      throw err;
-    }
-    c.onchain = {
-      network: "Base Sepolia",
-      chainId: BASE_SEPOLIA.chainIdDec,
-      txHash,
-      merkle_root: c.merkle_root,
-      to: sink,
-      published_at: new Date().toISOString(),
-      label: "TESTNET",
-      explorer: basescanTxUrl(txHash),
-    };
-    persistOnchain(c);
-    state.wallet.lastTxHash = txHash;
-    state.view = "registry";
-  } catch (err) {
-    const msg = (err && (err.message || err.data?.message)) || String(err);
-    const low = msg.toLowerCase();
-    if (low.includes("insufficient funds") || low.includes("insufficient balance") || err.code === -32000) {
-      state.wallet.error =
-        "Needs Base Sepolia ETH to publish. Get testnet ETH from a faucet, then retry.";
-    } else if (low.includes("user rejected") || err.code === 4001) {
-      state.wallet.error = "Publish cancelled in MetaMask.";
-    } else if (low.includes("internal accounts cannot include data") || low.includes("cannot include data")) {
-      state.wallet.error =
-        "Wallet blocked calldata to your account. Hard-refresh — publish now targets a public sink. Prefer MetaMask EOA if it still fails.";
-    } else {
-      state.wallet.error = msg;
-    }
-    state.wallet.lastPublishError = state.wallet.error;
-  }
-  state.wallet.publishingId = null;
-  render();
-}
-
-async function ingest(id) {
-  if (state.ingesting) return;
-  state.ingesting = true;
-  render();
-  try {
-    const inst = INSTRUMENTS.find((x) => x.id === id);
-    const ordered = state.packets.slice().sort((a, b) => a.seq - b.seq);
-    const prev = ordered.length ? ordered[ordered.length - 1].hashes.record_sha256 : GENESIS;
-    const seq = (ordered[ordered.length - 1]?.seq || 0) + 1;
-    const sealed = await seal(
-      {
-        packet_id: "pkt-" + Math.random().toString(16).slice(2, 10),
-        seq,
-        captured_at: new Date().toISOString(),
-        instrument: { id: inst.id, type: inst.type, protocol: inst.protocol, firmware: inst.firmware },
-        measurement: demoMeasurement(id, seq),
-        calibration: { cal_id: "cal-" + inst.id + "-2026-08", valid_until: "2026-10-01T00:00:00.000Z" },
-        operator_id: "op.reyes",
-      },
-      prev,
-    );
-    const next = await commitIfDue(state.packets.concat(sealed), state.commitments);
-    state.packets = next.packets;
-    state.commitments = next.commitments;
-    state.chain = await verifyChain(state.packets);
-    state.tamperedSeq = null;
-  } catch (err) {
-    state.bootError = (err && err.message) || String(err);
-  }
-  state.ingesting = false;
-  render();
-}
-
-async function tamper() {
-  const ordered = state.packets.slice().sort((a, b) => a.seq - b.seq);
-  const seq = ordered[Math.floor(ordered.length / 2)]?.seq;
-  if (!seq) return;
-  state.packets = state.packets.map((p) =>
-    p.seq === seq ? { ...p, measurement: { ...p.measurement, value: Number((p.measurement.value + 1.11).toFixed(3)) } } : p,
-  );
-  state.tamperedSeq = seq;
-  state.chain = await verifyChain(state.packets);
-  render();
-}
-
-async function resetLab() {
-  try {
-    const seeded = await seed();
-    state.packets = seeded.packets;
-    state.commitments = restoreOnchain(seeded.commitments);
-    state.chain = await verifyChain(state.packets);
-    state.tamperedSeq = null;
-    state.labName = "IQC Alpha Lab";
-    state.bootError = null;
-  } catch (err) {
-    state.bootError = (err && err.message) || String(err);
-  }
-  render();
-}
-
-function exportBundle() {
-  const blob = new Blob(
-    [
-      JSON.stringify(
-        {
-          exported_at: new Date().toISOString(),
-          lab: state.labName,
-          disclaimer: "DEMO / SYNTHETIC DATA.",
-          chain: state.chain,
-          commitments: state.commitments,
-          packets: state.packets,
-        },
-        null,
-        2,
-      ),
-    ],
-    { type: "application/json" },
-  );
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "iqc-audit-bundle.json";
-  a.click();
-}
-
-function renderWalletBar() {
-  const el = document.getElementById("walletBar");
-  if (!el) return;
-  const w = state.wallet;
-  let body = "";
-  if (w.address) {
-    const net = onCorrectChain()
-      ? '<span class="ok">Base Sepolia</span>'
-      : '<span class="bad">Wrong network</span>';
-    body = `<span class="wallet__meta">TESTNET · ${net} · <span class="hash">${esc(shortAddr(w.address))}</span></span>
-      ${!onCorrectChain() ? '<button class="btn btn--primary" id="switchChain">Switch to Base Sepolia</button>' : ""}
-      <button class="btn btn--secondary" id="disconnectWallet">Disconnect</button>`;
-  } else {
-    body = `<span class="wallet__meta">TESTNET · Base Sepolia · registry publish only</span>
-      <button class="btn btn--primary" id="connectWallet">${w.status === "connecting" ? "Connecting…" : "Connect MetaMask"}</button>
-      <a class="btn btn--secondary" href="https://metamask.io/download/" target="_blank" rel="noopener">Get MetaMask</a>`;
-  }
-  el.innerHTML =
-    body +
-    (w.error
-      ? `<p class="wallet__err bad">${esc(w.error)}${
-          String(w.error).includes("Needs Base Sepolia ETH")
-            ? ` · <a href="${BASE_SEPOLIA.faucet}" target="_blank" rel="noopener">faucet</a>`
-            : ""
-        }${
-          w.status === "missing"
-            ? ` · <a href="https://metamask.io/download/" target="_blank" rel="noopener">install</a>`
-            : ""
-        }</p>`
-      : "");
-}
-
-function renderNav() {
-  const links = NAV.map(
-    (n) => `<a href="#${n.id}" class="${state.view === n.id ? "is-active" : ""}">${esc(n.label)}</a>`,
-  ).join("");
-  document.getElementById("nav").innerHTML = links;
-  document.getElementById("mobileNav").innerHTML = NAV.slice(0, 4)
-    .map((n) => `<a href="#${n.id}" class="${state.view === n.id ? "is-active" : ""}">${esc(n.label)}</a>`)
-    .join("");
-}
-
-function viewDash() {
-  const ordered = state.packets.slice().sort((a, b) => a.seq - b.seq);
-  const head = (ordered.length ? ordered[ordered.length - 1].hashes.record_sha256 : GENESIS);
-  const last = state.commitments.length ? state.commitments[state.commitments.length - 1] : null;
-  return `
-    <p class="kicker">Open Alpha · v0.1 · DEMO / SYNTHETIC DATA</p>
-    <h1>${esc(state.labName)}</h1>
-    <p class="intro">Working console with synthetic packets. HPLC/MS capture adapters are in progress — ingest is file/demo only. MetaMask on Base Sepolia is for publishing Merkle roots only (TESTNET).</p>
-    <div class="stats">
-      <div class="stat"><span>Signed packets</span><strong>${state.packets.length}</strong></div>
-      <div class="stat"><span>Integrity</span><strong class="${state.chain.ok ? "ok" : "bad"}">${state.chain.ok ? "OK" : "Break @ " + state.chain.breakAt}</strong></div>
-      <div class="stat"><span>Instruments</span><strong>${INSTRUMENTS.length}</strong></div>
-      <div class="stat"><span>Commitments</span><strong>${state.commitments.length}</strong></div>
-    </div>
-    <div class="panel">
-      <span class="kicker">Ledger head</span>
-      <p class="hash">${esc(shortHash(head))}</p>
-      <p class="intro">${last ? "Last registry commitment " + new Date(last.created_at).toLocaleString() : "No registry commitment yet — three unbatched packets trigger one."}</p>
-    </div>
-    <div class="panel">
-      <p class="kicker">On-chain registry · Base Sepolia TESTNET</p>
-      <p class="intro">Publish a Merkle root from the latest commitment batch. Sends a 0-ETH Base Sepolia tx with the root in calldata to a public attestation sink (not a token transfer).</p>
-      ${
-        last
-          ? `<p class="hash">Latest commitment ${esc(last.id)} · root ${esc(shortHash(last.merkle_root))}</p>
-             ${
-               last.onchain && last.onchain.txHash
-                 ? renderPublishedTx(last.onchain)
-                 : `<div class="row-actions">
-                      <button class="btn btn--primary" data-publish="${esc(last.id)}" ${state.wallet.publishingId === last.id ? "disabled" : ""}>${
-                        state.wallet.publishingId === last.id
-                          ? "Publishing…"
-                          : state.wallet.address
-                            ? "Publish root to Base Sepolia"
-                            : "Connect & publish root"
-                      }</button>
-                      <a class="btn btn--secondary" href="#registry">All commitments</a>
-                    </div>`
-             }`
-          : `<p class="intro">No commitment yet — ingest until a batch of 3 packets is sealed.</p>
-             <div class="row-actions"><a class="btn btn--primary" href="#instruments">Ingest a demo run</a></div>`
-      }
-      ${state.wallet.error && state.wallet.publishingId === null ? `<p class="bad">${esc(state.wallet.error)}${String(state.wallet.error).includes("Needs Base Sepolia ETH") ? ` · <a href="${BASE_SEPOLIA.faucet}" target="_blank" rel="noopener">faucet</a>` : ""}</p>` : ""}
-    </div>
-    <div class="row-actions">
-      <a class="btn btn--primary" href="#instruments">Ingest a demo run</a>
-      <a class="btn btn--secondary" href="#ledger">Verify chain</a>
-      <a class="btn btn--secondary" href="#registry">Registry</a>
-    </div>`;
-}
-
-function viewInstruments() {
-  return `
-    <h1>Instruments</h1>
-    <p class="intro">HPLC and MS adapters are marked in progress. Ingest generates a signed QC packet from a synthetic run.</p>
-    ${INSTRUMENTS.map((inst) => {
-      const last = state.packets.slice().reverse().find((p) => p.instrument.id === inst.id);
-      return `<article class="panel">
-        <h3>${esc(inst.name)} <span class="hash">${esc(inst.id)}</span></h3>
-        <p class="${inst.captureStatus === "live-file" ? "ok" : "progress"}">${inst.captureStatus === "live-file" ? "file ingest live" : "capture adapter: in progress — file/CSV ingest only"}</p>
-        <p class="intro">${esc(inst.protocol)} · firmware ${esc(inst.firmware)}</p>
-        <p class="intro">${last ? "Last signed: " + last.measurement.analyte + " " + last.measurement.value + " " + last.measurement.unit + " · seq " + last.seq : "No signed run yet"}</p>
-        <div class="row-actions"><button class="btn btn--primary" data-ingest="${inst.id}" ${state.ingesting ? "disabled" : ""}>${state.ingesting ? "Signing…" : "Ingest demo run"}</button></div>
-      </article>`;
-    }).join("")}`;
-}
-
-function viewPackets() {
-  const ordered = state.packets.slice().sort((a, b) => b.seq - a.seq);
-  const selected = state.packets.find((p) => p.packet_id === state.selectedPacket) || ordered[0];
-  return `
-    <h1>QC packets</h1>
-    <p class="intro">Synthetic measurements. Select a row for the full packet.</p>
-    <div class="table-wrap"><table>
-      <thead><tr><th>Seq</th><th>Time</th><th>Instrument</th><th>Measurement</th><th>Hash</th></tr></thead>
-      <tbody>
-        ${ordered
-          .map(
-            (p) => `<tr data-pkt="${esc(p.packet_id)}">
-          <td>${p.seq}</td><td>${new Date(p.captured_at).toLocaleString()}</td>
-          <td>${esc(p.instrument.id)}</td>
-          <td>${esc(p.measurement.analyte)} ${p.measurement.value} ${esc(p.measurement.unit)}</td>
-          <td class="hash">${esc(shortHash(p.hashes.record_sha256))}</td></tr>`,
-          )
-          .join("")}
-      </tbody>
-    </table></div>
-    ${
-      selected
-        ? `<div class="panel"><h3>Packet ${esc(selected.packet_id)}</h3>
-      <button class="btn btn--secondary" id="verifyOne">Verify</button>
-      <p class="intro" id="verifyOut">Run verify to check this packet.</p>
-      <pre>${esc(JSON.stringify(selected, null, 2))}</pre></div>`
-        : ""
-    }`;
-}
-
-function viewLedger() {
-  const ordered = state.packets.slice().sort((a, b) => a.seq - b.seq);
-  return `
-    <h1>Ledger</h1>
-    <p class="intro">Append-only hash chain. Tamper a value without resigning and the walk fails.</p>
-    <p class="${state.chain.ok ? "ok" : "bad"}">${state.chain.ok ? "Chain verifies." : "Integrity break at seq " + state.chain.breakAt + ": " + esc(state.chain.reason)}</p>
-    <div class="row-actions">
-      <button class="btn btn--secondary" id="verifyChain">Verify chain</button>
-      <button class="btn btn--secondary" id="tamper">Simulate tamper</button>
-      <button class="btn btn--secondary" id="reset">Reset lab</button>
-    </div>
-    ${ordered
-      .map(
-        (p) => `<article class="panel">
-      <p class="hash">seq ${p.seq}${state.tamperedSeq === p.seq ? ' <span class="bad">tampered value</span>' : ""}</p>
-      <p>${esc(p.instrument.id)} · ${esc(p.measurement.analyte)} ${p.measurement.value} ${esc(p.measurement.unit)}</p>
-      <p class="hash">prev ${esc(shortHash(p.hashes.prev_record_sha256))}</p>
-      <p class="hash">record ${esc(shortHash(p.hashes.record_sha256))}</p>
-    </article>`,
-      )
-      .join("")}`;
-}
-
-function viewRegistry() {
-  const pending = state.packets.filter((p) => !p.commitment_batch_id).length;
-  const canWrite = state.wallet.address && onCorrectChain();
-  return `
-    <h1>Public cryptographic registry</h1>
-    <p class="intro">Periodic Merkle roots of signed packets. Not a token, wallet login, or mint. Publish uses MetaMask on <strong>Base Sepolia (TESTNET)</strong> only.</p>
-    <p class="hash">${pending} packet(s) waiting for the next batch of 3.</p>
-    <div class="panel">
-      <p class="kicker">Wallet</p>
-      ${
-        state.wallet.address
-          ? `<p class="intro">${esc(shortAddr(state.wallet.address))} · ${onCorrectChain() ? '<span class="ok">Base Sepolia</span>' : '<span class="bad">Wrong network — writes blocked</span>'}</p>
-             <div class="row-actions">
-               ${!onCorrectChain() ? '<button class="btn btn--primary" id="switchChain">Switch to Base Sepolia</button>' : ""}
-               <button class="btn btn--secondary" id="disconnectWallet">Disconnect</button>
-             </div>`
-          : `<div class="row-actions">
-               <button class="btn btn--primary" id="connectWallet">${state.wallet.status === "connecting" ? "Connecting…" : "Connect MetaMask"}</button>
-               <a class="btn btn--secondary" href="https://metamask.io/download/" target="_blank" rel="noopener">Get MetaMask</a>
-             </div>
-             <p class="intro">Unlock MetaMask in this browser profile, then Connect. Base Sepolia TESTNET only.</p>`
-      }
-      ${state.wallet.error ? `<p class="bad">${esc(state.wallet.error)}${String(state.wallet.error).includes("Needs Base Sepolia ETH") ? ` · <a href="${BASE_SEPOLIA.faucet}" target="_blank" rel="noopener">Get Base Sepolia ETH</a>` : ""}</p>` : ""}
-    </div>
-    ${state.commitments
-      .slice()
-      .reverse()
-      .map((c) => {
-        const publishing = state.wallet.publishingId === c.id;
-        return `<article class="panel">
-      <p class="hash">${esc(c.id)} · <span class="kicker">TESTNET</span></p>
-      <p class="intro">${new Date(c.created_at).toLocaleString()} · seq ${c.from_seq}–${c.to_seq}</p>
-      <p class="hash">root ${esc(c.merkle_root)}</p>
-      ${
-        c.onchain && c.onchain.txHash
-          ? renderPublishedTx(c.onchain)
-          : `<div class="row-actions"><button class="btn btn--primary" data-publish="${esc(c.id)}" ${publishing ? "disabled" : ""}>${publishing ? "Publishing…" : canWrite ? "Publish root to Base Sepolia" : "Connect & publish root"}</button></div>`
-      }
-    </article>`;
-      })
-      .join("") || '<p class="intro">No commitments yet.</p>'}`;
-}
-
-function viewAuditor() {
-  const ordered = state.packets.slice().sort((a, b) => a.seq - b.seq);
-  const selected = ordered.find((p) => p.packet_id === state.selectedPacket) || ordered[0];
-  return `
-    <p class="kicker">Planned portal · preview</p>
-    <h1>Auditor view</h1>
-    <p class="intro">Read-only verification without proprietary methods or raw chromatograms.</p>
-    <label class="intro" for="pkt">Packet</label>
-    <select id="pkt">${ordered.map((p) => `<option value="${esc(p.packet_id)}" ${selected && p.packet_id === selected.packet_id ? "selected" : ""}>seq ${p.seq} · ${esc(p.instrument.id)} · ${esc(p.measurement.analyte)}</option>`).join("")}</select>
-    ${
-      selected
-        ? `<dl class="panel">
-      <p>Captured ${esc(new Date(selected.captured_at).toISOString())}</p>
-      <p>Instrument ${esc(selected.instrument.id)} (${esc(selected.instrument.type)})</p>
-      <p>Method ${esc(selected.measurement.method_id)}</p>
-      <p class="hash">Record ${esc(shortHash(selected.hashes.record_sha256))}</p>
-      <p class="intro">Measurement value is omitted in this auditor summary.</p>
-    </dl>`
-        : ""
-    }
-    <div class="row-actions"><button class="btn btn--primary" id="verifyAud">Verify packet</button></div>
-    <p class="intro" id="audOut"></p>`;
-}
-
-function viewSettings() {
-  return `
-    <h1>Settings</h1>
-    <p class="intro">Single-lab demo workspace. No accounts. Wallet is local disconnect only.</p>
-    <label class="intro" for="lab">Lab name</label>
-    <input id="lab" value="${esc(state.labName)}">
-    <div class="row-actions">
-      <button class="btn btn--primary" id="export">Export audit bundle</button>
-      <button class="btn btn--secondary" id="reset">Reset synthetic lab</button>
-    </div>`;
-}
-
-function render() {
-  const app = document.getElementById("app");
-  try {
-    renderNav();
-    renderWalletBar();
-    if (state.bootError) {
-      app.innerHTML = `<div class="panel"><h1>Console error</h1><p class="bad">${esc(state.bootError)}</p><div class="row-actions"><button class="btn btn--primary" id="reset">Retry / reset lab</button></div></div>`;
-      return;
-    }
-    const views = {
-      dash: viewDash,
-      instruments: viewInstruments,
-      packets: viewPackets,
-      ledger: viewLedger,
-      registry: viewRegistry,
-      auditor: viewAuditor,
-      settings: viewSettings,
-    };
-    app.innerHTML = (views[state.view] || viewDash)();
-  } catch (err) {
-    console.error("IQC render failed", err);
-    const msg = (err && err.message) || String(err);
-    if (app) {
-      app.innerHTML = `<div class="panel"><h1>Console error</h1><p class="bad">${esc(msg)}</p><div class="row-actions"><button class="btn btn--primary" id="reset">Retry / reset lab</button></div></div>`;
-    }
-  }
-}
-
-document.addEventListener("click", async (e) => {
-  const a = e.target.closest("a[href^='#']");
-  if (a) {
-    e.preventDefault();
-    go(a.getAttribute("href").slice(1));
-    return;
-  }
-  if (e.target.id === "connectWallet" || e.target.closest("#connectWallet")) {
-    await connectWallet();
-    return;
-  }
-  if (e.target.id === "disconnectWallet" || e.target.closest("#disconnectWallet")) {
-    disconnectWallet();
-    return;
-  }
-  if (e.target.id === "switchChain" || e.target.closest("#switchChain")) {
-    try {
       await ensureBaseSepolia();
-      state.wallet.error = onCorrectChain() ? null : "Still on wrong network.";
+      if (!onCorrectChain()) {
+        state.wallet.error = "Wrong network. Switch to Base Sepolia before publishing.";
+        state.wallet.publishingId = null;
+        render();
+        return;
+      }
+      var rootHex = c.merkle_root.indexOf("0x") === 0 ? c.merkle_root : "0x" + c.merkle_root;
+      var sink = BASE_SEPOLIA.attestationSink;
+      var txParams = { from: state.wallet.address, to: sink, value: "0x0", data: rootHex };
+      try {
+        var gas = await eth.request({ method: "eth_estimateGas", params: [txParams] });
+        if (gas) txParams.gas = gas;
+      } catch (err) { /* wallet estimates */ }
+      var txHash;
+      try {
+        txHash = await eth.request({ method: "eth_sendTransaction", params: [txParams] });
+      } catch (err) {
+        var m = String((err && (err.message || (err.data && err.data.message))) || err || "");
+        if (/cannot include data/i.test(m)) {
+          throw new Error("This wallet blocks calldata to your own account. Publishing targets a public sink (" + sink + "). Hard-refresh and retry, or use the MetaMask extension (EOA) on Base Sepolia.");
+        }
+        throw err;
+      }
+      c.onchain = {
+        network: "Base Sepolia",
+        chainId: BASE_SEPOLIA.chainIdDec,
+        txHash: txHash,
+        merkle_root: c.merkle_root,
+        to: sink,
+        published_at: new Date().toISOString(),
+        label: "TESTNET",
+        explorer: basescanTxUrl(txHash),
+      };
+      persistOnchain(c);
+      state.wallet.lastTxHash = txHash;
+      state.view = "registry";
+      toast("Root published on Base Sepolia.", "ok");
     } catch (err) {
-      state.wallet.error = (err && err.message) || String(err);
+      var msg = (err && (err.message || (err.data && err.data.message))) || String(err);
+      var low = msg.toLowerCase();
+      if (low.indexOf("insufficient funds") !== -1 || low.indexOf("insufficient balance") !== -1 || (err && err.code === -32000)) {
+        state.wallet.error = "Needs Base Sepolia ETH to publish. Get testnet ETH from a faucet, then retry.";
+      } else if (low.indexOf("user rejected") !== -1 || (err && err.code === 4001)) {
+        state.wallet.error = "Publish cancelled in the wallet.";
+      } else if (low.indexOf("cannot include data") !== -1) {
+        state.wallet.error = "Wallet blocked calldata to your account. Hard-refresh; publish targets a public sink. Prefer a MetaMask EOA if it still fails.";
+      } else {
+        state.wallet.error = msg;
+      }
+      state.wallet.lastPublishError = state.wallet.error;
+    }
+    state.wallet.publishingId = null;
+    render();
+  }
+
+  /* ---------------- ui helpers ---------------- */
+
+  function esc(s) {
+    return String(s === undefined || s === null ? "" : s)
+      .split("&").join("&amp;").split("<").join("&lt;").split(">").join("&gt;").split('"').join("&quot;");
+  }
+  function shortHash(h) { h = String(h || ""); return h.length > 16 ? h.slice(0, 10) + "…" + h.slice(-4) : h; }
+  function shortAddr(a) { return a ? a.slice(0, 6) + "…" + a.slice(-4) : ""; }
+  function basescanTxUrl(txHash) {
+    var h = String(txHash || "");
+    return "https://sepolia.basescan.org/tx/" + (h.indexOf("0x") === 0 ? h : "0x" + h);
+  }
+  function fmtTime(iso) {
+    var d = new Date(iso);
+    if (isNaN(d)) return String(iso);
+    return d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  }
+  function fmtTimeS(iso) {
+    var d = new Date(iso);
+    if (isNaN(d)) return String(iso);
+    return d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  }
+  function fmtClock(iso) {
+    var d = new Date(iso);
+    if (isNaN(d)) return String(iso);
+    return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  }
+  function fmtDate(iso) {
+    var d = new Date(iso);
+    if (isNaN(d)) return String(iso);
+    return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  }
+  function relTime(ms) {
+    var s = Math.max(0, Math.round(ms / 1000));
+    if (s < 60) return s + " s ago";
+    var m = Math.round(s / 60);
+    if (m < 60) return m + " min ago";
+    var h = Math.round(m / 60);
+    if (h < 48) return h + " h ago";
+    return Math.round(h / 24) + " d ago";
+  }
+  function fieldLabel(id) {
+    for (var i = 0; i < AMEND_FIELDS.length; i++) if (AMEND_FIELDS[i].id === id) return AMEND_FIELDS[i].label;
+    return id;
+  }
+  function fmtValue(field, v) {
+    if (field === "dilution_factor") return Number(v).toFixed(2);
+    if (field === "collected_at") return fmtDate(v);
+    return String(v);
+  }
+  function copyBtn(value, label) {
+    return '<span class="copy" data-action="copy" data-value="' + esc(value) + '" title="Copy">' + (label || esc(shortHash(value))) + ICONS.copy + "</span>";
+  }
+  function pill(kind, text) { return '<span class="pill pill--' + kind + '">' + esc(text) + "</span>"; }
+  function commitmentOf(p) {
+    if (!p.commitment_batch_id) return null;
+    for (var i = 0; i < state.commitments.length; i++) if (state.commitments[i].id === p.commitment_batch_id) return state.commitments[i];
+    return null;
+  }
+  function packetStatus(p) {
+    var r = state.chain.results && state.chain.results[p.seq];
+    if (r && !r.ok) return { kind: "bad", text: state.tamperedSeq === p.seq ? "tampered" : "invalid" };
+    if (p.amends) return { kind: "warn", text: "amendment" };
+    if (amendmentsOf(p.packet_id).length) return { kind: "plain", text: "amended" };
+    return { kind: "ok", text: "sealed" };
+  }
+  function measurementText(p) {
+    return p.measurement.analyte + " " + p.measurement.value + " " + p.measurement.unit;
+  }
+  function pendingCount() { return state.packets.filter(function (p) { return !p.commitment_batch_id; }).length; }
+  function publishedCount() { return state.commitments.filter(function (c) { return c.onchain && c.onchain.txHash; }).length; }
+
+  var toastTimer = null;
+  function toast(msg, kind) {
+    var el = document.getElementById("toast");
+    if (!el) return;
+    el.textContent = msg;
+    el.className = "toast" + (kind ? " toast--" + kind : "");
+    el.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.hidden = true; }, 3800);
+  }
+
+  function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text).then(function () { toast("Copied.", "ok"); }, function () { toast("Copy failed.", "bad"); });
+    }
+    var ta = document.createElement("textarea");
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand("copy"); toast("Copied.", "ok"); } catch (err) { toast("Copy failed.", "bad"); }
+    ta.remove();
+  }
+
+  /* ---------------- chrome (nav, top bar, side status) ---------------- */
+
+  function navItem(n) {
+    var count = "";
+    if (n.id === "packets") count = '<span class="count">' + state.packets.length + "</span>";
+    if (n.id === "registry" && pendingCount()) count = '<span class="count">' + pendingCount() + "/" + BATCH_SIZE + "</span>";
+    return '<a href="#' + n.id + '" class="side__link' + (state.view === n.id ? " is-active" : "") + '" data-action="nav" data-view="' + n.id + '">' + ICONS[n.icon] + "<span>" + esc(n.label) + "</span>" + count + "</a>";
+  }
+
+  function renderChrome() {
+    var nav = document.getElementById("nav");
+    if (nav) {
+      var html = "", lastGroup = null;
+      NAV.forEach(function (n) {
+        if (n.group !== lastGroup) {
+          if (n.group) html += '<div class="side__group">' + esc(n.group) + "</div>";
+          else html += '<div class="side__group" aria-hidden="true">&nbsp;</div>';
+          lastGroup = n.group;
+        }
+        html += navItem(n);
+      });
+      nav.innerHTML = html;
+    }
+    var tabs = document.getElementById("tabs");
+    if (tabs) {
+      tabs.innerHTML = NAV.map(function (n) {
+        return '<a href="#' + n.id + '" class="' + (state.view === n.id ? "is-active" : "") + '" data-action="nav" data-view="' + n.id + '">' + esc(n.label) + "</a>";
+      }).join("");
+    }
+    var title = document.getElementById("topTitle");
+    if (title) {
+      var current = NAV.filter(function (n) { return n.id === state.view; })[0] || NAV[0];
+      title.innerHTML = '<p class="kicker">' + esc(state.labName) + "</p>" + esc(current.label);
+    }
+    var chips = document.getElementById("topChips");
+    if (chips) {
+      var w = state.wallet;
+      var integrity = state.booting
+        ? '<span class="chip"><span class="chip__dot"></span>seeding</span>'
+        : state.chain.ok
+          ? '<a class="chip chip--ok chip--btn" href="#ledger" data-action="nav" data-view="ledger"><span class="chip__dot"></span><span class="hide-sm">chain&nbsp;</span><strong>intact</strong></a>'
+          : '<a class="chip chip--bad chip--btn" href="#ledger" data-action="nav" data-view="ledger"><span class="chip__dot"></span><span class="hide-sm">break at&nbsp;</span>seq ' + state.chain.breakAt + "</a>";
+      var wallet;
+      if (w.address) {
+        wallet = '<a class="chip ' + (onCorrectChain() ? "chip--ok" : "chip--warn") + ' chip--btn" href="#registry" data-action="nav" data-view="registry"><span class="chip__dot"></span>' + '<span class="hide-sm">' + (onCorrectChain() ? "Base Sepolia" : "wrong network") + " · </span>" + esc(shortAddr(w.address)) + "</a>";
+      } else {
+        wallet = '<button type="button" class="chip chip--btn" data-action="connect"><span class="chip__dot"></span>' + (w.status === "connecting" ? "connecting…" : 'connect<span class="hide-sm"> wallet</span>') + "</button>";
+      }
+      chips.innerHTML = integrity + wallet;
+    }
+    var side = document.getElementById("sideStatus");
+    if (side) {
+      var last = state.commitments.length ? state.commitments[state.commitments.length - 1] : null;
+      side.innerHTML =
+        '<div class="row"><span>head</span><span>' + esc(shortHash(headHash())) + "</span></div>" +
+        '<div class="row"><span>records</span><span>' + state.packets.length + "</span></div>" +
+        '<div class="row"><span>last root</span><span>' + (last ? esc(fmtClock(last.created_at)) : "none") + "</span></div>" +
+        '<div class="row"><span>crypto</span><span>' + (cryptoMode === "webcrypto" ? "WebCrypto" : "JS fallback") + "</span></div>";
+    }
+  }
+
+  /* ---------------- views ---------------- */
+
+  function viewBooting() {
+    return '<div class="boot"><span class="boot__dot"></span><span>Seeding synthetic ledger and verifying the chain…</span></div>' +
+      '<div class="kpis">' + [0, 1, 2, 3].map(function () { return '<div class="kpi"><div class="skeleton" style="width:60%"></div><div class="skeleton" style="width:40%;height:24px;margin-top:14px"></div></div>'; }).join("") + "</div>";
+  }
+
+  function ledgerStrip(opts) {
+    var list = ordered();
+    var head = list.length ? list[list.length - 1].seq : 0;
+    var html = '<div class="blk blk--genesis"><div class="blk__id">genesis</div><div class="blk__body">empty chain</div><div class="blk__hash">' + esc(shortHash(GENESIS)) + "</div></div>";
+    list.forEach(function (p) {
+      var st = packetStatus(p);
+      var cls = "blk";
+      if (p.seq === head) cls += " blk--head";
+      if (p.amends) cls += " blk--amend";
+      if (st.kind === "bad") cls += " blk--bad";
+      var r = state.chain.results && state.chain.results[p.seq];
+      var linkBad = r && !r.ok && r.reasons.some(function (x) { return x.indexOf("Previous-record") === 0; });
+      html += '<div class="blk-link' + (linkBad ? " blk-link--bad" : "") + '"></div>';
+      html += '<div class="' + cls + '" data-action="open-packet" data-id="' + esc(p.packet_id) + '" title="Open record">' +
+        '<div class="blk__id"><span>#' + String(p.seq).padStart(4, "0") + '</span><span class="tag">' + (p.amends ? "AMD" : st.kind === "bad" ? "BREAK" : esc(p.instrument.id)) + "</span></div>" +
+        '<div class="blk__body">' + (p.amends ? esc(fieldLabel(p.amends.field)) + " " + esc(fmtValue(p.amends.field, p.amends.from)) + " → " + esc(fmtValue(p.amends.field, p.amends.to)) : esc(measurementText(p))) + "</div>" +
+        '<div class="blk__hash">' + esc(shortHash(p.hashes.record_sha256)) + "</div>" +
+        (p.amends ? '<span class="blk__ref">refs #' + String(p.amends.seq).padStart(4, "0") + "</span>" : "") +
+        "</div>";
+    });
+    var hasAmend = list.some(function (p) { return !!p.amends; });
+    return '<div class="strip-wrap"><div class="strip' + (hasAmend ? " strip--tall" : "") + '">' + html + "</div></div>" +
+      (opts && opts.legend ? '<p class="note">teal border = chain head · gold = amendment linked to an earlier record · red = record fails verification. Click a block to open it.</p>' : "");
+  }
+
+  function registryCard() {
+    var last = state.commitments.length ? state.commitments[state.commitments.length - 1] : null;
+    var pending = pendingCount();
+    var body;
+    if (!last) {
+      body = '<p class="lede">No commitment yet. Every ' + BATCH_SIZE + " sealed records become one Merkle root.</p>";
+    } else {
+      body = '<dl class="kv" style="margin-top:12px">' +
+        "<dt>latest</dt><dd>" + esc(last.id) + ' <span class="subtle">· seq ' + last.from_seq + "–" + last.to_seq + "</span></dd>" +
+        "<dt>root</dt><dd>" + copyBtn(last.merkle_root) + "</dd>" +
+        "<dt>created</dt><dd>" + esc(fmtTime(last.created_at)) + "</dd>" +
+        "</dl>";
+      if (last.onchain && last.onchain.txHash) body += renderPublishedTx(last.onchain);
+      else body += '<div class="row-actions">' + publishButton(last) + '<a class="btn btn--secondary btn--sm" href="#registry" data-action="nav" data-view="registry">All commitments</a></div>';
+    }
+    var toward = pending % BATCH_SIZE;
+    body += '<p class="note">' + toward + " of " + BATCH_SIZE + " records toward the next root.</p>" +
+      '<div class="meter"><span style="width:' + Math.round((toward / BATCH_SIZE) * 100) + '%"></span></div>';
+    if (state.wallet.error && state.wallet.publishingId === null) body += '<p class="bad note">' + esc(state.wallet.error) + faucetLink(state.wallet.error) + "</p>";
+    return '<div class="card"><div class="card__head"><p class="kicker">Registry · Base Sepolia testnet</p>' + pill(publishedCount() ? "ok" : "plain", publishedCount() + " published") + "</div>" + body + "</div>";
+  }
+
+  function faucetLink(err) {
+    return String(err || "").indexOf("Needs Base Sepolia ETH") !== -1 ? ' · <a href="' + BASE_SEPOLIA.faucet + '" target="_blank" rel="noopener">faucet</a>' : "";
+  }
+
+  function publishButton(c) {
+    var publishing = state.wallet.publishingId === c.id;
+    var label = publishing ? "Publishing…" : state.wallet.address && onCorrectChain() ? "Publish root to Base Sepolia" : "Connect and publish root";
+    return '<button type="button" class="btn btn--primary btn--sm" data-action="publish" data-id="' + esc(c.id) + '"' + (publishing ? " disabled" : "") + ">" + label + "</button>";
+  }
+
+  function renderPublishedTx(onchain) {
+    if (!onchain || !onchain.txHash) return "";
+    return '<div class="tx-result"><p class="ok" style="margin:0">Published on Base Sepolia · testnet' + (onchain.published_at ? ' <span class="subtle">· ' + esc(fmtTime(onchain.published_at)) + "</span>" : "") + "</p>" +
+      '<p class="hash">tx ' + copyBtn(onchain.txHash) + "</p>" +
+      '<div class="row-actions"><a class="btn btn--secondary btn--sm" href="' + esc(basescanTxUrl(onchain.txHash)) + '" target="_blank" rel="noopener">View on Basescan</a></div></div>';
+  }
+
+  function viewDash() {
+    var list = ordered();
+    var amendments = list.filter(function (p) { return !!p.amends; }).length;
+    var live = INSTRUMENTS.filter(function (i) { return i.captureStatus === "live-file"; }).length;
+    var recent = list.slice().reverse().slice(0, 6);
+    var now = Date.now();
+    return '<div class="page-head"><div><p class="kicker">Open alpha · v' + VERSION + ' · synthetic data</p><h1>' + esc(state.labName) + '</h1>' +
+      '<p class="lede">Every signed record is chained to the one before it. Batches of ' + BATCH_SIZE + ' become Merkle roots you can publish to a public testnet. Corrections are new records linked to the original.</p></div>' +
+      '<div class="actions"><button type="button" class="btn btn--primary" data-action="ingest" data-id="HPLC-01"' + (state.ingesting ? " disabled" : "") + ">" + (state.ingesting ? "Signing…" : "Ingest demo run") + '</button><button type="button" class="btn btn--secondary" data-action="export">Export bundle</button></div></div>' +
+      '<div class="kpis">' +
+      '<div class="kpi"><span class="kpi__label">Signed records</span><div><div class="kpi__value">' + list.length + '</div><div class="kpi__sub">' + amendments + " amendment" + (amendments === 1 ? "" : "s") + "</div></div></div>" +
+      '<div class="kpi"><span class="kpi__label">Chain integrity</span><div><div class="kpi__value ' + (state.chain.ok ? "ok" : "bad") + '">' + (state.chain.ok ? "Intact" : "Break") + '</div><div class="kpi__sub">' + (state.chain.ok ? "verified " + (state.lastVerifiedAt ? relTime(now - state.lastVerifiedAt) : "at boot") : "seq " + state.chain.breakAt + " fails") + "</div></div></div>" +
+      '<div class="kpi"><span class="kpi__label">Commitments</span><div><div class="kpi__value">' + state.commitments.length + '</div><div class="kpi__sub">' + publishedCount() + " published on chain</div></div></div>" +
+      '<div class="kpi"><span class="kpi__label">Instruments</span><div><div class="kpi__value">' + INSTRUMENTS.length + '</div><div class="kpi__sub">' + live + " live · " + (INSTRUMENTS.length - live) + " adapters in progress</div></div></div>" +
+      "</div>" +
+      '<section class="section"><div class="section__head"><p class="kicker">Ledger · head ' + esc(shortHash(headHash())) + '</p><a href="#ledger" data-action="nav" data-view="ledger">Open ledger</a></div>' + ledgerStrip({ legend: true }) + "</section>" +
+      '<section class="section grid-2">' + registryCard() +
+      '<div class="card"><div class="card__head"><p class="kicker">Recent records</p><a href="#packets" data-action="nav" data-view="packets" class="subtle" style="font-size:.85rem">All records</a></div>' +
+      '<ul class="activity" style="margin-top:12px">' + recent.map(function (p) {
+        var st = packetStatus(p);
+        return '<li data-action="open-packet" data-id="' + esc(p.packet_id) + '"><span class="seq">#' + String(p.seq).padStart(4, "0") + '</span><span class="what">' + (p.amends ? '<span class="warn">Amendment</span> · ' + esc(fieldLabel(p.amends.field)) + " on #" + String(p.amends.seq).padStart(4, "0") : esc(p.instrument.id) + " · " + esc(measurementText(p))) + (st.kind === "bad" ? ' <span class="bad">· fails</span>' : "") + '</span><span class="when">' + esc(fmtTime(p.captured_at)) + "</span></li>";
+      }).join("") + "</ul></div></section>";
+  }
+
+  function viewInstruments() {
+    var now = Date.now();
+    return '<div class="page-head"><div><p class="kicker">Lab</p><h1>Instruments</h1><p class="lede">HPLC and MS capture adapters are in progress; ingest is file or demo only. Each ingest seals one signed record from a synthetic run.</p></div></div>' +
+      '<div class="grid-2 section">' + INSTRUMENTS.map(function (inst) {
+        var last = ordered().slice().reverse().filter(function (p) { return p.instrument.id === inst.id && !p.amends; })[0];
+        var liveFile = inst.captureStatus === "live-file";
+        return '<article class="card inst"><div class="inst__head"><div><div class="inst__name">' + esc(inst.name) + '</div><div class="inst__id">' + esc(inst.id) + " · " + esc(inst.type) + "</div></div>" +
+          pill(liveFile ? "ok" : "warn", liveFile ? "file ingest live" : "adapter in progress") + "</div>" +
+          '<div class="inst__meta"><span>protocol</span><span>' + esc(inst.protocol) + "</span><span>firmware</span><span>" + esc(inst.firmware) + '</span><span>heartbeat</span><span>' + relTime(inst.heartbeatAgoMs) + "</span><span>calibration</span><span>valid to Oct 1, 2026</span></div>" +
+          '<div class="inst__last">' + (last ? "Last signed <strong>" + esc(measurementText(last)) + '</strong> <span class="subtle mono">· #' + String(last.seq).padStart(4, "0") + " · " + esc(fmtTime(last.captured_at)) + "</span>" : '<span class="muted">No signed run yet.</span>') + "</div>" +
+          '<div class="row-actions"><button type="button" class="btn btn--primary btn--sm" data-action="ingest" data-id="' + esc(inst.id) + '"' + (state.ingesting ? " disabled" : "") + ">" + (state.ingesting ? "Signing…" : "Ingest demo run") + "</button></div></article>";
+      }).join("") + "</div>";
+  }
+
+  function packetDetail(p) {
+    var st = packetStatus(p);
+    var sample = effectiveSample(p);
+    var amends = amendmentsOf(p.packet_id);
+    var c = commitmentOf(p);
+    var r = state.chain.results && state.chain.results[p.seq];
+    var html = '<div class="card card--raised section" id="packetDetail"><div class="card__head"><div><p class="kicker">Record #' + String(p.seq).padStart(4, "0") + '</p><h2 class="mono">' + esc(p.packet_id) + "</h2></div><div>" + pill(st.kind, st.text) + (c ? " " + pill("plain", "in " + c.id) : " " + pill("plain", "unbatched")) + "</div></div>";
+    if (p.amends) {
+      html += '<div class="amend-box"><p class="kicker">Amendment · linked to #' + String(p.amends.seq).padStart(4, "0") + '</p><dl class="kv"><dt>field</dt><dd>' + esc(fieldLabel(p.amends.field)) + '</dd><dt>change</dt><dd><span class="old">' + esc(fmtValue(p.amends.field, p.amends.from)) + '</span><span class="new">' + esc(fmtValue(p.amends.field, p.amends.to)) + "</span></dd><dt>reason</dt><dd>" + esc(p.amends.reason) + '</dd><dt>original</dt><dd><span class="copy" data-action="open-packet" data-id="' + esc(p.amends.packet_id) + '">' + esc(p.amends.packet_id) + "</span> · record " + esc(shortHash(p.amends.record_sha256)) + "</dd></dl></div>";
+    }
+    if (amends.length) {
+      html += '<div class="amend-box"><p class="kicker">Amended ' + amends.length + " time" + (amends.length === 1 ? "" : "s") + ". Original values stay signed; the current values below reflect the linked corrections.</p>" +
+        amends.map(function (a) { return '<p class="note" style="margin-top:6px"><span class="copy" data-action="open-packet" data-id="' + esc(a.packet_id) + '">#' + String(a.seq).padStart(4, "0") + "</span> · " + esc(fieldLabel(a.amends.field)) + " " + esc(fmtValue(a.amends.field, a.amends.from)) + " → " + esc(fmtValue(a.amends.field, a.amends.to)) + " · " + esc(fmtTime(a.captured_at)) + "</p>"; }).join("") + "</div>";
+    }
+    html += '<div class="grid-2" style="margin-top:14px"><div><p class="kicker">Signed payload</p><dl class="kv">' +
+      "<dt>captured</dt><dd>" + esc(fmtTimeS(p.captured_at)) + "</dd>" +
+      "<dt>instrument</dt><dd>" + esc(p.instrument.id) + ' <span class="subtle">· ' + esc(p.instrument.type) + " · " + esc(p.instrument.firmware) + "</span></dd>" +
+      "<dt>sample</dt><dd>" + esc(sample.sample_id || "n/a") + (amends.some(function (a) { return a.amends.field === "sample_id"; }) ? ' <span class="warn">(amended)</span>' : "") + "</dd>" +
+      "<dt>collected</dt><dd>" + (sample.collected_at ? esc(fmtDate(sample.collected_at)) : "n/a") + (amends.some(function (a) { return a.amends.field === "collected_at"; }) ? ' <span class="warn">(amended)</span>' : "") + "</dd>" +
+      "<dt>dilution</dt><dd>" + (sample.dilution_factor !== undefined ? esc(Number(sample.dilution_factor).toFixed(2)) : "n/a") + (amends.some(function (a) { return a.amends.field === "dilution_factor"; }) ? ' <span class="warn">(amended)</span>' : "") + "</dd>" +
+      "<dt>analyte</dt><dd>" + esc(p.measurement.analyte) + ' <span class="subtle">· ' + esc(p.measurement.method_id) + "</span></dd>" +
+      "<dt>value</dt><dd" + (st.text === "tampered" ? ' class="bad"' : "") + ">" + esc(p.measurement.value) + " " + esc(p.measurement.unit) + ' <span class="subtle">· ' + esc(p.measurement.qc_level) + "</span></dd>" +
+      "<dt>calibration</dt><dd>" + esc(p.calibration.cal_id) + "</dd>" +
+      "<dt>operator</dt><dd>" + esc(p.operator_id || "n/a") + "</dd></dl></div>" +
+      '<div><p class="kicker">Hashes and signature</p><dl class="kv">' +
+      "<dt>payload</dt><dd>" + copyBtn(p.hashes.payload_sha256) + "</dd>" +
+      "<dt>prev</dt><dd>" + copyBtn(p.hashes.prev_record_sha256) + "</dd>" +
+      '<dt>record</dt><dd class="hash--accent">' + copyBtn(p.hashes.record_sha256) + "</dd>" +
+      "<dt>signature</dt><dd>" + copyBtn(p.signature.sig) + ' <span class="subtle">· ' + esc(p.signature.alg) + "</span></dd>" +
+      "<dt>key</dt><dd>" + esc(p.signature.pubkey_fingerprint) + "</dd>" +
+      (c ? "<dt>root</dt><dd>" + copyBtn(c.merkle_root) + (c.onchain && c.onchain.txHash ? ' <span class="ok">· on chain</span>' : ' <span class="subtle">· not published</span>') + "</dd>" : "") +
+      "</dl></div></div>";
+    if (r && !r.ok) html += '<p class="chain__reasons">' + r.reasons.map(esc).join(" ") + "</p>";
+    if (state.verifyOut && state.verifyOut.id === p.packet_id) html += '<p class="note ' + (state.verifyOut.ok ? "ok" : "bad") + '">' + esc(state.verifyOut.text) + "</p>";
+    html += '<div class="row-actions"><button type="button" class="btn btn--secondary btn--sm" data-action="verify-packet" data-id="' + esc(p.packet_id) + '">Verify record</button>' +
+      (p.amends ? "" : '<button type="button" class="btn btn--amber btn--sm" data-action="amend-toggle">' + (state.amendOpen ? "Cancel amendment" : "Amend record") + "</button>") +
+      '<button type="button" class="btn btn--secondary btn--sm" data-action="nav" data-view="auditor" data-id="' + esc(p.packet_id) + '">Auditor view</button></div>';
+    if (state.amendOpen && !p.amends) html += amendForm(p, sample);
+    html += '<details class="raw" style="margin-top:14px"><summary>Raw packet JSON</summary><pre class="json">' + esc(JSON.stringify(p, null, 2)) + "</pre></details></div>";
+    return html;
+  }
+
+  function amendForm(p, sample) {
+    return '<form class="amend-box" id="amendForm" data-id="' + esc(p.packet_id) + '"><p class="kicker">New amendment</p>' +
+      '<p class="note" style="margin-top:0">This seals a new record that references #' + String(p.seq).padStart(4, "0") + " by its record hash. The original stays exactly as signed.</p>" +
+      '<div class="form-row"><div><label class="field" for="amendField">Field</label><select id="amendField" name="field">' +
+      AMEND_FIELDS.map(function (f) { return '<option value="' + f.id + '">' + esc(f.label) + " (now " + esc(fmtValue(f.id, sample[f.id])) + ")</option>"; }).join("") +
+      '</select></div><div><label class="field" for="amendValue">New value</label><input type="text" id="amendValue" name="value" value="' + esc(sample.sample_id) + '" autocomplete="off"></div></div>' +
+      '<label class="field" for="amendReason">Reason</label><textarea id="amendReason" name="reason" placeholder="What was wrong and how you confirmed the correct value"></textarea>' +
+      '<div class="row-actions"><button type="submit" class="btn btn--primary btn--sm"' + (state.sealing ? " disabled" : "") + ">" + (state.sealing ? "Sealing…" : "Seal amendment") + '</button><button type="button" class="btn btn--secondary btn--sm" data-action="amend-toggle">Cancel</button></div>' +
+      '<p class="note bad" id="amendError"></p></form>';
+  }
+
+  function viewPackets() {
+    var list = ordered().slice().reverse();
+    var selected = findPacket(state.selectedPacket) || list[0];
+    return '<div class="page-head"><div><p class="kicker">Lab</p><h1>Records</h1><p class="lede">Signed QC packets in ledger order. Select a row for the full packet, its hashes, and its amendment history.</p></div></div>' +
+      '<div class="table-wrap section"><table><thead><tr><th>Seq</th><th>Captured</th><th>Instrument</th><th>Sample</th><th>Measurement</th><th>Status</th><th>Record hash</th></tr></thead><tbody>' +
+      list.map(function (p) {
+        var st = packetStatus(p);
+        var sel = selected && p.packet_id === selected.packet_id;
+        return '<tr data-action="select-packet" data-id="' + esc(p.packet_id) + '" class="' + (sel ? "is-selected" : "") + '"><td class="num">' + String(p.seq).padStart(4, "0") + "</td><td>" + esc(fmtTime(p.captured_at)) + "</td><td>" + esc(p.instrument.id) + '</td><td class="mono">' + esc((p.sample && p.sample.sample_id) || "") + "</td><td>" + (p.amends ? '<span class="warn">' + esc(fieldLabel(p.amends.field)) + "</span> → " + esc(fmtValue(p.amends.field, p.amends.to)) + ' <span class="subtle">on #' + String(p.amends.seq).padStart(4, "0") + "</span>" : esc(measurementText(p))) + "</td><td>" + pill(st.kind, st.text) + '</td><td><span class="hash">' + esc(shortHash(p.hashes.record_sha256)) + "</span></td></tr>";
+      }).join("") + "</tbody></table></div>" +
+      (selected ? packetDetail(selected) : '<div class="empty section">No records yet.</div>');
+  }
+
+  function viewLedger() {
+    var list = ordered();
+    var banner = state.chain.ok
+      ? '<div class="banner banner--ok"><span class="banner__icon">' + ICONS.check + '</span><div class="banner__text"><strong>Chain verifies</strong><span>' + list.length + " records · head " + esc(shortHash(headHash())) + (state.lastVerifiedAt ? " · walked " + relTime(Date.now() - state.lastVerifiedAt) : "") + "</span></div>"
+      : '<div class="banner banner--bad"><span class="banner__icon">' + ICONS.cross + '</span><div class="banner__text"><strong>Integrity break at seq ' + state.chain.breakAt + "</strong><span>" + esc(state.chain.reason) + "</span></div>";
+    banner += '<div class="row-actions"><button type="button" class="btn btn--secondary btn--sm" data-action="verify-chain">Walk the chain</button><button type="button" class="btn btn--danger btn--sm" data-action="tamper">Simulate tamper</button><button type="button" class="btn btn--secondary btn--sm" data-action="reset">Reset lab</button></div></div>';
+    return '<div class="page-head"><div><p class="kicker">Integrity</p><h1>Ledger</h1><p class="lede">Append-only hash chain. Each record commits to the previous record hash, so editing a value without resigning breaks the walk at that record.</p></div></div>' +
+      '<div class="section">' + banner + "</div>" +
+      '<div class="section">' + ledgerStrip({ legend: false }) + "</div>" +
+      '<ol class="chain section">' +
+      '<li class="chain__item is-ok"><div class="chain__rail"><span class="chain__node"></span></div><div class="card chain__card"><div class="chain__row"><span class="chain__seq">genesis</span>' + pill("plain", "empty chain") + '</div><div class="chain__hashes"><span class="k">record</span><span class="v">' + esc(GENESIS) + "</span></div></div></li>" +
+      list.map(function (p) {
+        var r = state.chain.results && state.chain.results[p.seq];
+        var st = packetStatus(p);
+        var cls = "chain__item " + (r ? (r.ok ? "is-ok" : "is-bad") : "") + (p.amends ? " is-amend" : "");
+        return '<li class="' + cls + '"><div class="chain__rail"><span class="chain__node"></span></div><div class="card chain__card">' +
+          '<div class="chain__row"><span class="chain__seq">#' + String(p.seq).padStart(4, "0") + "</span>" + pill(st.kind, st.text) + (p.amends ? pill("warn", "refs #" + String(p.amends.seq).padStart(4, "0")) : "") + (p.commitment_batch_id ? pill("plain", p.commitment_batch_id) : "") + '<span class="chain__time">' + esc(fmtTime(p.captured_at)) + "</span></div>" +
+          '<p class="chain__body">' + (p.amends ? esc(fieldLabel(p.amends.field)) + ' <span class="subtle">' + esc(fmtValue(p.amends.field, p.amends.from)) + '</span> → <span class="warn">' + esc(fmtValue(p.amends.field, p.amends.to)) + "</span> · " + esc(p.amends.reason) : esc(p.instrument.id) + " · " + esc(measurementText(p)) + ' <span class="subtle">· ' + esc((p.sample && p.sample.sample_id) || "") + "</span>") + "</p>" +
+          '<div class="chain__hashes"><span class="k">prev</span><span class="v">' + esc(p.hashes.prev_record_sha256) + '</span><span class="k">record</span><span class="v accent">' + esc(p.hashes.record_sha256) + "</span>" + (p.amends ? '<span class="k">amends</span><span class="v">' + esc(p.amends.record_sha256) + "</span>" : "") + "</div>" +
+          (r && !r.ok ? '<p class="chain__reasons">' + r.reasons.map(esc).join(" ") + "</p>" : "") +
+          '<div class="row-actions" style="margin-top:10px"><button type="button" class="btn btn--secondary btn--sm" data-action="open-packet" data-id="' + esc(p.packet_id) + '">Open record</button></div>' +
+          "</div></li>";
+      }).join("") + "</ol>";
+  }
+
+  function viewRegistry() {
+    var pending = pendingCount();
+    var w = state.wallet;
+    var walletCard = '<div class="card"><div class="card__head"><p class="kicker">Wallet · testnet only</p>' + (w.address ? pill(onCorrectChain() ? "ok" : "warn", onCorrectChain() ? "Base Sepolia" : "wrong network") : pill("plain", "not connected")) + "</div>" +
+      (w.address
+        ? '<p class="lede" style="margin-top:10px"><span class="mono">' + esc(shortAddr(w.address)) + "</span> · publishing sends a 0-ETH transaction with the root in calldata to a public attestation sink. Not a token, not a mint.</p><div class=\"row-actions\">" + (!onCorrectChain() ? '<button type="button" class="btn btn--primary btn--sm" data-action="switch-chain">Switch to Base Sepolia</button>' : "") + '<button type="button" class="btn btn--secondary btn--sm" data-action="disconnect">Disconnect</button></div>'
+        : '<p class="lede" style="margin-top:10px">Connect MetaMask to publish Merkle roots. Reading and verifying never needs a wallet.</p><div class="row-actions"><button type="button" class="btn btn--primary btn--sm" data-action="connect">' + (w.status === "connecting" ? "Connecting…" : "Connect MetaMask") + '</button><a class="btn btn--secondary btn--sm" href="https://metamask.io/download/" target="_blank" rel="noopener">Get MetaMask</a></div>') +
+      (w.error ? '<p class="note bad">' + esc(w.error) + faucetLink(w.error) + (w.status === "missing" ? ' · <a href="https://metamask.io/download/" target="_blank" rel="noopener">install</a>' : "") + "</p>" : "") + "</div>";
+    var batchCard = '<div class="card"><p class="kicker">Next batch</p><div class="kpi__value" style="margin-top:8px">' + (pending % BATCH_SIZE) + ' <span class="subtle" style="font-size:1rem">/ ' + BATCH_SIZE + '</span></div><p class="note">Records sealed since the last root. A full batch is hashed into a Merkle root automatically.</p><div class="meter"><span style="width:' + Math.round(((pending % BATCH_SIZE) / BATCH_SIZE) * 100) + '%"></span></div><div class="row-actions"><a class="btn btn--secondary btn--sm" href="#instruments" data-action="nav" data-view="instruments">Ingest a run</a></div></div>';
+    var list = state.commitments.slice().reverse();
+    return '<div class="page-head"><div><p class="kicker">Integrity</p><h1>Public registry</h1><p class="lede">Periodic Merkle roots of signed records. Anyone holding a record can prove it belongs to a published root without seeing the other records.</p></div></div>' +
+      '<div class="grid-2 section">' + walletCard + batchCard + "</div>" +
+      '<div class="section"><div class="section__head"><p class="kicker">Commitments</p><span class="subtle" style="font-size:.85rem">' + publishedCount() + " of " + state.commitments.length + " published</span></div>" +
+      (list.length ? list.map(function (c) {
+        var published = c.onchain && c.onchain.txHash;
+        return '<article class="card"><div class="card__head"><div><p class="kicker">' + esc(c.id) + '</p><span class="subtle" style="font-size:.85rem">' + esc(fmtTime(c.created_at)) + " · seq " + c.from_seq + "–" + c.to_seq + "</span></div>" + pill(published ? "ok" : "plain", published ? "on chain" : "local") + "</div>" +
+          '<dl class="kv" style="margin-top:12px"><dt>root</dt><dd class="hash--accent">' + copyBtn(c.merkle_root, esc(c.merkle_root)) + "</dd><dt>leaves</dt><dd>" + c.packet_ids.map(function (id) { return '<span class="copy" data-action="open-packet" data-id="' + esc(id) + '">' + esc(id) + "</span>"; }).join(" ") + "</dd></dl>" +
+          (published ? renderPublishedTx(c.onchain) : '<div class="row-actions">' + publishButton(c) + "</div>") + "</article>";
+      }).join("") : '<div class="empty">No commitments yet.</div>') + "</div>";
+  }
+
+  function viewAuditor() {
+    var list = ordered();
+    var selected = findPacket(state.selectedPacket) || list[0];
+    var c = selected ? commitmentOf(selected) : null;
+    var sample = selected ? effectiveSample(selected) : {};
+    return '<div class="page-head"><div><p class="kicker">Planned portal · preview</p><h1>Auditor view</h1><p class="lede">Read-only verification without proprietary methods or raw results. The auditor sees identifiers, hashes, and proof of inclusion; the measured value is withheld.</p></div></div>' +
+      '<div class="section"><label class="field" for="pkt" style="margin-top:0">Record</label><select id="pkt">' + list.map(function (p) { return '<option value="' + esc(p.packet_id) + '"' + (selected && p.packet_id === selected.packet_id ? " selected" : "") + ">#" + String(p.seq).padStart(4, "0") + " · " + esc(p.instrument.id) + " · " + (p.amends ? "amendment" : esc(p.measurement.analyte)) + "</option>"; }).join("") + "</select></div>" +
+      (selected ? '<div class="grid-2 section"><div class="card"><p class="kicker">Disclosed</p><dl class="kv" style="margin-top:10px">' +
+        "<dt>record</dt><dd>#" + String(selected.seq).padStart(4, "0") + ' <span class="subtle">· ' + esc(selected.packet_id) + "</span></dd>" +
+        "<dt>captured</dt><dd>" + esc(new Date(selected.captured_at).toISOString()) + "</dd>" +
+        "<dt>instrument</dt><dd>" + esc(selected.instrument.id) + " (" + esc(selected.instrument.type) + ")</dd>" +
+        "<dt>sample</dt><dd>" + esc(sample.sample_id || "n/a") + "</dd>" +
+        "<dt>method</dt><dd>" + esc(selected.measurement.method_id) + "</dd>" +
+        "<dt>value</dt><dd class=\"subtle\">withheld</dd>" +
+        (selected.amends ? "<dt>amends</dt><dd>#" + String(selected.amends.seq).padStart(4, "0") + " · " + esc(fieldLabel(selected.amends.field)) + "</dd>" : "") +
+        "</dl></div>" +
+        '<div class="card"><p class="kicker">Proof</p><dl class="kv" style="margin-top:10px">' +
+        "<dt>record hash</dt><dd>" + copyBtn(selected.hashes.record_sha256) + "</dd>" +
+        "<dt>prev hash</dt><dd>" + copyBtn(selected.hashes.prev_record_sha256) + "</dd>" +
+        "<dt>signature</dt><dd>" + esc(selected.signature.alg) + " · " + esc(selected.signature.pubkey_fingerprint) + "</dd>" +
+        "<dt>commitment</dt><dd>" + (c ? esc(c.id) + " · root " + copyBtn(c.merkle_root) : '<span class="subtle">not yet batched</span>') + "</dd>" +
+        "<dt>on chain</dt><dd>" + (c && c.onchain && c.onchain.txHash ? '<a href="' + esc(basescanTxUrl(c.onchain.txHash)) + '" target="_blank" rel="noopener" class="ok">Base Sepolia tx ' + esc(shortHash(c.onchain.txHash)) + "</a>" : '<span class="subtle">not published</span>') + "</dd>" +
+        "</dl>" +
+        '<div class="row-actions"><button type="button" class="btn btn--primary btn--sm" data-action="verify-packet" data-id="' + esc(selected.packet_id) + '">Verify record</button></div>' +
+        (state.verifyOut && state.verifyOut.id === selected.packet_id ? '<p class="note ' + (state.verifyOut.ok ? "ok" : "bad") + '">' + esc(state.verifyOut.text) + "</p>" : "") +
+        "</div></div>" : "");
+  }
+
+  function viewSettings() {
+    return '<div class="page-head"><div><p class="kicker">Workspace</p><h1>Settings</h1><p class="lede">Single-lab demo workspace. No accounts. Wallet connection is local to this tab.</p></div></div>' +
+      '<div class="grid-2 section"><form class="card" id="labForm"><p class="kicker">Lab</p><label class="field" for="lab">Lab name</label><input type="text" id="lab" value="' + esc(state.labName) + '"><div class="row-actions"><button type="submit" class="btn btn--primary btn--sm">Save</button></div></form>' +
+      '<div class="card"><p class="kicker">Data</p><p class="lede" style="margin-top:8px">Export the full ledger, commitments and verification state as JSON, or reseed the synthetic lab.</p><div class="row-actions"><button type="button" class="btn btn--primary btn--sm" data-action="export">Export audit bundle</button><button type="button" class="btn btn--secondary btn--sm" data-action="reset">Reset synthetic lab</button></div></div></div>' +
+      '<div class="card section"><p class="kicker">About this build</p><dl class="kv" style="margin-top:10px"><dt>version</dt><dd>Open alpha v' + VERSION + "</dd><dt>hashing</dt><dd>SHA-256 via " + (cryptoMode === "webcrypto" ? "Web Crypto" : "JavaScript fallback") + "</dd><dt>signing</dt><dd>DEMO-SHA256 · " + esc(DEMO_FP) + " (not production ECDSA)</dd><dt>batch size</dt><dd>" + BATCH_SIZE + " records per Merkle root</dd><dt>registry</dt><dd>Base Sepolia testnet · sink " + esc(shortAddr(BASE_SEPOLIA.attestationSink)) + "</dd></dl></div>";
+  }
+
+  /* ---------------- render ---------------- */
+
+  function render() {
+    var app = document.getElementById("app");
+    try {
+      renderChrome();
+      if (!app) return;
+      if (state.bootError) {
+        app.innerHTML = '<div class="boot-fail"><p class="kicker">Console error</p><p class="boot-fail__msg">' + esc(state.bootError) + '</p><div class="row-actions"><button type="button" class="btn btn--primary btn--sm" data-action="reset">Retry and reset lab</button></div></div>';
+        return;
+      }
+      if (state.booting) { app.innerHTML = viewBooting(); return; }
+      var views = { dash: viewDash, instruments: viewInstruments, packets: viewPackets, ledger: viewLedger, registry: viewRegistry, auditor: viewAuditor, settings: viewSettings };
+      app.innerHTML = (views[state.view] || viewDash)();
+      var strips = app.querySelectorAll(".strip-wrap");
+      for (var i = 0; i < strips.length; i++) strips[i].scrollLeft = strips[i].scrollWidth;
+    } catch (err) {
+      console.error("IQC render failed", err);
+      if (app) app.innerHTML = '<div class="boot-fail"><p class="kicker">Console error</p><p class="boot-fail__msg">' + esc((err && err.message) || String(err)) + '</p><div class="row-actions"><button type="button" class="btn btn--primary btn--sm" data-action="reset">Retry and reset lab</button></div></div>';
+    }
+  }
+
+  function go(view, opts) {
+    if (!NAV.some(function (n) { return n.id === view; })) view = "dash";
+    state.view = view;
+    state.amendOpen = false;
+    state.verifyOut = null;
+    if (opts && opts.id) state.selectedPacket = opts.id;
+    if (location.hash !== "#" + view) {
+      try { history.replaceState(null, "", "#" + view); } catch (err) { /* ignore */ }
     }
     render();
-    return;
+    var main = document.getElementById("app");
+    if (main && opts && opts.scroll !== false) window.scrollTo({ top: 0, behavior: "auto" });
   }
-  const pub = e.target.closest("[data-publish]");
-  if (pub) {
-    await publishCommitment(pub.getAttribute("data-publish"));
-    return;
-  }
-  const ingestBtn = e.target.closest("[data-ingest]");
-  if (ingestBtn) {
-    await ingest(ingestBtn.getAttribute("data-ingest"));
-    return;
-  }
-  const pkt = e.target.closest("tr[data-pkt]");
-  if (pkt) {
-    state.selectedPacket = pkt.getAttribute("data-pkt");
-    render();
-    return;
-  }
-  if (e.target.id === "tamper") await tamper();
-  if (e.target.id === "reset") await resetLab();
-  if (e.target.id === "verifyChain") {
-    state.chain = await verifyChain(state.packets);
-    render();
-  }
-  if (e.target.id === "export") exportBundle();
-  if (e.target.id === "verifyOne" || e.target.id === "verifyAud") {
-    const ordered = state.packets.slice().sort((a, b) => a.seq - b.seq);
-    const selected =
-      state.packets.find((p) => p.packet_id === state.selectedPacket) || ordered[0];
-    if (!selected) return;
-    const prev = ordered.find((p) => p.seq === selected.seq - 1)?.hashes.record_sha256 || GENESIS;
-    const r = await verifyPacket(selected, prev);
-    const out = document.getElementById(e.target.id === "verifyAud" ? "audOut" : "verifyOut");
-    if (out) out.textContent = r.ok ? "Valid — payload, chain link, and demo signature match." : r.reasons.join(" ");
-  }
-});
 
-document.addEventListener("change", (e) => {
-  if (e.target.id === "pkt") {
-    state.selectedPacket = e.target.value;
-    render();
-  }
-  if (e.target.id === "lab") state.labName = e.target.value;
-});
+  /* ---------------- events ---------------- */
 
-window.addEventListener("hashchange", () => {
-  const id = location.hash.slice(1);
-  if (NAV.some((n) => n.id === id)) state.view = id;
+  document.addEventListener("click", async function (e) {
+    var t = e.target.closest("[data-action]");
+    if (!t) {
+      var anchor = e.target.closest("a[href^='#']");
+      if (anchor) { e.preventDefault(); go(anchor.getAttribute("href").slice(1)); }
+      return;
+    }
+    var action = t.getAttribute("data-action");
+    var id = t.getAttribute("data-id");
+    if (t.tagName === "A") e.preventDefault();
+    switch (action) {
+      case "nav":
+        go(t.getAttribute("data-view"), id ? { id: id } : null);
+        break;
+      case "open-packet":
+        go("packets", { id: id });
+        setTimeout(function () {
+          var d = document.getElementById("packetDetail");
+          if (d) d.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 30);
+        break;
+      case "select-packet":
+        state.selectedPacket = id;
+        state.amendOpen = false;
+        state.verifyOut = null;
+        render();
+        break;
+      case "ingest":
+        await ingest(id);
+        break;
+      case "publish":
+        await publishCommitment(id);
+        break;
+      case "connect":
+        await connectWallet();
+        break;
+      case "disconnect":
+        disconnectWallet();
+        break;
+      case "switch-chain":
+        try {
+          await ensureBaseSepolia();
+          state.wallet.error = onCorrectChain() ? null : "Still on the wrong network.";
+        } catch (err) {
+          state.wallet.error = (err && err.message) || String(err);
+        }
+        render();
+        break;
+      case "tamper":
+        await tamper();
+        break;
+      case "reset":
+        await resetLab();
+        break;
+      case "verify-chain":
+        state.chain = await verifyChain(state.packets);
+        toast(state.chain.ok ? "Walked " + state.packets.length + " records. Chain intact." : "Break at seq " + state.chain.breakAt + ".", state.chain.ok ? "ok" : "bad");
+        render();
+        break;
+      case "verify-packet": {
+        var p = findPacket(id);
+        if (!p) return;
+        var list = ordered();
+        var prevPkt = list.filter(function (x) { return x.seq === p.seq - 1; })[0];
+        var r = await verifyPacket(p, prevPkt ? prevPkt.hashes.record_sha256 : GENESIS, state.packets);
+        state.verifyOut = { id: p.packet_id, ok: r.ok, text: r.ok ? "Valid. Payload hash, chain link, demo signature" + (p.amends ? " and amendment link" : "") + " all match." : r.reasons.join(" ") };
+        render();
+        break;
+      }
+      case "export":
+        exportBundle();
+        break;
+      case "copy":
+        copyText(t.getAttribute("data-value") || "");
+        break;
+      case "amend-toggle":
+        state.amendOpen = !state.amendOpen;
+        render();
+        if (state.amendOpen) {
+          var f = document.getElementById("amendField");
+          if (f) syncAmendValue(f);
+        }
+        break;
+      default:
+        break;
+    }
+  });
+
+  function syncAmendValue(select) {
+    var form = select.closest("form");
+    var p = findPacket(form && form.getAttribute("data-id"));
+    var input = document.getElementById("amendValue");
+    if (!p || !input) return;
+    var sample = effectiveSample(p);
+    var v = sample[select.value];
+    input.value = select.value === "dilution_factor" ? Number(v).toFixed(2) : String(v || "");
+    input.type = select.value === "collected_at" ? "date" : "text";
+    input.focus();
+  }
+
+  document.addEventListener("change", function (e) {
+    if (e.target.id === "pkt") {
+      state.selectedPacket = e.target.value;
+      state.verifyOut = null;
+      render();
+    }
+    if (e.target.id === "amendField") syncAmendValue(e.target);
+  });
+
+  document.addEventListener("submit", async function (e) {
+    if (e.target.id === "amendForm") {
+      e.preventDefault();
+      var form = e.target;
+      var errEl = document.getElementById("amendError");
+      var result = await amendPacket(form.getAttribute("data-id"), form.field.value, form.value.value, form.reason.value);
+      if (!result.ok) {
+        var el = document.getElementById("amendError") || errEl;
+        if (el) el.textContent = result.error;
+        else toast(result.error, "bad");
+      }
+    }
+    if (e.target.id === "labForm") {
+      e.preventDefault();
+      var input = document.getElementById("lab");
+      state.labName = (input && input.value.trim()) || "IQC Alpha Lab";
+      toast("Lab name saved.", "ok");
+      render();
+    }
+  });
+
+  window.addEventListener("hashchange", function () {
+    var id = location.hash.slice(1);
+    if (NAV.some(function (n) { return n.id === id; }) && id !== state.view) {
+      state.view = id;
+      render();
+    }
+  });
+
+  /* ---------------- boot ---------------- */
+
   render();
-});
+  attachWalletListeners();
 
-attachWalletListeners();
-
-(async function boot() {
-  try {
-    const seeded = await seed();
-    state.packets = seeded.packets;
-    state.commitments = restoreOnchain(seeded.commitments);
-    state.chain = await verifyChain(state.packets);
-    const id = location.hash.slice(1);
-    if (NAV.some((n) => n.id === id)) state.view = id;
-    state.bootError = null;
-  } catch (err) {
-    state.bootError = (err && err.message) || String(err);
-    console.error("IQC boot failed", err);
-  }
-  render();
+  (async function boot() {
+    try {
+      var id = location.hash.slice(1);
+      if (NAV.some(function (n) { return n.id === id; })) state.view = id;
+      var seeded = await seed();
+      state.packets = seeded.packets;
+      state.commitments = restoreOnchain(seeded.commitments);
+      state.chain = await verifyChain(state.packets);
+      state.bootError = null;
+    } catch (err) {
+      state.bootError = (err && err.message) || String(err);
+      console.error("IQC boot failed", err);
+    }
+    state.booting = false;
+    window.__iqcBooted = true;
+    render();
+  })();
 })();
