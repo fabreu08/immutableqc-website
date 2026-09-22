@@ -17,7 +17,9 @@
 }
 
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; color-scheme: dark; }
+html { scroll-behavior: smooth; color-scheme: dark; font-size: 16px; }
+@media (min-width: 1440px) { html { font-size: 17px; } }
+@media (min-width: 1920px) { html { font-size: 18px; } }
 body {
     margin: 0;
     background: var(--bg);
@@ -30,7 +32,7 @@ body {
 a { color: inherit; text-decoration: none; }
 button { cursor: pointer; font-family: inherit; background: none; border: 0; color: inherit; padding: 0; text-align: left; }
 
-.wrap { width: min(1120px, calc(100% - 32px)); margin-inline: auto; }
+.wrap { width: min(1200px, calc(100% - 32px)); margin-inline: auto; }
 .accent { color: var(--primary); }
 .kicker {
     font-family: var(--mono);
@@ -63,7 +65,7 @@ h1, h2 { font-weight: 500; letter-spacing: -0.03em; line-height: 1.1; margin: 0;
 }
 .nav--scrolled { border-bottom-color: var(--border); }
 .nav__container {
-    width: min(1120px, calc(100% - 32px));
+    width: min(1200px, calc(100% - 32px));
     margin: auto;
     height: 56px;
     display: flex;
@@ -150,7 +152,7 @@ h1, h2 { font-weight: 500; letter-spacing: -0.03em; line-height: 1.1; margin: 0;
     gap: 48px;
     align-items: center;
     padding: 64px 0 72px;
-    width: min(1120px, calc(100% - 32px));
+    width: min(1200px, calc(100% - 32px));
 }
 .hero__title {
     font-size: clamp(2.4rem, 6vw, 4.25rem);
@@ -351,8 +353,8 @@ h1, h2 { font-weight: 500; letter-spacing: -0.03em; line-height: 1.1; margin: 0;
 .how__lede {
     margin: 0 0 6px;
     color: var(--muted);
-    font-size: 0.95rem;
-    max-width: 36ch;
+    font-size: 1.05rem;
+    max-width: 38ch;
 }
 .how__track {
     position: relative;
@@ -363,19 +365,24 @@ h1, h2 { font-weight: 500; letter-spacing: -0.03em; line-height: 1.1; margin: 0;
 .how--static .how__track { min-height: 0; }
 .how__stage {
     position: sticky;
-    top: 72px;
+    top: 0;
+    min-height: 100vh;
+    min-height: 100dvh;
+    box-sizing: border-box;
+    padding: 72px 0 24px;
     display: grid;
-    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-    gap: 40px;
+    grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
+    gap: 56px;
     align-items: start;
+    align-content: center;
 }
-.how--static .how__stage { position: static; }
+.how--static .how__stage { position: static; min-height: 0; padding: 0; }
 
 /* steps */
 .how__list { position: relative; }
 .how__rail {
     position: absolute;
-    left: 13px;
+    left: 15px;
     top: 0;
     width: 2px;
     height: 0;
@@ -403,39 +410,39 @@ h1, h2 { font-weight: 500; letter-spacing: -0.03em; line-height: 1.1; margin: 0;
 }
 .how__btn {
     display: grid;
-    grid-template-columns: 28px 1fr;
+    grid-template-columns: 32px 1fr;
     grid-template-rows: auto auto auto;
-    column-gap: 16px;
-    row-gap: 2px;
+    column-gap: 18px;
+    row-gap: 4px;
     width: 100%;
-    padding: 12px 12px 12px 0;
+    padding: 14px 12px 14px 0;
     border-radius: 12px;
 }
 .how__num {
     grid-row: 1 / span 3;
-    width: 28px;
-    height: 28px;
-    border-radius: 8px;
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
     border: 1px solid var(--border);
     background: var(--bg);
     display: grid;
     place-items: center;
     font-family: var(--mono);
-    font-size: 11px;
+    font-size: 12px;
     color: var(--subtle);
     transition: background-color 200ms ease, border-color 200ms ease, color 200ms ease;
 }
 .how__label {
-    font-size: 1.1rem;
+    font-size: 1.3rem;
     font-weight: 500;
     color: var(--muted);
-    line-height: 28px;
+    line-height: 32px;
     transition: color 200ms ease;
 }
 .how__desc {
     grid-column: 2;
-    font-size: 0.92rem;
-    line-height: 1.5;
+    font-size: 1.02rem;
+    line-height: 1.55;
     color: var(--subtle);
     max-height: 0;
     overflow: hidden;
@@ -452,7 +459,7 @@ h1, h2 { font-weight: 500; letter-spacing: -0.03em; line-height: 1.1; margin: 0;
     flex-wrap: wrap;
     max-width: 100%;
     font-family: var(--mono);
-    font-size: 11px;
+    font-size: 12px;
     letter-spacing: 0.02em;
     color: var(--muted);
     border: 1px solid var(--border);
@@ -502,8 +509,8 @@ h1, h2 { font-weight: 500; letter-spacing: -0.03em; line-height: 1.1; margin: 0;
     position: relative;
     border: 1px solid var(--border);
     background: var(--raised);
-    border-radius: 16px;
-    padding: 18px 16px 12px;
+    border-radius: 18px;
+    padding: 22px 20px 14px;
 }
 .how__foot {
     display: flex;
@@ -515,7 +522,7 @@ h1, h2 { font-weight: 500; letter-spacing: -0.03em; line-height: 1.1; margin: 0;
 .how__foot .demo-tag { margin: 0; text-align: left; }
 .how__hint {
     font-family: var(--mono);
-    font-size: 10px;
+    font-size: 11px;
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--primary);
@@ -634,6 +641,17 @@ h1, h2 { font-weight: 500; letter-spacing: -0.03em; line-height: 1.1; margin: 0;
 .fia-arrowhead { fill: var(--progress); }
 .fia-intact { fill: var(--live); opacity: 0; transition: opacity 300ms ease; }
 .fia-intact.is-on { opacity: 1; }
+
+@media (min-width: 1600px) {
+    .wrap, .nav__container, .hero__layout { width: min(1280px, calc(100% - 48px)); }
+    .how__inner { width: min(1440px, calc(100% - 48px)); }
+    .how__stage { gap: 72px; }
+}
+@media (min-width: 2200px) {
+    .how__inner { width: min(1640px, calc(100% - 48px)); }
+    .how__label { font-size: 1.45rem; }
+    .how__desc { font-size: 1.1rem; }
+}
 
 /* -- Tamper -- */
 .tamper {
@@ -781,7 +799,7 @@ h1, h2 { font-weight: 500; letter-spacing: -0.03em; line-height: 1.1; margin: 0;
     .how { padding: 64px 0 0; }
     .how__head { flex-direction: column; align-items: flex-start; gap: 12px; margin-bottom: 24px; }
     .how__track { min-height: 0; padding-bottom: 40px; }
-    .how__stage { display: flex; flex-direction: column; align-items: stretch; position: static; top: auto; }
+    .how__stage { display: flex; flex-direction: column; align-items: stretch; position: static; top: auto; min-height: 0; padding: 0; }
     .how__pin {
         order: -1;
         position: sticky;
@@ -792,6 +810,8 @@ h1, h2 { font-weight: 500; letter-spacing: -0.03em; line-height: 1.1; margin: 0;
         padding: 8px 16px 10px;
     }
     .how__diagram { padding: 10px 8px 6px; border-radius: 12px; }
+    .how__label { font-size: 1.15rem; }
+    .how__desc { font-size: 0.95rem; }
     .how__foot { margin-top: 4px; }
     .how__list { padding-top: 12px; }
     .how__step { min-height: calc(var(--dur, 0.2) * 340vh); }

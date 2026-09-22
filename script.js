@@ -397,7 +397,10 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         var isMobile = window.matchMedia("(max-width: 860px)");
-        var STICKY_TOP = 72;
+        function stickyTop() {
+            var v = parseFloat(window.getComputedStyle(stage).top);
+            return isNaN(v) ? 0 : v;
+        }
 
         function pinRange() {
             var vh = window.innerHeight || 1;
@@ -412,7 +415,7 @@ document.addEventListener("DOMContentLoaded", function () {
             if (length < 40) {
                 return { start: trackTop - vh * 0.6, length: Math.max(1, track.offsetHeight) };
             }
-            return { start: trackTop - STICKY_TOP, length: length };
+            return { start: trackTop - stickyTop(), length: length };
         }
         function progressFromScroll() {
             var r = pinRange();
