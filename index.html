@@ -104,90 +104,218 @@
 
         <section id="how-it-works" class="how">
             <div class="wrap how__inner">
-                <p class="kicker">How it works</p>
-                <h2 class="how__title">From instrument to immutable record</h2>
+                <div class="how__head">
+                    <div>
+                        <p class="kicker">How it works</p>
+                        <h2 class="how__title">One injection. One unbroken record.</h2>
+                    </div>
+                    <p class="how__lede">Scroll through a single run. Each stage writes to the ledger as it happens. Later corrections link back to the original instead of overwriting it.</p>
+                </div>
                 <div class="how__track" id="howTrack">
-                <div class="how__stage">
-                    <ol class="how__steps" id="howSteps">
-                        <li class="how__step is-active" data-step="0">
-                            <button type="button" class="how__btn" data-step="0">
-                                <span class="how__num">01</span>
-                                <span class="how__label">Connect</span>
-                                <span class="how__desc">Link HPLC, MS, analyzers, and sensors via RS-232, TCP/IP, or file watchers.</span>
-                            </button>
-                        </li>
-                        <li class="how__step" data-step="1">
-                            <button type="button" class="how__btn" data-step="1">
-                                <span class="how__num">02</span>
-                                <span class="how__label">Capture</span>
-                                <span class="how__desc">Intercept raw measurements at generation, calibration metadata included.</span>
-                            </button>
-                        </li>
-                        <li class="how__step" data-step="2">
-                            <button type="button" class="how__btn" data-step="2">
-                                <span class="how__num">03</span>
-                                <span class="how__label">Sign &amp; commit</span>
-                                <span class="how__desc">Sign each record, append to a hash-chained ledger, publish periodic roots.</span>
-                            </button>
-                        </li>
-                        <li class="how__step" data-step="3">
-                            <button type="button" class="how__btn" data-step="3">
-                                <span class="how__num">04</span>
-                                <span class="how__label">Verify</span>
-                                <span class="how__desc">Prove integrity without exposing proprietary methods or raw results.</span>
-                            </button>
-                        </li>
-                    </ol>
+                <div class="how__stage" id="howStage">
+                    <div class="how__list" id="howList">
+                        <div class="how__rail" id="howRail" aria-hidden="true"><div class="how__railFill" id="howRailFill"></div></div>
+                        <ol class="how__steps" id="howSteps">
+                            <li class="how__step is-active" data-step="0" style="--dur: 0.16">
+                                <button type="button" class="how__btn" data-step="0">
+                                    <span class="how__num">01</span>
+                                    <span class="how__label">Inject</span>
+                                    <span class="how__desc">The autosampler draws sample 2231-A. The injection time is written to ImmutableQC before the sample moves.</span>
+                                    <span class="how__rec" id="rec0"><span class="how__recTag">REC #0042</span>INJ · 2026-09-21T14:22:07.318Z</span>
+                                </button>
+                            </li>
+                            <li class="how__step" data-step="1" style="--dur: 0.22">
+                                <button type="button" class="how__btn" data-step="1">
+                                    <span class="how__num">02</span>
+                                    <span class="how__label">Transport</span>
+                                    <span class="how__desc">A peristaltic pump carries the sample plug through the carrier stream to the column. Method parameters are already part of the signed run header.</span>
+                                    <span class="how__rec how__rec--status" id="rec1"><span class="how__recTag">FLOW</span>0.80 mL/min · 1.9 bar · FIA-UV-01</span>
+                                </button>
+                            </li>
+                            <li class="how__step" data-step="2" style="--dur: 0.32">
+                                <button type="button" class="how__btn" data-step="2">
+                                    <span class="how__num">03</span>
+                                    <span class="how__label">Separate and detect</span>
+                                    <span class="how__desc">Analytes separate on the column and pass the detector. Each peak's retention time, height and area is recorded the moment it integrates.</span>
+                                    <span class="how__rec" id="rec2"><span class="how__recTag">REC #0043</span>PEAKS · 3 · 1.44 / 3.44 / 5.68 min</span>
+                                </button>
+                            </li>
+                            <li class="how__step" data-step="3" style="--dur: 0.15">
+                                <button type="button" class="how__btn" data-step="3">
+                                    <span class="how__num">04</span>
+                                    <span class="how__label">Report</span>
+                                    <span class="how__desc">The run report is assembled from ledger entries and hashed. The hash is committed to the chain.</span>
+                                    <span class="how__rec" id="rec3"><span class="how__recTag">REC #0044</span>RPT · sha256:9c2e…41b7</span>
+                                </button>
+                            </li>
+                            <li class="how__step" data-step="4" style="--dur: 0.15">
+                                <button type="button" class="how__btn" data-step="4">
+                                    <span class="how__num">05</span>
+                                    <span class="how__label">Amend</span>
+                                    <span class="how__desc">Weeks later a dilution factor is corrected. The correction is a new record that links to the original. Nothing is overwritten.</span>
+                                    <span class="how__rec how__rec--amd" id="rec4"><span class="how__recTag">REC #0045</span>AMD · dilution 1.00 → 2.50 · refs #0044</span>
+                                </button>
+                            </li>
+                        </ol>
+                    </div>
+                    <div class="how__pin">
                     <div class="how__diagram" id="howDiagram" aria-hidden="true">
-                        <svg class="diagram-svg" viewBox="0 0 360 280">
-                            <!-- Beat 0: Connect -->
-                            <g class="diag diag--0 is-shown">
-                                <rect x="40" y="40" width="80" height="48" rx="8" fill="#101418" stroke="#8fd4c4"/>
-                                <text x="80" y="68" text-anchor="middle" fill="#e8ebe9" font-family="IBM Plex Mono, monospace" font-size="11">HPLC</text>
-                                <rect x="140" y="40" width="80" height="48" rx="8" fill="#101418" stroke="#1e2624"/>
-                                <text x="180" y="68" text-anchor="middle" fill="#8b9390" font-family="IBM Plex Mono, monospace" font-size="11">MS</text>
-                                <rect x="240" y="40" width="80" height="48" rx="8" fill="#101418" stroke="#1e2624"/>
-                                <text x="280" y="68" text-anchor="middle" fill="#8b9390" font-family="IBM Plex Mono, monospace" font-size="11">Sensor</text>
-                                <path d="M80 88 V140 H180 V160" stroke="#8fd4c4" stroke-width="1.5" fill="none" opacity="0.7"/>
-                                <path d="M180 88 V160" stroke="#1e2624" stroke-width="1.5" fill="none"/>
-                                <path d="M280 88 V140 H180 V160" stroke="#1e2624" stroke-width="1.5" fill="none"/>
-                                <rect x="120" y="160" width="120" height="56" rx="10" fill="#101418" stroke="#8fd4c4"/>
-                                <text x="180" y="194" text-anchor="middle" fill="#8fd4c4" font-family="IBM Plex Mono, monospace" font-size="12">IQC gateway</text>
+                        <svg class="fia" id="fiaSvg" viewBox="0 0 560 400" focusable="false">
+                            <defs>
+                                <pattern id="fiaPack" width="4" height="4" patternUnits="userSpaceOnUse">
+                                    <circle class="fia-pack" cx="2" cy="2" r="0.6"/>
+                                </pattern>
+                                <clipPath id="fiaTraceClip">
+                                    <rect id="fiaTraceClipRect" x="32" y="166" width="0" height="114"/>
+                                </clipPath>
+                                <marker id="fiaArrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+                                    <path class="fia-arrowhead" d="M0 0 L8 4 L0 8 Z"/>
+                                </marker>
+                            </defs>
+
+                            <!-- Instrument train -->
+                            <g class="fia-train">
+                                <text class="fia-lbl" x="24" y="18">Autosampler</text>
+                                <text class="fia-lbl" x="236" y="18">Pump</text>
+                                <text class="fia-lbl" x="372" y="18">Column</text>
+                                <text class="fia-lbl" x="506" y="81">Detector</text>
+                                <text class="fia-lbl" x="500" y="134">Waste</text>
+                                <text class="fia-clock" id="fiaClock" x="548" y="18" text-anchor="end">t = 00:00.0</text>
+
+                                <line class="fia-gantry" x1="30" y1="56" x2="134" y2="56"/>
+                                <rect class="fia-rack" x="24" y="72" width="112" height="66" rx="8"/>
+                                <g class="fia-vials">
+                                    <circle cx="42" cy="92" r="7"/><circle cx="90" cy="92" r="7"/><circle cx="114" cy="92" r="7"/>
+                                    <circle cx="42" cy="118" r="7"/><circle cx="66" cy="118" r="7"/><circle cx="90" cy="118" r="7"/><circle cx="114" cy="118" r="7"/>
+                                </g>
+                                <circle class="fia-vial-target" cx="66" cy="92" r="7"/>
+                                <circle class="fia-vial-fill" id="fiaVialFill" cx="66" cy="92" r="5"/>
+                                <rect class="fia-carriage" x="60" y="52" width="12" height="8" rx="2"/>
+                                <line class="fia-needle" id="fiaNeedle" x1="66" y1="60" x2="66" y2="66"/>
+
+                                <path class="fia-housing" d="M 277.6 64.9 A 36 36 0 1 1 222.4 64.9"/>
+                                <circle class="fia-rotor" cx="250" cy="88" r="21"/>
+
+                                <rect class="fia-colcap" x="366" y="26" width="8" height="16" rx="2"/>
+                                <rect class="fia-colcap" x="470" y="26" width="8" height="16" rx="2"/>
+                                <rect class="fia-colbody" x="372" y="24" width="100" height="20" rx="5"/>
+                                <rect class="fia-colpack" x="376" y="27" width="92" height="14" rx="3" fill="url(#fiaPack)"/>
+
+                                <rect class="fia-det" x="476" y="66" width="24" height="24" rx="4"/>
+                                <rect class="fia-detglow" id="fiaDetGlow" x="479" y="69" width="18" height="18" rx="3"/>
+                                <path class="fia-waste" d="M 481 126 L 495 126 L 491.5 135 L 484.5 135 Z"/>
+
+                                <path class="fia-tube" id="fiaTube" d="M 66 52 L 66 42 Q 66 34 74 34 L 224 34 Q 232 34 232 42 L 232 64 A 30 30 0 1 0 268 64 L 268 42 Q 268 34 276 34 L 372 34 L 472 34 L 480 34 Q 488 34 488 42 L 488 66 L 488 90 L 488 124"/>
+                                <path class="fia-carrier" id="fiaCarrier" pathLength="1000"/>
+                                <path class="fia-band fia-band--2" id="fiaBand2" pathLength="1000"/>
+                                <path class="fia-band fia-band--1" id="fiaBand1" pathLength="1000"/>
+                                <path class="fia-band fia-band--0" id="fiaBand0" pathLength="1000"/>
+
+                                <g class="fia-rollers" id="fiaRollers">
+                                    <circle cx="250" cy="113" r="5"/>
+                                    <circle cx="228.35" cy="75.5" r="5"/>
+                                    <circle cx="271.65" cy="75.5" r="5"/>
+                                </g>
+                                <circle class="fia-hub" cx="250" cy="88" r="2.5"/>
                             </g>
-                            <!-- Beat 1: Capture -->
-                            <g class="diag diag--1">
-                                <rect x="60" y="50" width="240" height="100" rx="12" fill="#101418" stroke="#1e2624"/>
-                                <text x="80" y="80" fill="#5c6562" font-family="IBM Plex Mono, monospace" font-size="10">RAW STREAM</text>
-                                <text x="80" y="110" fill="#e8ebe9" font-family="IBM Plex Mono, monospace" font-size="18">12.847 mg/L</text>
-                                <text x="80" y="132" fill="#8b9390" font-family="IBM Plex Mono, monospace" font-size="10">cal · 2026-09-07T14:22Z</text>
-                                <rect x="100" y="180" width="160" height="44" rx="8" fill="#101418" stroke="#8fd4c4"/>
-                                <text x="180" y="207" text-anchor="middle" fill="#8fd4c4" font-family="IBM Plex Mono, monospace" font-size="11">captured · sealed buffer</text>
+
+                            <!-- Detector output -->
+                            <g class="fia-plot">
+                                <text class="fia-lbl" x="32" y="160">UV 254 nm · mAU</text>
+                                <line class="fia-axis" x1="32" y1="170" x2="32" y2="272"/>
+                                <line class="fia-axis" x1="32" y1="272" x2="348" y2="272"/>
+                                <g class="fia-ticks">
+                                    <line x1="32" y1="272" x2="32" y2="275"/><text x="32" y="284">0</text>
+                                    <line x1="111" y1="272" x2="111" y2="275"/><text x="111" y="284">2</text>
+                                    <line x1="190" y1="272" x2="190" y2="275"/><text x="190" y="284">4</text>
+                                    <line x1="269" y1="272" x2="269" y2="275"/><text x="269" y="284">6</text>
+                                    <line x1="348" y1="272" x2="348" y2="275"/><text x="348" y="284">8 min</text>
+                                </g>
+                                <g clip-path="url(#fiaTraceClip)">
+                                    <path class="fia-pfill fia-pfill--0" id="fiaPfill0"/>
+                                    <path class="fia-pfill fia-pfill--1" id="fiaPfill1"/>
+                                    <path class="fia-pfill fia-pfill--2" id="fiaPfill2"/>
+                                    <path class="fia-trace" id="fiaTrace"/>
+                                </g>
+                                <circle class="fia-pen" id="fiaPen" r="2.4"/>
+                                <text class="fia-pk fia-pk--0" id="fiaPk0">1.44</text>
+                                <text class="fia-pk fia-pk--1" id="fiaPk1">3.44</text>
+                                <text class="fia-pk fia-pk--2" id="fiaPk2">5.68</text>
                             </g>
-                            <!-- Beat 2: Sign & commit -->
-                            <g class="diag diag--2">
-                                <rect x="40" y="40" width="100" height="60" rx="8" fill="#101418" stroke="#1e2624"/>
-                                <text x="90" y="66" text-anchor="middle" fill="#8b9390" font-family="IBM Plex Mono, monospace" font-size="10">#0041</text>
-                                <text x="90" y="84" text-anchor="middle" fill="#5c6562" font-family="IBM Plex Mono, monospace" font-size="9">prev hash</text>
-                                <path d="M140 70 H180" stroke="#8fd4c4" stroke-width="2"/>
-                                <rect x="180" y="30" width="140" height="80" rx="10" fill="#101418" stroke="#8fd4c4"/>
-                                <text x="250" y="58" text-anchor="middle" fill="#e8ebe9" font-family="IBM Plex Mono, monospace" font-size="11">#0042 signed</text>
-                                <text x="250" y="78" text-anchor="middle" fill="#8fd4c4" font-family="IBM Plex Mono, monospace" font-size="10">DEMO · SHA-256</text>
-                                <path d="M250 110 V150" stroke="#8fd4c4" stroke-width="1.5" stroke-dasharray="4 3"/>
-                                <rect x="100" y="150" width="160" height="50" rx="8" fill="#101418" stroke="#1e2624"/>
-                                <text x="180" y="180" text-anchor="middle" fill="#8b9390" font-family="IBM Plex Mono, monospace" font-size="11">root → public registry</text>
+
+                            <!-- Run record -->
+                            <g class="fia-rec">
+                                <rect class="fia-recbox" x="372" y="164" width="176" height="126" rx="10"/>
+                                <text class="fia-rectitle" x="384" y="181">Run record</text>
+                                <text class="fia-recid" x="536" y="181" text-anchor="end">2231-A · run 014</text>
+                                <line class="fia-recrule" x1="384" y1="188" x2="536" y2="188"/>
+
+                                <text class="fia-key" x="384" y="203">injected</text>
+                                <text class="fia-val fia-fade" id="fiaRowInj" x="430" y="203">14:22:07.318Z</text>
+
+                                <text class="fia-key" x="384" y="216">flow</text>
+                                <text class="fia-val fia-fade" id="fiaRowFlow" x="430" y="216">0.80 mL/min · 1.9 bar</text>
+
+                                <text class="fia-key" x="384" y="229">peaks</text>
+                                <text class="fia-val" x="430" y="229"><tspan class="fia-tfade fia-tint--0" id="fiaRt0">1.44</tspan><tspan class="fia-tfade fia-tint--1" id="fiaRt1" dx="7">3.44</tspan><tspan class="fia-tfade fia-tint--2" id="fiaRt2" dx="7">5.68</tspan><tspan class="fia-tfade fia-dim" id="fiaRtU" dx="7">min</tspan></text>
+
+                                <text class="fia-key" x="384" y="242">dilution</text>
+                                <text class="fia-val fia-fade" id="fiaRowDil" x="430" y="242">1.00</text>
+                                <text class="fia-val fia-fade" id="fiaRowDilAmd" x="430" y="242"><tspan class="fia-old">1.00</tspan><tspan class="fia-new" dx="7">2.50</tspan></text>
+
+                                <text class="fia-key" x="384" y="255">result</text>
+                                <text class="fia-val fia-fade" id="fiaRowRes" x="430" y="255">12.847 mg/L</text>
+                                <text class="fia-val fia-fade" id="fiaRowResAmd" x="430" y="255"><tspan class="fia-old">12.847</tspan><tspan class="fia-new" dx="7">32.118 mg/L</tspan></text>
+
+                                <text class="fia-key" x="384" y="268">report</text>
+                                <text class="fia-val fia-fade fia-hash" id="fiaRowHash" x="430" y="268">sha256:9c2e…41b7</text>
+
+                                <text class="fia-key" x="384" y="281">amended</text>
+                                <text class="fia-val fia-fade fia-hash fia-new" id="fiaRowAmd" x="430" y="281">v2 e17d…8a03 · refs v1</text>
                             </g>
-                            <!-- Beat 3: Verify -->
-                            <g class="diag diag--3">
-                                <rect x="50" y="50" width="160" height="90" rx="10" fill="#101418" stroke="#1e2624"/>
-                                <text x="70" y="80" fill="#5c6562" font-family="IBM Plex Mono, monospace" font-size="10">AUDIT QUERY</text>
-                                <text x="70" y="104" fill="#e8ebe9" font-family="IBM Plex Mono, monospace" font-size="12">record #0042</text>
-                                <text x="70" y="124" fill="#8b9390" font-family="IBM Plex Mono, monospace" font-size="10">chain intact</text>
-                                <circle cx="280" cy="95" r="36" fill="none" stroke="#8fd4c4" stroke-width="2"/>
-                                <path d="M264 96 L274 106 L298 80" fill="none" stroke="#8fd4c4" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-                                <text x="180" y="200" text-anchor="middle" fill="#8fd4c4" font-family="IBM Plex Mono, monospace" font-size="12">verified · no exposure</text>
+
+                            <!-- Ledger chain -->
+                            <g class="fia-chain">
+                                <text class="fia-lbl fia-lbl--accent" x="24" y="316">ImmutableQC ledger</text>
+                                <text class="fia-lbl fia-intact" id="fiaIntact" x="548" y="316" text-anchor="end">chain intact ✓</text>
+
+                                <g class="fia-blk fia-blk--prev">
+                                    <rect x="24" y="328" width="96" height="48" rx="8"/>
+                                    <text x="36" y="347">#0041</text>
+                                    <text class="fia-blk-sub" x="36" y="362">prev · a7f3…c91b</text>
+                                </g>
+                                <line class="fia-lnk" id="fiaLnk1" x1="120" y1="352" x2="132" y2="352"/>
+                                <g class="fia-blk" id="fiaBlk1">
+                                    <rect x="132" y="328" width="96" height="48" rx="8"/>
+                                    <text x="144" y="347">#0042 · INJ</text>
+                                    <text class="fia-blk-sub" x="144" y="362">14:22:07.318Z</text>
+                                </g>
+                                <line class="fia-lnk" id="fiaLnk2" x1="228" y1="352" x2="240" y2="352"/>
+                                <g class="fia-blk" id="fiaBlk2">
+                                    <rect x="240" y="328" width="96" height="48" rx="8"/>
+                                    <text x="252" y="347">#0043 · PEAKS</text>
+                                    <text class="fia-blk-sub" x="252" y="362">3 peaks · RT H A</text>
+                                </g>
+                                <line class="fia-lnk" id="fiaLnk3" x1="336" y1="352" x2="348" y2="352"/>
+                                <g class="fia-blk" id="fiaBlk3">
+                                    <rect x="348" y="328" width="96" height="48" rx="8"/>
+                                    <text x="360" y="347">#0044 · RPT</text>
+                                    <text class="fia-blk-sub" x="360" y="362">sha256:9c2e…41b7</text>
+                                </g>
+                                <line class="fia-lnk" id="fiaLnk4" x1="444" y1="352" x2="456" y2="352"/>
+                                <g class="fia-blk fia-blk--amd" id="fiaBlk4">
+                                    <rect x="456" y="328" width="96" height="48" rx="8"/>
+                                    <text x="468" y="347">#0045 · AMD</text>
+                                    <text class="fia-blk-sub" x="468" y="362">refs #0044 · v2</text>
+                                </g>
+                                <path class="fia-back" id="fiaBack" d="M 504 376 C 504 398 396 398 396 378" pathLength="100" marker-end="url(#fiaArrow)"/>
                             </g>
                         </svg>
-                        <p class="demo-tag">DEMO · SYNTHETIC</p>
+                        <div class="how__foot">
+                            <span class="demo-tag">Demo · synthetic</span>
+                            <span class="how__hint" id="howHint">Scroll to run the sequence</span>
+                        </div>
+                    </div>
                     </div>
                 </div>
                 </div>
