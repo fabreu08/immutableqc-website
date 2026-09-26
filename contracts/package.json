@@ -1,0 +1,19 @@
+{
+  "name": "immutableqc-contracts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "RootRegistry attestation contract for Immutable QC (Filecoin EVM)",
+  "license": "(MIT OR Apache-2.0)",
+  "scripts": {
+    "build": "node build.js",
+    "test": "node test.js"
+  },
+  "devDependencies": {
+    "@ethereumjs/block": "^5.3.0",
+    "@ethereumjs/common": "^4.4.0",
+    "@ethereumjs/util": "^9.1.0",
+    "@ethereumjs/vm": "^8.1.1",
+    "ethers": "^6.13.0",
+    "solc": "0.8.28"
+  }
+}

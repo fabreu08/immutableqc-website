@@ -1,6 +1,8 @@
 /* Immutable QC Open Alpha console
    Synthetic lab: signed QC packets, hash-chained ledger, Merkle commitments,
-   optional testnet publish. Everything runs in the browser. No accounts. */
+   optional publish to the RootRegistry contract on the Filecoin EVM.
+   Everything runs in the browser. No accounts. Requires registry-artifact.js
+   and registry-abi.js to be loaded first. */
 (function () {
   "use strict";
 
@@ -9,18 +11,41 @@
   var VERSION = "0.1";
   var BATCH_SIZE = 3;
 
-  var BASE_SEPOLIA = {
-    chainId: "0x14a34",
-    chainIdDec: 84532,
-    chainName: "Base Sepolia",
-    rpcUrls: ["https://sepolia.base.org"],
-    nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
-    blockExplorerUrls: ["https://sepolia.basescan.org"],
-    faucet: "https://www.coinbase.com/faucets/base-ethereum-sepolia-faucet",
-    // Coinbase/smart wallets reject calldata to the user's own account.
-    // Publish sends 0-ETH + root calldata to this public sink instead (testnet attestation).
-    attestationSink: "0x000000000000000000000000000000000000dEaD",
+  /* Filecoin EVM networks. Roots are published to the RootRegistry contract
+     (contracts/RootRegistry.sol). `registry` is the deployed address; null means
+     the console will offer to deploy one from the connected wallet. */
+  var NETWORKS = {
+    calibration: {
+      key: "calibration",
+      chainId: "0x4cb2f",
+      chainIdDec: 314159,
+      chainName: "Filecoin Calibration",
+      shortName: "Calibration",
+      rpcUrls: ["https://api.calibration.node.glif.io/rpc/v1"],
+      nativeCurrency: { name: "Test Filecoin", symbol: "tFIL", decimals: 18 },
+      blockExplorerUrls: ["https://filecoin-testnet.blockscout.com"],
+      faucet: "https://faucet.calibnet.chainsafe-fil.io/funds.html",
+      label: "TESTNET",
+      registry: null,
+    },
+    mainnet: {
+      key: "mainnet",
+      chainId: "0x13a",
+      chainIdDec: 314,
+      chainName: "Filecoin Mainnet",
+      shortName: "Filecoin",
+      rpcUrls: ["https://api.node.glif.io/rpc/v1"],
+      nativeCurrency: { name: "Filecoin", symbol: "FIL", decimals: 18 },
+      blockExplorerUrls: ["https://filecoin.blockscout.com"],
+      faucet: null,
+      label: "MAINNET",
+      registry: null,
+    },
   };
+  var NET = NETWORKS.calibration;
+  var EPOCH_MS = 30000; // Filecoin block time
+  var RECEIPT_POLL_MS = 5000;
+  var RECEIPT_TIMEOUT_MS = 8 * 60 * 1000;
 
   var INSTRUMENTS = [
     { id: "HPLC-01", name: "Alliance HPLC", type: "HPLC", protocol: "TCP/IP", firmware: "emp3-4.2.1", captureStatus: "in-progress", heartbeatAgoMs: 140000 },
@@ -86,6 +111,8 @@
     bootError: null,
     verifyOut: null,
     wallet: { address: null, chainId: null, status: "disconnected", error: null, publishingId: null, lastTxHash: null, lastPublishError: null },
+    registry: { address: null, txHash: null, deployedBy: null, deployed_at: null, status: "none", error: null, count: null },
+    registryCheck: null,
   };
 
   /* ---------------- crypto ---------------- */
@@ -317,8 +344,22 @@
     return commitIfDue(nextPackets, commitments.concat(commitment));
   }
 
-  async function seed() {
-    var now = Date.now();
+  /* The seed clock is pinned per browser so seeded record hashes (and therefore
+     Merkle roots) stay stable across reloads. That is what lets a published root
+     keep its on-chain status after a refresh. Reset lab re-pins it. */
+  var SEED_EPOCH_KEY = "iqc-seed-epoch-v1";
+  function seedEpoch(fresh) {
+    var v = null;
+    try { v = fresh ? null : Number(localStorage.getItem(SEED_EPOCH_KEY)); } catch (err) { v = null; }
+    if (!v || !isFinite(v)) {
+      v = Date.now();
+      try { localStorage.setItem(SEED_EPOCH_KEY, String(v)); } catch (err) { /* private mode */ }
+    }
+    return v;
+  }
+
+  async function seed(fresh) {
+    var now = seedEpoch(fresh);
     var drafts = [
       { inst: "HPLC-01", n: 0, agoMin: 372 },
       { inst: "MS-02", n: 0, agoMin: 325 },
@@ -511,7 +552,7 @@
 
   async function resetLab() {
     try {
-      var seeded = await seed();
+      var seeded = await seed(true);
       state.packets = seeded.packets;
       state.commitments = restoreOnchain(seeded.commitments);
       state.chain = await verifyChain(state.packets);
@@ -551,7 +592,9 @@
 
   /* ---------------- on-chain store ---------------- */
 
-  var ONCHAIN_STORE_KEY = "iqc-onchain-v1";
+  // v2: keyed per network; entries carry a status (submitted → included → verified).
+  var ONCHAIN_STORE_KEY = "iqc-onchain-v2-" + NET.key;
+  var REGISTRY_STORE_KEY = "iqc-registry-v1-" + NET.key;
 
   function loadOnchainStore() {
     try { return JSON.parse(localStorage.getItem(ONCHAIN_STORE_KEY) || "{}") || {}; } catch (err) { return {}; }
@@ -570,7 +613,7 @@
     var store = loadOnchainStore();
     return commitments.map(function (c) {
       var hit = store[c.id] || store["root:" + c.merkle_root];
-      if (!hit) return c;
+      if (!hit || hit.chainId !== NET.chainIdDec) return c;
       var q = {};
       for (var k in c) if (Object.prototype.hasOwnProperty.call(c, k)) q[k] = c[k];
       q.onchain = hit;
@@ -578,10 +621,53 @@
     });
   }
 
+  function loadRegistry() {
+    var saved = null;
+    try { saved = JSON.parse(localStorage.getItem(REGISTRY_STORE_KEY) || "null"); } catch (err) { saved = null; }
+    if (saved && saved.address && isAddress(saved.address)) {
+      state.registry = { address: saved.address, txHash: saved.txHash || null, deployedBy: saved.deployedBy || null, deployed_at: saved.deployed_at || null, status: "ready", error: null, count: null };
+    } else if (NET.registry) {
+      state.registry = { address: NET.registry, txHash: null, deployedBy: null, deployed_at: null, status: "ready", error: null, count: null };
+    }
+  }
+  function saveRegistry() {
+    try {
+      if (state.registry.address) localStorage.setItem(REGISTRY_STORE_KEY, JSON.stringify({ address: state.registry.address, txHash: state.registry.txHash, deployedBy: state.registry.deployedBy, deployed_at: state.registry.deployed_at }));
+      else localStorage.removeItem(REGISTRY_STORE_KEY);
+    } catch (err) { /* private mode */ }
+  }
+  function isAddress(a) { return /^0x[0-9a-fA-F]{40}$/.test(String(a || "")); }
+  function registryAddress() { return state.registry && state.registry.address ? state.registry.address : null; }
+
+  /* ---------------- JSON-RPC (wallet first, public RPC fallback) ---------------- */
+
+  var rpcId = 1;
+  async function rpcCall(method, params) {
+    var eth = ethereum();
+    if (eth && state.wallet.address && onCorrectChain()) {
+      return eth.request({ method: method, params: params || [] });
+    }
+    var res = await fetch(NET.rpcUrls[0], {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: rpcId++, method: method, params: params || [] }),
+    });
+    var json = await res.json();
+    if (json.error) {
+      var e = new Error(json.error.message || "RPC error");
+      e.code = json.error.code;
+      e.data = json.error.data;
+      throw e;
+    }
+    return json.result;
+  }
+
+  function hexToInt(h) { return h === null || h === undefined ? null : parseInt(String(h), 16); }
+
   /* ---------------- wallet (MetaMask / EIP-6963) ---------------- */
 
   function onCorrectChain() {
-    return Number(state.wallet.chainId) === BASE_SEPOLIA.chainIdDec || state.wallet.chainId === BASE_SEPOLIA.chainId;
+    return Number(state.wallet.chainId) === NET.chainIdDec || state.wallet.chainId === NET.chainId;
   }
 
   var eip6963Providers = [];
@@ -661,16 +747,16 @@
     return eth;
   }
 
-  async function ensureBaseSepolia() {
+  async function ensureNetwork() {
     var eth = ethereum() || (await resolveProvider(800));
     if (!eth) throw new Error("MetaMask not detected in this tab");
     try {
-      await eth.request({ method: "wallet_switchEthereumChain", params: [{ chainId: BASE_SEPOLIA.chainId }] });
+      await eth.request({ method: "wallet_switchEthereumChain", params: [{ chainId: NET.chainId }] });
     } catch (err) {
       if (err && (err.code === 4902 || String(err.message || "").indexOf("Unrecognized chain") !== -1)) {
         await eth.request({
           method: "wallet_addEthereumChain",
-          params: [{ chainId: BASE_SEPOLIA.chainId, chainName: BASE_SEPOLIA.chainName, rpcUrls: BASE_SEPOLIA.rpcUrls, nativeCurrency: BASE_SEPOLIA.nativeCurrency, blockExplorerUrls: BASE_SEPOLIA.blockExplorerUrls }],
+          params: [{ chainId: NET.chainId, chainName: NET.chainName, rpcUrls: NET.rpcUrls, nativeCurrency: NET.nativeCurrency, blockExplorerUrls: NET.blockExplorerUrls }],
         });
       } else {
         throw err;
@@ -678,6 +764,7 @@
     }
     state.wallet.chainId = await eth.request({ method: "eth_chainId" });
   }
+  var wrongNetworkMsg = "Wrong network. Switch to " + NET.chainName + " to publish.";
 
   async function connectWallet() {
     state.wallet.error = null;
@@ -693,9 +780,9 @@
       }
       var accounts = await eth.request({ method: "eth_requestAccounts" });
       state.wallet.address = (accounts && accounts[0]) || null;
-      await ensureBaseSepolia();
+      await ensureNetwork();
       state.wallet.status = state.wallet.address ? "connected" : "disconnected";
-      if (!onCorrectChain()) state.wallet.error = "Wrong network. Switch to Base Sepolia (testnet) to publish.";
+      if (!onCorrectChain()) state.wallet.error = wrongNetworkMsg;
       attachWalletListeners();
     } catch (err) {
       state.wallet.status = "disconnected";
@@ -745,13 +832,138 @@
         });
         eth.on("chainChanged", function (chainId) {
           state.wallet.chainId = chainId;
-          state.wallet.error = onCorrectChain() ? null : "Wrong network. Switch to Base Sepolia (testnet) to publish.";
+          state.wallet.error = onCorrectChain() ? null : wrongNetworkMsg;
           render();
         });
       }
     } catch (err) {
       console.warn("IQC wallet listeners skipped", err);
     }
+  }
+
+  /* ---------------- registry: deploy, publish, track, verify ----------------
+     UX rule: nothing blocks on the chain. Sealing is local and instant. Publishing
+     returns as soon as the wallet hands back a tx hash ("submitted"); a background
+     poll upgrades the status to "included" when the receipt lands (~1-2 Filecoin
+     epochs) and "verified" once the registry reports the root via eth_call. */
+
+  async function requireWallet() {
+    if (!state.wallet.address) {
+      await connectWallet();
+      if (!state.wallet.address) return null;
+    }
+    var eth = (await resolveProvider(1500)) || ethereum();
+    if (!eth || typeof eth.request !== "function") {
+      state.wallet.status = "missing";
+      state.wallet.error = providerErrorMessage();
+      return null;
+    }
+    await ensureNetwork();
+    if (!onCorrectChain()) {
+      state.wallet.error = wrongNetworkMsg;
+      return null;
+    }
+    return eth;
+  }
+
+  function walletErrorText(err, verb) {
+    var msg = (err && (err.message || (err.data && err.data.message))) || String(err);
+    var low = msg.toLowerCase();
+    if (low.indexOf("insufficient funds") !== -1 || low.indexOf("insufficient balance") !== -1 || low.indexOf("not enough funds") !== -1 || (err && err.code === -32000)) {
+      return "Needs " + NET.nativeCurrency.symbol + " to " + verb + "." + (NET.faucet ? " Get test FIL from the faucet, then retry." : "");
+    }
+    if (low.indexOf("user rejected") !== -1 || low.indexOf("user denied") !== -1 || (err && err.code === 4001)) return (verb === "deploy" ? "Deploy" : "Publish") + " cancelled in the wallet.";
+    if (low.indexOf("rootalreadyattested") !== -1 || low.indexOf("already attested") !== -1) return "This root is already attested in the registry.";
+    return msg;
+  }
+
+  async function sendTx(eth, txParams) {
+    try {
+      var gas = await eth.request({ method: "eth_estimateGas", params: [txParams] });
+      if (gas) txParams.gas = gas;
+    } catch (err) {
+      // A failed estimate on Filecoin almost always means the call would revert. Surface it.
+      var m = String((err && (err.message || (err.data && err.data.message))) || "");
+      if (/revert|RootAlreadyAttested|EmptyRoot|execution failed/i.test(m)) throw err;
+    }
+    return eth.request({ method: "eth_sendTransaction", params: [txParams] });
+  }
+
+  async function waitForReceipt(txHash, onTick) {
+    var started = Date.now();
+    while (Date.now() - started < RECEIPT_TIMEOUT_MS) {
+      var receipt = null;
+      try { receipt = await rpcCall("eth_getTransactionReceipt", [txHash]); } catch (err) { receipt = null; }
+      if (receipt && receipt.blockNumber) return receipt;
+      if (onTick) onTick(Date.now() - started);
+      await wait(RECEIPT_POLL_MS);
+    }
+    return null;
+  }
+
+  async function deployRegistry() {
+    if (!window.IQC_REGISTRY || !window.IQC_REGISTRY.bytecode) {
+      state.registry.error = "Registry artifact missing (registry-artifact.js). Rebuild with contracts/build.js.";
+      render();
+      return null;
+    }
+    state.registry.error = null;
+    state.registry.status = "deploying";
+    render();
+    try {
+      var eth = await requireWallet();
+      if (!eth) { state.registry.status = registryAddress() ? "ready" : "none"; render(); return null; }
+      var txHash = await sendTx(eth, { from: state.wallet.address, data: window.IQC_REGISTRY.bytecode, value: "0x0" });
+      state.registry.txHash = txHash;
+      state.registry.deployedBy = state.wallet.address;
+      state.registry.status = "confirming";
+      toast("Registry deploy submitted. Waiting for a Filecoin epoch…", "ok");
+      render();
+      var receipt = await waitForReceipt(txHash);
+      if (!receipt) throw new Error("Deploy not confirmed after " + Math.round(RECEIPT_TIMEOUT_MS / 60000) + " min. Check the explorer and paste the address in Settings.");
+      if (receipt.status && hexToInt(receipt.status) === 0) throw new Error("Deploy transaction reverted.");
+      if (!receipt.contractAddress) throw new Error("Deploy confirmed but no contract address in the receipt.");
+      state.registry.address = receipt.contractAddress;
+      state.registry.deployed_at = new Date().toISOString();
+      state.registry.status = "ready";
+      saveRegistry();
+      toast("RootRegistry live at " + shortAddr(receipt.contractAddress) + ".", "ok");
+      render();
+      refreshRegistryCount();
+      return receipt.contractAddress;
+    } catch (err) {
+      state.registry.error = walletErrorText(err, "deploy");
+      state.registry.status = registryAddress() ? "ready" : "none";
+      render();
+      return null;
+    }
+  }
+
+  function useRegistryAddress(addr) {
+    addr = String(addr || "").trim();
+    if (!isAddress(addr)) { state.registry.error = "Enter a 0x address (40 hex characters)."; render(); return false; }
+    state.registry = { address: addr, txHash: null, deployedBy: null, deployed_at: new Date().toISOString(), status: "ready", error: null, count: null };
+    saveRegistry();
+    toast("Registry set to " + shortAddr(addr) + ".", "ok");
+    render();
+    refreshRegistryCount();
+    return true;
+  }
+
+  function forgetRegistry() {
+    state.registry = { address: null, txHash: null, deployedBy: null, deployed_at: null, status: "none", error: null, count: null };
+    saveRegistry();
+    render();
+  }
+
+  async function refreshRegistryCount() {
+    var addr = registryAddress();
+    if (!addr || !window.IQC_ABI) return;
+    try {
+      var out = await rpcCall("eth_call", [{ to: addr, data: window.IQC_ABI.encodeCount() }, "latest"]);
+      state.registry.count = window.IQC_ABI.decodeUint(out);
+      render();
+    } catch (err) { /* read-only nicety */ }
   }
 
   async function publishCommitment(id) {
@@ -763,71 +975,109 @@
     state.wallet.publishingId = id;
     render();
     try {
-      if (!state.wallet.address) {
-        await connectWallet();
-        if (!state.wallet.address) { state.wallet.publishingId = null; render(); return; }
+      var eth = await requireWallet();
+      if (!eth) { state.wallet.publishingId = null; render(); return; }
+      if (!registryAddress()) {
+        toast("No registry yet. Deploying one from your wallet first…", "ok");
+        var deployed = await deployRegistry();
+        if (!deployed) { state.wallet.error = state.registry.error || "Registry deploy did not complete."; state.wallet.publishingId = null; render(); return; }
       }
-      var eth = (await resolveProvider(1500)) || ethereum();
-      if (!eth || typeof eth.request !== "function") {
-        state.wallet.status = "missing";
-        state.wallet.error = providerErrorMessage();
-        state.wallet.publishingId = null;
-        render();
-        return;
-      }
-      await ensureBaseSepolia();
-      if (!onCorrectChain()) {
-        state.wallet.error = "Wrong network. Switch to Base Sepolia before publishing.";
-        state.wallet.publishingId = null;
-        render();
-        return;
-      }
+      if (!window.IQC_ABI) throw new Error("ABI codec missing (registry-abi.js).");
       var rootHex = c.merkle_root.indexOf("0x") === 0 ? c.merkle_root : "0x" + c.merkle_root;
-      var sink = BASE_SEPOLIA.attestationSink;
-      var txParams = { from: state.wallet.address, to: sink, value: "0x0", data: rootHex };
-      try {
-        var gas = await eth.request({ method: "eth_estimateGas", params: [txParams] });
-        if (gas) txParams.gas = gas;
-      } catch (err) { /* wallet estimates */ }
-      var txHash;
-      try {
-        txHash = await eth.request({ method: "eth_sendTransaction", params: [txParams] });
-      } catch (err) {
-        var m = String((err && (err.message || (err.data && err.data.message))) || err || "");
-        if (/cannot include data/i.test(m)) {
-          throw new Error("This wallet blocks calldata to your own account. Publishing targets a public sink (" + sink + "). Hard-refresh and retry, or use the MetaMask extension (EOA) on Base Sepolia.");
-        }
-        throw err;
-      }
+      var data = window.IQC_ABI.encodeAttest(rootHex, c.from_seq, c.to_seq, c.id);
+      var txHash = await sendTx(eth, { from: state.wallet.address, to: registryAddress(), value: "0x0", data: data });
       c.onchain = {
-        network: "Base Sepolia",
-        chainId: BASE_SEPOLIA.chainIdDec,
+        status: "submitted",
+        network: NET.chainName,
+        chainId: NET.chainIdDec,
+        registry: registryAddress(),
         txHash: txHash,
         merkle_root: c.merkle_root,
-        to: sink,
-        published_at: new Date().toISOString(),
-        label: "TESTNET",
-        explorer: basescanTxUrl(txHash),
+        submitted_at: new Date().toISOString(),
+        published_at: null,
+        blockNumber: null,
+        label: NET.label,
+        explorer: explorerTxUrl(txHash),
       };
       persistOnchain(c);
       state.wallet.lastTxHash = txHash;
       state.view = "registry";
-      toast("Root published on Base Sepolia.", "ok");
+      toast("Root submitted to " + NET.shortName + ". Confirming in the background.", "ok");
+      trackCommitment(c);
     } catch (err) {
-      var msg = (err && (err.message || (err.data && err.data.message))) || String(err);
-      var low = msg.toLowerCase();
-      if (low.indexOf("insufficient funds") !== -1 || low.indexOf("insufficient balance") !== -1 || (err && err.code === -32000)) {
-        state.wallet.error = "Needs Base Sepolia ETH to publish. Get testnet ETH from a faucet, then retry.";
-      } else if (low.indexOf("user rejected") !== -1 || (err && err.code === 4001)) {
-        state.wallet.error = "Publish cancelled in the wallet.";
-      } else if (low.indexOf("cannot include data") !== -1) {
-        state.wallet.error = "Wallet blocked calldata to your account. Hard-refresh; publish targets a public sink. Prefer a MetaMask EOA if it still fails.";
-      } else {
-        state.wallet.error = msg;
-      }
+      state.wallet.error = walletErrorText(err, "publish");
       state.wallet.lastPublishError = state.wallet.error;
     }
     state.wallet.publishingId = null;
+    render();
+  }
+
+  var tracking = {};
+  async function trackCommitment(c) {
+    if (!c || !c.onchain || !c.onchain.txHash || tracking[c.id]) return;
+    tracking[c.id] = true;
+    try {
+      if (c.onchain.status === "submitted") {
+        var receipt = await waitForReceipt(c.onchain.txHash);
+        if (!receipt) { c.onchain.status = "stalled"; persistOnchain(c); render(); return; }
+        if (receipt.status && hexToInt(receipt.status) === 0) { c.onchain.status = "failed"; persistOnchain(c); render(); return; }
+        c.onchain.status = "included";
+        c.onchain.blockNumber = hexToInt(receipt.blockNumber);
+        c.onchain.published_at = new Date().toISOString();
+        persistOnchain(c);
+        render();
+      }
+      if (c.onchain.status === "included") {
+        var check = await checkRegistry(c.merkle_root, c.onchain.registry);
+        if (check && check.attested) {
+          c.onchain.status = "verified";
+          c.onchain.publisher = check.publisher;
+          c.onchain.chainTimestamp = check.timestamp;
+          c.onchain.blockNumber = check.blockNumber || c.onchain.blockNumber;
+          persistOnchain(c);
+          render();
+          refreshRegistryCount();
+        }
+      }
+    } finally {
+      delete tracking[c.id];
+    }
+  }
+
+  /* Read the registry directly. Works without a wallet (public RPC), so an auditor
+     can confirm a root from a plain browser tab. */
+  async function checkRegistry(root, addr) {
+    addr = addr || registryAddress();
+    if (!addr || !window.IQC_ABI) return null;
+    var rootHex = String(root).indexOf("0x") === 0 ? root : "0x" + root;
+    var out = await rpcCall("eth_call", [{ to: addr, data: window.IQC_ABI.encodeAttestation(rootHex) }, "latest"]);
+    var a = window.IQC_ABI.decodeAttestation(out);
+    var attested = /[1-9a-f]/i.test(a.publisher.slice(2));
+    return { attested: attested, publisher: attested ? a.publisher : null, blockNumber: a.blockNumber, timestamp: a.timestamp, fromSeq: a.fromSeq, toSeq: a.toSeq, registry: addr };
+  }
+
+  async function checkCommitmentOnChain(c) {
+    if (!c) return;
+    var addr = (c.onchain && c.onchain.registry) || registryAddress();
+    state.registryCheck = { id: c.id, pending: true };
+    render();
+    try {
+      if (!addr) throw new Error("No registry address configured.");
+      var r = await checkRegistry(c.merkle_root, addr);
+      state.registryCheck = { id: c.id, pending: false, ok: r.attested, text: r.attested
+        ? "Root found in registry " + shortAddr(addr) + " · published by " + shortAddr(r.publisher) + " · epoch " + r.blockNumber + " · " + fmtTimeS(new Date(r.timestamp * 1000).toISOString()) + " · seq " + r.fromSeq + "–" + r.toSeq
+        : "Root not found in registry " + shortAddr(addr) + "." };
+      if (r.attested && c.onchain && c.onchain.status !== "verified") {
+        c.onchain.status = "verified";
+        c.onchain.publisher = r.publisher;
+        c.onchain.chainTimestamp = r.timestamp;
+        c.onchain.blockNumber = r.blockNumber;
+        persistOnchain(c);
+        refreshRegistryCount();
+      }
+    } catch (err) {
+      state.registryCheck = { id: c.id, pending: false, ok: false, text: "Registry read failed: " + ((err && err.message) || String(err)) };
+    }
     render();
   }
 
@@ -839,9 +1089,18 @@
   }
   function shortHash(h) { h = String(h || ""); return h.length > 16 ? h.slice(0, 10) + "…" + h.slice(-4) : h; }
   function shortAddr(a) { return a ? a.slice(0, 6) + "…" + a.slice(-4) : ""; }
-  function basescanTxUrl(txHash) {
+  function explorerTxUrl(txHash) {
     var h = String(txHash || "");
-    return "https://sepolia.basescan.org/tx/" + (h.indexOf("0x") === 0 ? h : "0x" + h);
+    return NET.blockExplorerUrls[0] + "/tx/" + (h.indexOf("0x") === 0 ? h : "0x" + h);
+  }
+  function explorerAddressUrl(addr) { return NET.blockExplorerUrls[0] + "/address/" + String(addr || ""); }
+  function onchainStatus(o) {
+    if (!o || !o.txHash) return { kind: "plain", text: "local" };
+    if (o.status === "verified") return { kind: "ok", text: "verified" };
+    if (o.status === "included") return { kind: "ok", text: "included" };
+    if (o.status === "failed") return { kind: "bad", text: "failed" };
+    if (o.status === "stalled") return { kind: "warn", text: "unconfirmed" };
+    return { kind: "warn", text: "submitted" };
   }
   function fmtTime(iso) {
     var d = new Date(iso);
@@ -970,7 +1229,7 @@
           : '<a class="chip chip--bad chip--btn" href="#ledger" data-action="nav" data-view="ledger"><span class="chip__dot"></span><span class="hide-sm">break at&nbsp;</span>seq ' + state.chain.breakAt + "</a>";
       var wallet;
       if (w.address) {
-        wallet = '<a class="chip ' + (onCorrectChain() ? "chip--ok" : "chip--warn") + ' chip--btn" href="#registry" data-action="nav" data-view="registry"><span class="chip__dot"></span>' + '<span class="hide-sm">' + (onCorrectChain() ? "Base Sepolia" : "wrong network") + " · </span>" + esc(shortAddr(w.address)) + "</a>";
+        wallet = '<a class="chip ' + (onCorrectChain() ? "chip--ok" : "chip--warn") + ' chip--btn" href="#registry" data-action="nav" data-view="registry"><span class="chip__dot"></span>' + '<span class="hide-sm">' + (onCorrectChain() ? NET.shortName : "wrong network") + " · </span>" + esc(shortAddr(w.address)) + "</a>";
       } else {
         wallet = '<button type="button" class="chip chip--btn" data-action="connect"><span class="chip__dot"></span>' + (w.status === "connecting" ? "connecting…" : 'connect<span class="hide-sm"> wallet</span>') + "</button>";
       }
@@ -1031,31 +1290,48 @@
         "<dt>root</dt><dd>" + copyBtn(last.merkle_root) + "</dd>" +
         "<dt>created</dt><dd>" + esc(fmtTime(last.created_at)) + "</dd>" +
         "</dl>";
-      if (last.onchain && last.onchain.txHash) body += renderPublishedTx(last.onchain);
+      if (last.onchain && last.onchain.txHash) body += renderPublishedTx(last.onchain, last);
       else body += '<div class="row-actions">' + publishButton(last) + '<a class="btn btn--secondary btn--sm" href="#registry" data-action="nav" data-view="registry">All commitments</a></div>';
     }
     var toward = pending % BATCH_SIZE;
     body += '<p class="note">' + toward + " of " + BATCH_SIZE + " records toward the next root.</p>" +
       '<div class="meter"><span style="width:' + Math.round((toward / BATCH_SIZE) * 100) + '%"></span></div>';
     if (state.wallet.error && state.wallet.publishingId === null) body += '<p class="bad note">' + esc(state.wallet.error) + faucetLink(state.wallet.error) + "</p>";
-    return '<div class="card"><div class="card__head"><p class="kicker">Registry · Base Sepolia testnet</p>' + pill(publishedCount() ? "ok" : "plain", publishedCount() + " published") + "</div>" + body + "</div>";
+    return '<div class="card"><div class="card__head"><p class="kicker">Registry · ' + esc(NET.chainName) + '</p>' + pill(publishedCount() ? "ok" : "plain", publishedCount() + " published") + "</div>" + body + "</div>";
   }
 
   function faucetLink(err) {
-    return String(err || "").indexOf("Needs Base Sepolia ETH") !== -1 ? ' · <a href="' + BASE_SEPOLIA.faucet + '" target="_blank" rel="noopener">faucet</a>' : "";
+    return NET.faucet && String(err || "").indexOf("Needs " + NET.nativeCurrency.symbol) !== -1 ? ' · <a href="' + NET.faucet + '" target="_blank" rel="noopener">faucet</a>' : "";
   }
 
   function publishButton(c) {
     var publishing = state.wallet.publishingId === c.id;
-    var label = publishing ? "Publishing…" : state.wallet.address && onCorrectChain() ? "Publish root to Base Sepolia" : "Connect and publish root";
+    var label = publishing ? "Publishing…" : state.wallet.address && onCorrectChain() ? "Publish root to " + NET.shortName : "Connect and publish root";
     return '<button type="button" class="btn btn--primary btn--sm" data-action="publish" data-id="' + esc(c.id) + '"' + (publishing ? " disabled" : "") + ">" + label + "</button>";
   }
 
-  function renderPublishedTx(onchain) {
+  function renderPublishedTx(onchain, c) {
     if (!onchain || !onchain.txHash) return "";
-    return '<div class="tx-result"><p class="ok" style="margin:0">Published on Base Sepolia · testnet' + (onchain.published_at ? ' <span class="subtle">· ' + esc(fmtTime(onchain.published_at)) + "</span>" : "") + "</p>" +
-      '<p class="hash">tx ' + copyBtn(onchain.txHash) + "</p>" +
-      '<div class="row-actions"><a class="btn btn--secondary btn--sm" href="' + esc(basescanTxUrl(onchain.txHash)) + '" target="_blank" rel="noopener">View on Basescan</a></div></div>';
+    var st = onchainStatus(onchain);
+    var line;
+    if (onchain.status === "verified") line = "Verified in registry";
+    else if (onchain.status === "included") line = "Included on " + NET.chainName;
+    else if (onchain.status === "failed") line = "Transaction reverted";
+    else if (onchain.status === "stalled") line = "Not confirmed yet";
+    else line = "Submitted to " + NET.chainName;
+    var when = onchain.published_at || onchain.submitted_at;
+    var check = c && state.registryCheck && state.registryCheck.id === c.id ? state.registryCheck : null;
+    return '<div class="tx-result"><p class="' + (st.kind === "bad" ? "bad" : st.kind === "warn" ? "warn" : "ok") + '" style="margin:0">' + esc(line) +
+      (onchain.status === "submitted" ? ' <span class="subtle">· confirming, about ' + Math.round(EPOCH_MS / 1000) + ' s per epoch</span>' : "") +
+      (onchain.blockNumber ? ' <span class="subtle">· epoch ' + esc(onchain.blockNumber) + "</span>" : "") +
+      (when ? ' <span class="subtle">· ' + esc(fmtTime(when)) + "</span>" : "") + "</p>" +
+      '<p class="hash">tx ' + copyBtn(onchain.txHash) + (onchain.registry ? ' · registry ' + copyBtn(onchain.registry, esc(shortAddr(onchain.registry))) : "") + "</p>" +
+      '<div class="row-actions"><a class="btn btn--secondary btn--sm" href="' + esc(explorerTxUrl(onchain.txHash)) + '" target="_blank" rel="noopener">View on Blockscout</a>' +
+      (c ? '<button type="button" class="btn btn--secondary btn--sm" data-action="check-registry" data-id="' + esc(c.id) + '"' + (check && check.pending ? " disabled" : "") + ">" + (check && check.pending ? "Checking…" : "Check registry") + "</button>" : "") +
+      (onchain.status === "stalled" && c ? '<button type="button" class="btn btn--secondary btn--sm" data-action="track" data-id="' + esc(c.id) + '">Retry confirmation</button>' : "") +
+      "</div>" +
+      (check && !check.pending ? '<p class="note ' + (check.ok ? "ok" : "bad") + '">' + esc(check.text) + "</p>" : "") +
+      "</div>";
   }
 
   function viewDash() {
@@ -1190,9 +1466,9 @@
   function viewRegistry() {
     var pending = pendingCount();
     var w = state.wallet;
-    var walletCard = '<div class="card"><div class="card__head"><p class="kicker">Wallet · testnet only</p>' + (w.address ? pill(onCorrectChain() ? "ok" : "warn", onCorrectChain() ? "Base Sepolia" : "wrong network") : pill("plain", "not connected")) + "</div>" +
+    var walletCard = '<div class="card"><div class="card__head"><p class="kicker">Wallet · ' + esc(NET.label.toLowerCase()) + '</p>' + (w.address ? pill(onCorrectChain() ? "ok" : "warn", onCorrectChain() ? NET.shortName : "wrong network") : pill("plain", "not connected")) + "</div>" +
       (w.address
-        ? '<p class="lede" style="margin-top:10px"><span class="mono">' + esc(shortAddr(w.address)) + "</span> · publishing sends a 0-ETH transaction with the root in calldata to a public attestation sink. Not a token, not a mint.</p><div class=\"row-actions\">" + (!onCorrectChain() ? '<button type="button" class="btn btn--primary btn--sm" data-action="switch-chain">Switch to Base Sepolia</button>' : "") + '<button type="button" class="btn btn--secondary btn--sm" data-action="disconnect">Disconnect</button></div>'
+        ? '<p class="lede" style="margin-top:10px"><span class="mono">' + esc(shortAddr(w.address)) + "</span> · publishing calls <span class=\"mono\">attest()</span> on the RootRegistry contract with the Merkle root. Not a token, not a mint.</p><div class=\"row-actions\">" + (!onCorrectChain() ? '<button type="button" class="btn btn--primary btn--sm" data-action="switch-chain">Switch to ' + esc(NET.shortName) + '</button>' : "") + '<button type="button" class="btn btn--secondary btn--sm" data-action="disconnect">Disconnect</button></div>'
         : '<p class="lede" style="margin-top:10px">Connect MetaMask to publish Merkle roots. Reading and verifying never needs a wallet.</p><div class="row-actions"><button type="button" class="btn btn--primary btn--sm" data-action="connect">' + (w.status === "connecting" ? "Connecting…" : "Connect MetaMask") + '</button><a class="btn btn--secondary btn--sm" href="https://metamask.io/download/" target="_blank" rel="noopener">Get MetaMask</a></div>') +
       (w.error ? '<p class="note bad">' + esc(w.error) + faucetLink(w.error) + (w.status === "missing" ? ' · <a href="https://metamask.io/download/" target="_blank" rel="noopener">install</a>' : "") + "</p>" : "") + "</div>";
     var batchCard = '<div class="card"><p class="kicker">Next batch</p><div class="kpi__value" style="margin-top:8px">' + (pending % BATCH_SIZE) + ' <span class="subtle" style="font-size:1rem">/ ' + BATCH_SIZE + '</span></div><p class="note">Records sealed since the last root. A full batch is hashed into a Merkle root automatically.</p><div class="meter"><span style="width:' + Math.round(((pending % BATCH_SIZE) / BATCH_SIZE) * 100) + '%"></span></div><div class="row-actions"><a class="btn btn--secondary btn--sm" href="#instruments" data-action="nav" data-view="instruments">Ingest a run</a></div></div>';
@@ -1202,9 +1478,9 @@
       '<div class="section"><div class="section__head"><p class="kicker">Commitments</p><span class="subtle" style="font-size:.85rem">' + publishedCount() + " of " + state.commitments.length + " published</span></div>" +
       (list.length ? list.map(function (c) {
         var published = c.onchain && c.onchain.txHash;
-        return '<article class="card"><div class="card__head"><div><p class="kicker">' + esc(c.id) + '</p><span class="subtle" style="font-size:.85rem">' + esc(fmtTime(c.created_at)) + " · seq " + c.from_seq + "–" + c.to_seq + "</span></div>" + pill(published ? "ok" : "plain", published ? "on chain" : "local") + "</div>" +
+        return '<article class="card"><div class="card__head"><div><p class="kicker">' + esc(c.id) + '</p><span class="subtle" style="font-size:.85rem">' + esc(fmtTime(c.created_at)) + " · seq " + c.from_seq + "–" + c.to_seq + "</span></div>" + pill(onchainStatus(c.onchain).kind, onchainStatus(c.onchain).text) + "</div>" +
           '<dl class="kv" style="margin-top:12px"><dt>root</dt><dd class="hash--accent">' + copyBtn(c.merkle_root, esc(c.merkle_root)) + "</dd><dt>leaves</dt><dd>" + c.packet_ids.map(function (id) { return '<span class="copy" data-action="open-packet" data-id="' + esc(id) + '">' + esc(id) + "</span>"; }).join(" ") + "</dd></dl>" +
-          (published ? renderPublishedTx(c.onchain) : '<div class="row-actions">' + publishButton(c) + "</div>") + "</article>";
+          (published ? renderPublishedTx(c.onchain, c) : '<div class="row-actions">' + publishButton(c) + "</div>") + "</article>";
       }).join("") : '<div class="empty">No commitments yet.</div>') + "</div>";
   }
 
@@ -1229,18 +1505,41 @@
         "<dt>prev hash</dt><dd>" + copyBtn(selected.hashes.prev_record_sha256) + "</dd>" +
         "<dt>signature</dt><dd>" + esc(selected.signature.alg) + " · " + esc(selected.signature.pubkey_fingerprint) + "</dd>" +
         "<dt>commitment</dt><dd>" + (c ? esc(c.id) + " · root " + copyBtn(c.merkle_root) : '<span class="subtle">not yet batched</span>') + "</dd>" +
-        "<dt>on chain</dt><dd>" + (c && c.onchain && c.onchain.txHash ? '<a href="' + esc(basescanTxUrl(c.onchain.txHash)) + '" target="_blank" rel="noopener" class="ok">Base Sepolia tx ' + esc(shortHash(c.onchain.txHash)) + "</a>" : '<span class="subtle">not published</span>') + "</dd>" +
+        "<dt>on chain</dt><dd>" + (c && c.onchain && c.onchain.txHash ? '<a href="' + esc(explorerTxUrl(c.onchain.txHash)) + '" target="_blank" rel="noopener" class="ok">' + esc(NET.shortName) + " tx " + esc(shortHash(c.onchain.txHash)) + "</a> · " + esc(onchainStatus(c.onchain).text) : '<span class="subtle">not published</span>') + "</dd>" +
+        "<dt>registry</dt><dd>" + ((c && c.onchain && c.onchain.registry) || registryAddress() ? '<a href="' + esc(explorerAddressUrl((c && c.onchain && c.onchain.registry) || registryAddress())) + '" target="_blank" rel="noopener">' + esc(shortAddr((c && c.onchain && c.onchain.registry) || registryAddress())) + "</a>" : '<span class="subtle">none configured</span>') + "</dd>" +
         "</dl>" +
         '<div class="row-actions"><button type="button" class="btn btn--primary btn--sm" data-action="verify-packet" data-id="' + esc(selected.packet_id) + '">Verify record</button></div>' +
         (state.verifyOut && state.verifyOut.id === selected.packet_id ? '<p class="note ' + (state.verifyOut.ok ? "ok" : "bad") + '">' + esc(state.verifyOut.text) + "</p>" : "") +
         "</div></div>" : "");
   }
 
+  function registrySettingsCard() {
+    var r = state.registry;
+    var body;
+    if (r.status === "deploying" || r.status === "confirming") {
+      body = '<p class="lede" style="margin-top:8px">' + (r.status === "deploying" ? "Confirm the deploy in your wallet…" : "Deploy submitted. Waiting for a Filecoin epoch (about " + Math.round(EPOCH_MS / 1000) + " s)…") + "</p>" +
+        (r.txHash ? '<p class="hash">tx ' + copyBtn(r.txHash) + ' · <a href="' + esc(explorerTxUrl(r.txHash)) + '" target="_blank" rel="noopener">explorer</a></p>' : "");
+    } else if (r.address) {
+      body = '<dl class="kv" style="margin-top:10px"><dt>address</dt><dd>' + copyBtn(r.address, esc(r.address)) + "</dd>" +
+        "<dt>roots</dt><dd>" + (r.count === null ? '<span class="subtle">reading…</span>' : esc(r.count) + " attested") + "</dd>" +
+        (r.deployedBy ? "<dt>deployed by</dt><dd>" + esc(shortAddr(r.deployedBy)) + (r.deployed_at ? ' <span class="subtle">· ' + esc(fmtTime(r.deployed_at)) + "</span>" : "") + "</dd>" : "") +
+        (r.txHash ? "<dt>deploy tx</dt><dd>" + copyBtn(r.txHash) + "</dd>" : "") + "</dl>" +
+        '<div class="row-actions"><a class="btn btn--secondary btn--sm" href="' + esc(explorerAddressUrl(r.address)) + '" target="_blank" rel="noopener">View on Blockscout</a><button type="button" class="btn btn--secondary btn--sm" data-action="refresh-registry">Refresh</button><button type="button" class="btn btn--secondary btn--sm" data-action="forget-registry">Forget</button></div>';
+    } else {
+      body = '<p class="lede" style="margin-top:8px">No RootRegistry on ' + esc(NET.chainName) + ' yet. Deploy one from your wallet (one transaction, needs a little ' + esc(NET.nativeCurrency.symbol) + '), or paste the address of an existing deployment.</p>' +
+        '<div class="row-actions"><button type="button" class="btn btn--primary btn--sm" data-action="deploy-registry">Deploy RootRegistry</button>' + (NET.faucet ? '<a class="btn btn--secondary btn--sm" href="' + NET.faucet + '" target="_blank" rel="noopener">Get ' + esc(NET.nativeCurrency.symbol) + '</a>' : "") + "</div>" +
+        '<form id="registryForm" style="margin-top:12px"><label class="field" for="registryAddr">Use existing registry</label><div class="row-actions"><input type="text" id="registryAddr" placeholder="0x…" spellcheck="false" autocomplete="off" style="flex:1;min-width:0"><button type="submit" class="btn btn--secondary btn--sm">Use</button></div></form>';
+    }
+    if (r.error) body += '<p class="note bad">' + esc(r.error) + faucetLink(r.error) + "</p>";
+    return '<div class="card"><div class="card__head"><p class="kicker">Registry contract · ' + esc(NET.chainName) + "</p>" + pill(r.address ? "ok" : "plain", r.address ? "ready" : r.status === "none" ? "not deployed" : r.status) + "</div>" + body + "</div>";
+  }
+
   function viewSettings() {
-    return '<div class="page-head"><div><p class="kicker">Workspace</p><h1>Settings</h1><p class="lede">Single-lab demo workspace. No accounts. Wallet connection is local to this tab.</p></div></div>' +
+    return '<div class="page-head"><div><p class="kicker">Workspace</p><h1>Settings</h1><p class="lede">Single-lab demo workspace. No accounts. Wallet connection and the registry address are local to this browser.</p></div></div>' +
       '<div class="grid-2 section"><form class="card" id="labForm"><p class="kicker">Lab</p><label class="field" for="lab">Lab name</label><input type="text" id="lab" value="' + esc(state.labName) + '"><div class="row-actions"><button type="submit" class="btn btn--primary btn--sm">Save</button></div></form>' +
-      '<div class="card"><p class="kicker">Data</p><p class="lede" style="margin-top:8px">Export the full ledger, commitments and verification state as JSON, or reseed the synthetic lab.</p><div class="row-actions"><button type="button" class="btn btn--primary btn--sm" data-action="export">Export audit bundle</button><button type="button" class="btn btn--secondary btn--sm" data-action="reset">Reset synthetic lab</button></div></div></div>' +
-      '<div class="card section"><p class="kicker">About this build</p><dl class="kv" style="margin-top:10px"><dt>version</dt><dd>Open alpha v' + VERSION + "</dd><dt>hashing</dt><dd>SHA-256 via " + (cryptoMode === "webcrypto" ? "Web Crypto" : "JavaScript fallback") + "</dd><dt>signing</dt><dd>DEMO-SHA256 · " + esc(DEMO_FP) + " (not production ECDSA)</dd><dt>batch size</dt><dd>" + BATCH_SIZE + " records per Merkle root</dd><dt>registry</dt><dd>Base Sepolia testnet · sink " + esc(shortAddr(BASE_SEPOLIA.attestationSink)) + "</dd></dl></div>";
+      registrySettingsCard() + "</div>" +
+      '<div class="card section"><p class="kicker">Data</p><p class="lede" style="margin-top:8px">Export the full ledger, commitments and verification state as JSON, or reseed the synthetic lab.</p><div class="row-actions"><button type="button" class="btn btn--primary btn--sm" data-action="export">Export audit bundle</button><button type="button" class="btn btn--secondary btn--sm" data-action="reset">Reset synthetic lab</button></div></div>' +
+      '<div class="card section"><p class="kicker">About this build</p><dl class="kv" style="margin-top:10px"><dt>version</dt><dd>Open alpha v' + VERSION + "</dd><dt>hashing</dt><dd>SHA-256 via " + (cryptoMode === "webcrypto" ? "Web Crypto" : "JavaScript fallback") + "</dd><dt>signing</dt><dd>DEMO-SHA256 · " + esc(DEMO_FP) + " (not production ECDSA)</dd><dt>batch size</dt><dd>" + BATCH_SIZE + " records per Merkle root</dd><dt>network</dt><dd>" + esc(NET.chainName) + " · chain id " + NET.chainIdDec + "</dd><dt>registry</dt><dd>" + (registryAddress() ? '<a href="' + esc(explorerAddressUrl(registryAddress())) + '" target="_blank" rel="noopener">' + esc(registryAddress()) + "</a>" : "not deployed") + "</dd><dt>contract</dt><dd>RootRegistry · solc " + esc((window.IQC_REGISTRY && window.IQC_REGISTRY.compiler || "?").split("+")[0]) + " · evm paris</dd></dl></div>";
   }
 
   /* ---------------- render ---------------- */
@@ -1275,6 +1574,7 @@
       try { history.replaceState(null, "", "#" + view); } catch (err) { /* ignore */ }
     }
     render();
+    if (view === "settings" && registryAddress()) refreshRegistryCount();
     var main = document.getElementById("app");
     if (main && opts && opts.scroll !== false) window.scrollTo({ top: 0, behavior: "auto" });
   }
@@ -1322,13 +1622,36 @@
         break;
       case "switch-chain":
         try {
-          await ensureBaseSepolia();
+          await ensureNetwork();
           state.wallet.error = onCorrectChain() ? null : "Still on the wrong network.";
         } catch (err) {
           state.wallet.error = (err && err.message) || String(err);
         }
         render();
         break;
+      case "deploy-registry":
+        await deployRegistry();
+        break;
+      case "forget-registry":
+        forgetRegistry();
+        break;
+      case "refresh-registry":
+        state.registry.count = null;
+        render();
+        await refreshRegistryCount();
+        break;
+      case "check-registry": {
+        var cc = null;
+        state.commitments.forEach(function (x) { if (x.id === id) cc = x; });
+        await checkCommitmentOnChain(cc);
+        break;
+      }
+      case "track": {
+        var ct = null;
+        state.commitments.forEach(function (x) { if (x.id === id) ct = x; });
+        if (ct && ct.onchain) { ct.onchain.status = "submitted"; persistOnchain(ct); render(); trackCommitment(ct); }
+        break;
+      }
       case "tamper":
         await tamper();
         break;
@@ -1409,6 +1732,11 @@
       toast("Lab name saved.", "ok");
       render();
     }
+    if (e.target.id === "registryForm") {
+      e.preventDefault();
+      var addrInput = document.getElementById("registryAddr");
+      useRegistryAddress(addrInput ? addrInput.value : "");
+    }
   });
 
   window.addEventListener("hashchange", function () {
@@ -1428,6 +1756,7 @@
     try {
       var id = location.hash.slice(1);
       if (NAV.some(function (n) { return n.id === id; })) state.view = id;
+      loadRegistry();
       var seeded = await seed();
       state.packets = seeded.packets;
       state.commitments = restoreOnchain(seeded.commitments);
@@ -1440,5 +1769,10 @@
     state.booting = false;
     window.__iqcBooted = true;
     render();
+    // Resume any publish that was still confirming when the tab closed. Never blocks the UI.
+    state.commitments.forEach(function (c) {
+      if (c.onchain && (c.onchain.status === "submitted" || c.onchain.status === "included")) trackCommitment(c);
+    });
+    refreshRegistryCount();
   })();
 })();

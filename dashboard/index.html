@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Immutable QC | Open Alpha console</title>
-  <meta name="description" content="Immutable QC Open Alpha: synthetic laboratory integrity console with a hash-chained ledger and testnet registry.">
+  <meta name="description" content="Immutable QC Open Alpha: synthetic laboratory integrity console with a hash-chained ledger and a Merkle-root registry on the Filecoin EVM.">
   <meta name="theme-color" content="#07090b">
   <meta name="robots" content="noindex">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css?v=20260921">
-  <link rel="stylesheet" href="/dashboard/console.css?v=20260921">
+  <link rel="stylesheet" href="/dashboard/console.css?v=20260926">
   <script>
     // Keep the trailing slash so relative assets never break.
     if (location.pathname === '/dashboard') {
@@ -61,7 +61,7 @@
       <nav class="side__nav" id="nav" aria-label="Console sections"></nav>
       <div class="side__foot">
         <div class="side__status" id="sideStatus"></div>
-        <p class="side__disclaimer">Demo · synthetic data. Signatures are SHA-256 demo keys, not production ECDSA. Registry writes go to Base Sepolia testnet only.</p>
+        <p class="side__disclaimer">Demo · synthetic data. Signatures are SHA-256 demo keys, not production ECDSA. Registry writes go to the Filecoin Calibration testnet only.</p>
       </div>
     </aside>
 
@@ -88,6 +88,8 @@
   </div>
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
   <noscript><div class="boot-fail"><p class="kicker">JavaScript required</p><p class="boot-fail__msg">The console signs and verifies records in your browser, so it needs JavaScript enabled.</p></div></noscript>
-  <script src="/dashboard/console.js?v=20260921"></script>
+  <script src="/dashboard/registry-artifact.js?v=20260926"></script>
+  <script src="/dashboard/registry-abi.js?v=20260926"></script>
+  <script src="/dashboard/console.js?v=20260926"></script>
 </body>
 </html>
