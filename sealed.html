@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How a record is sealed · Immutable QC</title>
+<meta name="description" content="The five sealed fields, the SHA-256 fingerprint, the link rule, demo signatures, corrections with a reason, anchoring, what a check shows, and the privacy note.">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#F4F6F5">
+<link rel="canonical" href="https://immutableqc.com/sealed.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Immutable QC">
+<meta property="og:title" content="How a record is sealed · Immutable QC">
+<meta property="og:description" content="The five sealed fields, the SHA-256 fingerprint, the link rule, demo signatures, corrections with a reason, anchoring, what a check shows, and the privacy note.">
+<meta property="og:url" content="https://immutableqc.com/sealed.html">
+<meta property="og:image" content="https://immutableqc.com/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="The Immutable QC mark and name, the tagline and the status line">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preload" href="fonts/archivo-c-115-620.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/site.css?v=6490e6b1">
+<script>(function(d){var c=d.documentElement.classList;c.add('js');try{if(!matchMedia('(prefers-reduced-motion: reduce)').matches)c.add('motion')}catch(e){}})(document)</script>
+<script defer src="assets/iqc.js?v=b3eb48d4"></script>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><symbol id="i-ok" viewBox="0 0 16 16"><path d="M2.5 8.5l3.5 3.5 7.5-8" fill="none" stroke="currentColor" stroke-width="2"/></symbol><symbol id="i-x" viewBox="0 0 16 16"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9" fill="none" stroke="currentColor" stroke-width="2"/></symbol><symbol id="i-dash" viewBox="0 0 16 16"><path d="M3.5 8h9" fill="none" stroke="currentColor" stroke-width="2"/></symbol><symbol id="i-open" viewBox="0 0 16 16"><circle cx="8" cy="8" r="4.5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-dasharray="2.4 1.8"/></symbol><symbol id="i-arrow" viewBox="0 0 16 16"><path d="M1.5 8h12M9 3.5L13.5 8 9 12.5" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol><symbol id="i-down" viewBox="0 0 16 16"><path d="M8 1.5v12M3.5 9L8 13.5 12.5 9" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol><symbol id="i-mark" viewBox="0 0 32 32"><circle cx="16" cy="16" r="16" style="fill:var(--plate-0)"/><circle cx="16" cy="16" r="9.5" style="fill:none;stroke:var(--ok);stroke-width:3"/><circle cx="16" cy="16" r="3.75" style="fill:var(--ok)"/></symbol></svg>
+
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+<div class="wrap top-in">
+<a class="brand" href="index.html"><svg class="mark" aria-hidden="true"><use href="#i-mark"/></svg><span>Immutable QC</span></a>
+<button class="menu-btn" type="button" aria-expanded="false" aria-controls="nav-list"><span class="bars" aria-hidden="true"></span>Contents</button>
+<nav class="nav" aria-label="Site">
+<ol class="nav-list" id="nav-list">
+<li><a href="index.html"><span class="id">OV-01</span><span class="t">Overview</span></a></li>
+<li><a href="sealed.html" aria-current="page"><span class="id">HS-01</span><span class="t">How a record is sealed</span></a></li>
+<li><a href="check.html"><span class="id">CK-01</span><span class="t">Check a record</span></a></li>
+<li><a href="regulatory.html"><span class="id">RM-01</span><span class="t">Regulatory map</span></a></li>
+<li><a href="roadmap.html"><span class="id">RD-01</span><span class="t">Roadmap</span></a></li>
+<li><a href="about.html"><span class="id">AB-01</span><span class="t">About</span></a></li>
+<li class="nav-demo"><a href="dashboard/"><span class="id">Demo</span><span class="t">Alpha console</span><span class="demo">Demo</span></a></li>
+</ol>
+</nav>
+</div>
+</header>
+
+<main id="main" tabindex="-1">
+<div class="wrap">
+<dl class="dochead">
+<div><dt>Document</dt><dd><span class="nw">IQC-HS-01</span></dd></div>
+<div><dt>Revision</dt><dd>Draft 2</dd></div>
+<div><dt>Updated</dt><dd>2026-10-06</dd></div>
+<div class="st"><dt>Status</dt><dd>Independent project · Open alpha · Public test network · Synthetic demo data · No customers yet</dd></div>
+</dl>
+
+<h1 class="h1-doc">How a record is sealed</h1>
+<section class="sec sec--side" aria-labelledby="s1-h">
+<h2 id="s1-h"><span class="no">1</span>Scope</h2>
+<div class="body">
+<p class="lead">How the alpha turns one result into a sealed record, step by step, with record 6 of the synthetic sequence <span class="nw">SEQ-0914-02</span> as the example. Every value on this page was computed and checked when the page was built; Check a record recomputes them in your browser.</p>
+</div>
+</section>
+<section class="sec sec--side" id="payload" aria-labelledby="s2-h">
+<h2 id="s2-h"><span class="no">2</span>The record payload</h2>
+<div class="body">
+<p>Five fields, joined with a vertical bar in this order, with no spaces: instrument, measurement type, value, unit and capture time (UTC, ISO 8601). For record 6, a peak area in counts:</p>
+<dl class="fields">
+<div><dt>instrumentId</dt><dd><span class="nw">HPLC-02</span></dd><dd class="d">instrument</dd></div>
+<div><dt>sensorType</dt><dd>hplc</dd><dd class="d">measurement type</dd></div>
+<div><dt>value</dt><dd>1508811</dd><dd class="d">peak area</dd></div>
+<div><dt>unit</dt><dd>counts</dd><dd class="d">unit</dd></div>
+<div><dt>capturedAt</dt><dd>2026-09-14T08:47:50Z</dd><dd class="d">capture time</dd></div>
+</dl>
+<p>The payload is the UTF-8 text below, 48 bytes:</p>
+<code class="p">HPLC-02|hplc|1508811|counts|2026-09-14T08:47:50Z</code>
+<p class="note"><span class="k">Basis</span>The payload the alpha app’s HPLC import seals for each peak area. The alpha records peak area with the unit “counts”.</p>
+</div>
+<h3 id="s21-h"><span class="no">2.1</span>What is not sealed yet</h3>
+<div class="body">
+<p>Injection, sample id and retention time are shown beside each record as context; they are not inside the seal. The alpha app keeps retention time unsealed and does not keep sample or method yet. Sealing sample and method metadata inside the record is on the roadmap.</p>
+</div>
+</section>
+<section class="sec sec--side" id="fingerprint" aria-labelledby="s3-h">
+<h2 id="s3-h"><span class="no">3</span>The fingerprint</h2>
+<div class="body">
+<p>r<sub>6</sub> is the <span class="nw">SHA-256</span> of the payload, written as 64 lowercase hex characters:</p>
+<p class="hx-p"><span>eb1690bc</span><wbr><span>5922a312</span><wbr><span>d90ee139</span><wbr><span>fdf8e20b</span><wbr><span>92bf2cb0</span><wbr><span>feae8ee0</span><wbr><span>e70bd24f</span><wbr><span>bd2b54d7</span></p>
+<p>Change one character of any field and the fingerprint changes completely. Anyone who has the five fields can recompute it:</p>
+<pre class="rc-p"><code>printf '%s' 'HPLC-02|hplc|1508811|counts|2026-09-14T08:47:50Z' | sha256sum</code></pre>
+<p>On macOS, use <code>shasum -a 256</code>. A fingerprint is not encryption: anyone who can guess the fields can try them (section 9).</p>
+<p class="note"><span class="k">Basis</span><span class="nw">SHA-256</span>, <span class="nw">FIPS 180-4</span>.</p>
+</div>
+</section>
+<section class="sec sec--side" id="link" aria-labelledby="s4-h">
+<h2 id="s4-h"><span class="no">4</span>The link to the previous record</h2>
+<div class="body">
+<p>Each record also stores a link: h<sub>n</sub> is the <span class="nw">SHA-256</span> of h<sub>n−1</sub>, r<sub>n</sub> and n, written one after another as text (lowercase hex, then the decimal position), starting from 64 zeros at the start of record. A record stores the previous link it was built on and its own link; the next record stores that link as its previous one. For record 6:</p>
+<dl class="chainex">
+<div><dt>h<sub>5</sub> · previous link, stored with record 6</dt><dd class="hx-p"><span>c04af03f</span><wbr><span>4b9c69a3</span><wbr><span>0d06e27d</span><wbr><span>9906e4e7</span><wbr><span>f2bc176b</span><wbr><span>7ba0a212</span><wbr><span>582ad8c6</span><wbr><span>5f6bdfd5</span></dd></div>
+<div><dt>r<sub>6</sub> · fingerprint</dt><dd class="hx-p"><span>eb1690bc</span><wbr><span>5922a312</span><wbr><span>d90ee139</span><wbr><span>fdf8e20b</span><wbr><span>92bf2cb0</span><wbr><span>feae8ee0</span><wbr><span>e70bd24f</span><wbr><span>bd2b54d7</span></dd></div>
+<div><dt>position</dt><dd class="hx-p">6</dd></div>
+<div><dt>h<sub>6</sub> · link, carried by record 7</dt><dd class="hx-p"><span>c427b83a</span><wbr><span>4e29adf9</span><wbr><span>380bef67</span><wbr><span>d00302e1</span><wbr><span>2ddfd558</span><wbr><span>ae8f5a55</span><wbr><span>8547b2b0</span><wbr><span>cf3cba23</span></dd></div>
+</dl>
+<pre class="rc-p"><code>printf '%s' 'c04af03f4b9c69a30d06e27d9906e4e7f2bc176b7ba0a212582ad8c65f6bdfd5eb1690bc5922a312d90ee139fdf8e20b92bf2cb0feae8ee0e70bd24fbd2b54d76' | sha256sum</code></pre>
+</div>
+<h3 id="s41-h"><span class="no">4.1</span>How a checker reads the links</h3>
+<div class="body">
+<p>A checker recomputes each record’s link from the previous link that record stores, its recomputed fingerprint and its position, and compares the result with the link the record stores, which is also the link the next record carries. So a changed value fails that record’s fingerprint and signature and breaks one link: the link into the next record. The later records still pass their own checks.</p>
+<p>The change still shows across the whole history: replayed from 64 zeros over the recomputed fingerprints, the last link comes out different, so the head no longer matches the anchored fingerprint (section 7).</p>
+</div>
+</section>
+<section class="sec sec--side" id="signature" aria-labelledby="s5-h">
+<h2 id="s5-h"><span class="no">5</span>The signature (demo)</h2>
+<div class="body">
+<p>Each fingerprint is signed with <span class="nw">ECDSA P-256</span> over its 32 bytes. On these pages, records 1 to 8 were signed when the site was built, by a demo key whose private half was then discarded. Its public key ships with the pages that check it. That shows the method but is not independent evidence: in use, the key would be published outside the lab’s system. Demo signatures. In the alpha, one server key signs imported rows; per-analyst signatures are on the roadmap.</p>
+<p>In the record checker, an edited record’s signature still fails after the history is rewritten, but only because the demo key was discarded. In the alpha, whoever holds the one server key could re-sign an edited record; only a fingerprint anchored outside the lab beforehand would still disagree.</p>
+<p>A digital signature on a record’s bytes is not an electronic signature by a person under <span class="nw">21 CFR Part 11</span>.</p>
+<p class="note"><span class="k">Basis</span>ECDSA, <span class="nw">FIPS 186-5</span>. IEEE P1363 encoding. Demo key id 7A15F562….</p>
+</div>
+</section>
+<section class="sec sec--side" id="corrections" aria-labelledby="s6-h">
+<h2 id="s6-h"><span class="no">6</span>Corrections appended with a reason</h2>
+<div class="body">
+<p>A record is never edited in place. A correction is a new record, appended after the newest one, with the corrected value, its own fingerprint, link and signature, the reason for the change and the number of the record it corrects. The original stays as sealed and keeps passing its checks. The records already anchored still match the anchored fingerprint; the new head is not anchored until the next batch.</p>
+<p>On these pages the reason and the reference sit beside the seal, not inside it, because the alpha’s payload has five fields. The alpha console documents its own payload in its Method panel. The alpha app has no corrections yet.</p>
+<p><a class="xref" href="check.html#verifier"><span class="id"><span class="nw">IQC-CK-01</span></span><span>Try a correction on a record</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
+</div>
+</section>
+<section class="sec sec--side" id="anchoring" aria-labelledby="s7-h">
+<h2 id="s7-h"><span class="no">7</span>Anchoring a batch</h2>
+<div class="body">
+<p>Anchoring writes a batch fingerprint, with a time, somewhere the lab does not control, so that a later rewrite of the history shows. On these pages the batch fingerprint is the last link of the batch: the whole history replayed from 64 zeros up to record 8. It is stored on the page as the anchored fingerprint (simulated, no network call).</p>
+<p class="hx-p"><span>0a35688a</span><wbr><span>4c3ec82a</span><wbr><span>5e621ced</span><wbr><span>e1f173a6</span><wbr><span>d436ade0</span><wbr><span>e20f159d</span><wbr><span>ca92c2a3</span><wbr><span>711e3dc1</span></p>
+<p>In the alpha, anchoring is manual. The project has a small registry contract for Filecoin Calibration (a public test network): whoever deploys a copy can write a batch fingerprint to it by hand. No shared registry exists yet, and the console’s publishing screen is paused while the site is redesigned, so every anchor on this site and in the console is simulated.</p>
+<p>Only a fingerprint goes on the network, never the values. A registry entry shows that a fingerprint existed by a given time. It does not show who the lab is, and it does not keep the records.</p>
+</div>
+</section>
+<section class="sec sec--side" id="pass-fail" aria-labelledby="s8-h">
+<h2 id="s8-h"><span class="no">8</span>What a pass and a fail show</h2>
+<div class="body">
+<dl class="pf">
+<div><dt>A pass shows</dt><dd>The five sealed fields are unchanged since the record was sealed (fingerprint); the holder of the key signed that fingerprint (signature); the record sits where it was sealed in the history (link); and the batch is the one that was anchored (anchor).</dd></div>
+<div><dt>A pass does not show</dt><dd>That the result was right when it was captured: the right sample, a suitable system, correct integration. Who made the record, since signatures are not yet per analyst. Anything about fields outside the seal, such as sample, method or retention time. With the key and the anchor shipped on the same page, it shows the method, not independent evidence.</dd></div>
+<div><dt>A fail shows</dt><dd>Something changed after sealing, and where: which record no longer gives its fingerprint, and which link it breaks. A rewritten history shows as a signature that fails or a head that no longer matches the anchor.</dd></div>
+<div><dt>A fail does not show</dt><dd>Who changed it, when, or which value is right. Nor that the change was improper: a correction appended with a reason is the proper route, and it passes.</dd></div>
+</dl>
+</div>
+</section>
+<section class="sec sec--side" id="privacy" aria-labelledby="s9-h">
+<h2 id="s9-h"><span class="no">9</span>Privacy on public networks</h2>
+<div class="body">
+<p>A fingerprint hides nothing that can be guessed. A plain <span class="nw">SHA-256</span> of a few guessable fields (an instrument id, a measurement type, a peak area in a known range, a capture time to the second) can in principle be matched by trying likely values.</p>
+<p>Today the alpha writes only a batch or chain fingerprint to a public network, never the values and never a single record’s fingerprint, and only by hand.</p>
+<p><span class="tag tag--in">Roadmap</span> Salted (hiding) commitments in place of plain fingerprints, so that what is published reveals nothing without the salt the lab keeps. Later, zero-knowledge proofs, so that a lab can show a property, such as “within specification” or “reviewed before release”, without disclosing the value.</p>
+<p><a class="xref" href="roadmap.html#privacy"><span class="id"><span class="nw">IQC-RD-01</span> §2.2</span><span>Privacy on the roadmap</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
+</div>
+</section>
+<section class="sec sec--side" id="alpha" aria-labelledby="s10-h">
+<h2 id="s10-h"><span class="no">10</span>What is alpha</h2>
+<div class="body">
+<table class="st-t">
+<caption class="sr-only">What exists today, in the alpha, and on the roadmap</caption>
+<thead><tr><th scope="col">Part</th><th scope="col">Status</th></tr></thead>
+<tbody>
+<tr><th scope="row">Five-field <span class="nw">SHA-256</span> fingerprint, linked to the previous record</th><td><b>Today.</b> On these pages, in the alpha console (in your browser) and in the alpha app’s HPLC import.</td></tr>
+<tr><th scope="row">Signatures</th><td><b>Demo.</b> These pages: a build-time key, discarded. The console: a demo key made in your browser. The alpha app: one server key.</td></tr>
+<tr><th scope="row">Corrections appended with a reason</th><td><b>Demo.</b> On these pages and in the console; not in the alpha app.</td></tr>
+<tr><th scope="row">Anchoring a batch fingerprint</th><td><b>Alpha, manual.</b> A registry contract on a public test network; simulated on these pages and in the console.</td></tr>
+<tr><th scope="row">Verification and reviewer sign-off in the alpha app</th><td><b>Not working yet.</b></td></tr>
+<tr><th scope="row">Shared registry; per-analyst signatures; sealed sample and method metadata; salted commitments and zero-knowledge proofs; Filecoin integration</th><td><b>Roadmap.</b></td></tr>
+<tr><th scope="row">Instrument capture, electronic signatures, validation</th><td><b>Not built.</b></td></tr>
+</tbody>
+</table>
+</div>
+</section>
+
+</div>
+</main>
+<footer class="foot">
+<div class="wrap">
+<p class="ind">Immutable QC is an independent project built on the founder’s own time. It is not affiliated with or endorsed by any employer. Founder: <span class="nw">José A. Fernández Abreu</span> · <a href="https://joseqc.com">joseqc.com</a></p>
+<p class="meta"><span class="m-doc"><span class="nw">IQC-HS-01</span> · Draft 2 · Updated 2026-10-06 · <a href="about.html#history">Revision history</a></span><span class="m-fonts">Fonts, SIL Open Font License: <a href="fonts/OFL-IBM-Plex-Sans.txt">IBM Plex Sans</a> <a href="fonts/OFL-IBM-Plex-Mono.txt">IBM Plex Mono</a> <a href="fonts/OFL-Archivo.txt">Archivo</a></span></p>
+</div>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,55 @@
+<h1 class="h1-doc">Roadmap</h1>
+<section class="sec sec--side" id="today" aria-labelledby="s1-h">
+<h2 id="s1-h"><span class="no">1</span>Today: open alpha</h2>
+<div class="body">
+<ul class="items">
+<li><span class="k">These pages</span><span>One synthetic HPLC sequence, sealed with the alpha’s five-field payload and link rule, signed with a demo key at build, with a simulated anchor. Your browser recomputes every check.</span></li>
+<li><span class="k">Alpha console · demo</span><span>A synthetic lab that runs only in your browser: records sealed and linked, signed with a demo key made in your browser, corrections appended with a reason, and an anchor that is simulated, with no network call. Its publishing screen is paused while the site is redesigned.</span></li>
+<li><span class="k">Alpha app · not public</span><span>Imports HPLC CSV files and seals each peak area with the same payload and link rule. One server key signs the rows. Reviewer sign-off and verification do not work yet.</span></li>
+</ul>
+<p><a class="xref" href="dashboard/"><span class="id">Demo</span><span>Open the alpha console</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
+</div>
+</section>
+<section class="sec sec--side" id="planned" aria-labelledby="s2-h">
+<h2 id="s2-h"><span class="no">2</span>Planned</h2>
+<div class="body">
+<p>In no fixed order, and with no dates. Each item is labelled Roadmap until it exists.</p>
+</div>
+<h3 id="agents"><span class="no">2.1</span><span>Agentic workflows <span class="tag">Roadmap</span></span></h3>
+<div class="body">
+<p>Verified experiment data that AI agents can check before they use it in research and work. Before using a result, an agent would recompute the fingerprint from the fields, check the signature, check the link and compare the anchor, and treat the record as unchanged only if all four pass.</p>
+<p>Check a record shows one record the way an agent would receive it, as JSON. It is a preview, not an API. It needs a documented record schema, keys published outside the lab and a shared registry first.</p>
+<p><a class="xref" href="check.html#agent"><span class="id">IQC-CK-01 §2</span><span>The agent-readable record</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
+</div>
+<h3 id="privacy"><span class="no">2.2</span><span>Privacy on public networks <span class="tag">Roadmap</span></span></h3>
+<div class="body">
+<p>Anything written to a public network should reveal nothing about results. A plain SHA-256 of a few guessable fields can in principle be matched by trying likely values, so a plain fingerprint is not enough.</p>
+<ul class="items">
+<li><span class="k">First</span><span>Salted (hiding) commitments in place of plain fingerprints: the lab keeps a random salt, and what is published reveals nothing without it.</span></li>
+<li><span class="k">Later</span><span>Zero-knowledge proofs, so that a lab can show a property, such as “within specification” or “reviewed before release”, without disclosing the value.</span></li>
+<li><span class="k">Today</span><span>The alpha writes only a batch or chain fingerprint, never the values, and only by hand.</span></li>
+</ul>
+</div>
+<h3 id="filecoin"><span class="no">2.3</span><span>Filecoin integration <span class="tag">Roadmap</span></span></h3>
+<div class="body">
+<p>Anchoring, and later storage, on Filecoin, beyond today’s manual batch fingerprint on a public test network. The registry contract for this stays in the project. The details are not decided.</p>
+</div>
+<h3 id="signatures"><span class="no">2.4</span><span>Per-analyst signatures and reviewer sign-off <span class="tag">Roadmap</span></span></h3>
+<div class="body">
+<p>Each analyst and reviewer signs with their own key, in place of one server key, and second-person review is recorded as a signed record. Electronic signatures under 21 CFR Part 11 need more than a key: verified identity, the signature’s meaning, and controls over credentials.</p>
+</div>
+<h3 id="metadata"><span class="no">2.5</span><span>Sample and method metadata in the seal <span class="tag">Roadmap</span></span></h3>
+<div class="body">
+<p>Sample, method, injection and retention time sealed inside each record, not shown beside it; and a correction’s reason and reference sealed with it.</p>
+</div>
+<h3 id="registry"><span class="no">2.6</span><span>A shared registry <span class="tag">Roadmap</span></span></h3>
+<div class="body">
+<p>One public registry of batch fingerprints that anyone can check, in place of a registry each person deploys.</p>
+</div>
+</section>
+<section class="sec sec--side" id="not-claimed" aria-labelledby="s3-h">
+<h2 id="s3-h"><span class="no">3</span>Not claimed</h2>
+<div class="body">
+<p>Nothing is in production use. There are no customers, no electronic signatures, no validation, no instrument capture and no Filecoin storage yet.</p>
+</div>
+</section>

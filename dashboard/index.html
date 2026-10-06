@@ -1,95 +1,100 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Immutable QC | Open Alpha console</title>
-  <meta name="description" content="Immutable QC Open Alpha: synthetic laboratory integrity console with a hash-chained ledger and a Merkle-root registry on the Filecoin EVM.">
-  <meta name="theme-color" content="#07090b">
-  <meta name="robots" content="noindex">
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css?v=20260921">
-  <link rel="stylesheet" href="/dashboard/console.css?v=20260926">
-  <script>
-    // Keep the trailing slash so relative assets never break.
-    if (location.pathname === '/dashboard') {
-      location.replace('/dashboard/' + location.search + location.hash);
-    }
-    // Boot watchdog (plain ES5 on purpose): if console.js fails to parse or
-    // throws before its first render, say so instead of hanging on a placeholder.
-    (function () {
-      var reported = false;
-      function report(msg) {
-        if (reported || window.__iqcBooted) return;
-        reported = true;
-        var app = document.getElementById('app');
-        if (!app) return;
-        app.innerHTML =
-          '<div class="boot-fail">' +
-          '<p class="kicker">Console did not start</p>' +
-          '<p class="boot-fail__msg"></p>' +
-          '<p class="boot-fail__hint">Try a hard refresh (Cmd+Shift+R or Ctrl+Shift+R). If it persists, open the page in a current version of Chrome, Safari, Firefox or Edge.</p>' +
-          '<p class="boot-fail__hint">If you got here from a wallet\'s in-app browser, open the link in your regular browser instead.</p>' +
-          '</div>';
-        app.querySelector('.boot-fail__msg').textContent = msg;
-      }
-      window.addEventListener('error', function (e) {
-        var src = (e && e.filename) || '';
-        if (src.indexOf('console.js') !== -1 || !src) {
-          report(((e && e.message) || 'Script error') + (src ? ' (' + src.split('/').pop() + (e.lineno ? ':' + e.lineno : '') + ')' : ''));
-        }
-      });
-      window.setTimeout(function () {
-        report('The ledger did not finish seeding within 8 seconds. Web Crypto may be blocked in this browser context.');
-      }, 8000);
-    })();
-  </script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alpha console (demo) · Immutable QC</title>
+<meta name="description" content="A demo lab that runs only in your browser, on synthetic data: add a result, correct it with a reason, check every fingerprint, link and signature, and anchor the head (simulated). No network calls.">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#F4F6F5">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<link rel="stylesheet" href="console.css">
+<script>document.documentElement.classList.add('js')</script>
+<script src="console.js" defer onerror="document.documentElement.classList.remove('js')"></script>
 </head>
-<body class="console-body">
-  <div class="console" id="console">
-    <aside class="side" id="side">
-      <a class="nav__logo side__logo" href="/">
-        <svg class="nav__mark" viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="12" cy="12" r="8.2" fill="none" stroke="currentColor" stroke-width="1.6"/>
-          <circle cx="12" cy="12" r="2.4" fill="currentColor"/>
-        </svg>
-        <span>Immutable<span class="accent">QC</span></span>
-      </a>
-      <nav class="side__nav" id="nav" aria-label="Console sections"></nav>
-      <div class="side__foot">
-        <div class="side__status" id="sideStatus"></div>
-        <p class="side__disclaimer">Demo · synthetic data. Signatures are SHA-256 demo keys, not production ECDSA. Registry writes go to the Filecoin Calibration testnet only.</p>
-      </div>
-    </aside>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><symbol id="i-mark" viewBox="0 0 32 32"><circle cx="16" cy="16" r="16" style="fill:var(--plate-0)"/><circle cx="16" cy="16" r="9.5" style="fill:none;stroke:var(--ok);stroke-width:3"/><circle cx="16" cy="16" r="3.75" style="fill:var(--ok)"/></symbol><symbol id="i-ok" viewBox="0 0 16 16"><path d="M2.5 8.5l3.5 3.5 7.5-8" fill="none" stroke="currentColor" stroke-width="2"/></symbol><symbol id="i-x" viewBox="0 0 16 16"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9" fill="none" stroke="currentColor" stroke-width="2"/></symbol><symbol id="i-dash" viewBox="0 0 16 16"><path d="M3.5 8h9" fill="none" stroke="currentColor" stroke-width="2"/></symbol></svg>
+<a class="skip" href="#main">Skip to the console</a>
+<header class="top">
+<div class="wrap top-in">
+<a class="brand" href="../index.html"><svg class="mark" aria-hidden="true"><use href="#i-mark"/></svg><span>Immutable QC</span></a>
+<span class="tag">Alpha console · demo</span>
+<nav class="top-nav" aria-label="Site"><a href="../index.html">Back to the site</a></nav>
+</div>
+</header>
+<main id="main" tabindex="-1">
+<div class="wrap">
+<div class="intro">
+<h1>Alpha console <span class="h1-tag">(demo)</span></h1>
+<p class="status">Independent project · Open alpha · Synthetic demo data · No customers yet · Runs only in your browser</p>
+<div class="intro-g">
+<p class="lead">A demo lab that runs in this page. Add a result or correct one with a reason, and every fingerprint, link and signature is checked again. Then simulate an edit or a rewrite and see what still shows it.</p>
+<p class="disc"><span class="k">Demo only</span> Everything here is synthetic and stays in this tab; the page makes no network calls. Records are signed with a demo key made in this browser: it identifies the browser, not a person. Anchoring is simulated. Not validated. No electronic signatures yet. Please do not enter real results.</p>
+</div>
+</div>
 
-    <div class="main">
-      <header class="top" id="top">
-        <a class="nav__logo top__logo" href="/">
-          <svg class="nav__mark" viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="12" cy="12" r="8.2" fill="none" stroke="currentColor" stroke-width="1.6"/>
-            <circle cx="12" cy="12" r="2.4" fill="currentColor"/>
-          </svg>
-          <span>Immutable<span class="accent">QC</span></span>
-        </a>
-        <div class="top__title" id="topTitle"></div>
-        <div class="top__chips" id="topChips"></div>
-      </header>
-      <nav class="tabs" id="tabs" aria-label="Console sections"></nav>
-      <main class="page" id="app" aria-live="polite">
-        <div class="boot">
-          <span class="boot__dot"></span>
-          <span>Seeding synthetic ledger…</span>
-        </div>
-      </main>
-    </div>
-  </div>
-  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
-  <noscript><div class="boot-fail"><p class="kicker">JavaScript required</p><p class="boot-fail__msg">The console signs and verifies records in your browser, so it needs JavaScript enabled.</p></div></noscript>
-  <script src="/dashboard/registry-artifact.js?v=20260926"></script>
-  <script src="/dashboard/registry-abi.js?v=20260926"></script>
-  <script src="/dashboard/console.js?v=20260926"></script>
+<section class="plate" data-console aria-labelledby="lab-h">
+<div class="plate-h"><h2 id="lab-h">Demo lab</h2><span class="sim">Simulated · demo data</span></div>
+<div class="sum">
+<p class="sum-st" data-sum-st data-s="na">Not checked yet · the demo lab starts when this page’s script runs in your browser</p>
+<p class="sum-key" data-sum-key>Signatures: the demo key in this browser · its key ID shows here once the script runs</p>
+<p class="out" data-out role="status" aria-live="polite"></p>
+</div>
+<nav class="tabs" aria-label="Console sections">
+<a href="#records">Records</a><a href="#instruments">Instruments</a><a href="#anchor">Anchor</a><a href="#method">Method</a>
+</nav>
+
+<section class="view on" id="records" aria-labelledby="records-h">
+<h3 id="records-h" tabindex="-1">Records</h3>
+<div data-v="records">
+<p class="nojs">The demo lab needs JavaScript: every fingerprint, link and signature here is computed in your browser. Without it, the same eight-record sequence, with every fingerprint and link, is prerendered on <a href="../check.html">Check a record</a>, and the method is set out below.</p>
+<p class="wait">Starting the demo lab…</p>
+</div>
+</section>
+
+<section class="view" id="instruments" aria-labelledby="instruments-h">
+<h3 id="instruments-h" tabindex="-1">Instruments</h3>
+<div data-v="instruments">
+<p class="help">Four demo instruments: <span class="nw">HPLC-02</span> (HPLC), <span class="nw">LCMS-01</span> (<span class="nw">LC-MS</span>), <span class="nw">PH-01</span> (bench pH meter) and <span class="nw">TEMP-01</span> (room temperature monitor). No instrument is connected: capture adapters are planned, and here results are typed in or simulated.</p>
+</div>
+</section>
+
+<section class="view" id="anchor" aria-labelledby="anchor-h">
+<h3 id="anchor-h" tabindex="-1">Anchor</h3>
+<div class="prose">
+<p>An anchor keeps the head of the record history, the last link, somewhere outside the lab at a known time. The head depends on every record before it, so if anyone later rewrites the history, even signing it again, a replay from the start of record no longer reaches the anchored fingerprint.</p>
+<p>In the alpha, a batch fingerprint can be written by hand to a public test network, and there is no shared registry yet. This console makes no network calls: <b>Anchor (simulated)</b> keeps the head in this tab. Records 1 to 8 start anchored, with the same fingerprint as the site’s demo sequence.</p>
+<p class="note"><span class="k">Privacy</span> Only a fingerprint would go on a network, never the values. A plain <span class="nw">SHA-256</span> of a few guessable fields can in principle be matched by trying likely values, so salted commitments and, later, zero-knowledge proofs are on the <a href="../roadmap.html">roadmap</a>.</p>
+</div>
+<div data-v="anchor"></div>
+</section>
+
+<section class="view" id="method" aria-labelledby="method-h">
+<h3 id="method-h" tabindex="-1">Method</h3>
+<div class="prose">
+<ol class="meth">
+<li><h4>What is sealed</h4><p>Each record seals five fields, in this order, joined by a vertical bar and encoded as UTF-8:</p><code class="pl">instrumentId|sensorType|value|unit|capturedAt</code><p>For example <code>HPLC-02|hplc|1508811|counts|2026-09-14T08:47:50Z</code>. This is the alpha app’s payload for an imported HPLC peak, and the same construction as on the site. Injection, sample and retention time are shown as context and are not sealed in the alpha; sealing sample and method metadata is on the roadmap.</p></li>
+<li><h4>Fingerprint</h4><p>r<sub>n</sub> = <span class="nw">SHA-256</span> of the payload, as 64 lowercase hex characters. One changed character gives a completely different fingerprint.</p></li>
+<li><h4>Link</h4><p>h<sub>n</sub> = <span class="nw">SHA-256</span> of the text h<sub>n−1</sub> (hex), then r<sub>n</sub> (hex), then n (decimal). The start of record, h<sub>0</sub>, is 64 zeros. The head is the last link; it depends on every record before it.</p></li>
+<li><h4>Signature</h4><p>ECDSA P-256 with <span class="nw">SHA-256</span> over the 32 bytes of r<sub>n</sub>, stored as IEEE P1363 hex. The key pair is generated in this browser. Its private half cannot be exported; the pair is kept in this browser’s storage for this site, so later visits reuse it. The key ID is the first 32 hex characters of the <span class="nw">SHA-256</span> of the public key (SPKI), as on the site.</p>
+<dl class="kv kv-m"><dt>Key ID</dt><dd data-key-id>made when the script runs</dd><dt>Public key (raw, hex)</dt><dd data-key-pub>made when the script runs</dd><dt>Kept</dt><dd data-key-kept>made when the script runs</dd></dl>
+<p>It shows which browser signed, not who. Demo signatures: in the alpha, one server key signs imported rows; per-analyst signatures are on the roadmap.</p></li>
+<li><h4>Checks</h4><p>After every change, your browser recomputes each record’s fingerprint from its fields, checks its signature over that fingerprint, and recomputes the link from the record before it. A changed value fails its own fingerprint and signature and breaks only the link into the next record; later records still pass their own checks. The anchor check replays the whole history from 64 zeros and compares the link at the anchored record with the anchored fingerprint.</p></li>
+<li><h4>Corrections</h4><p>A correction is a new record with the corrected value, sealed with the time it is appended. The original stays as sealed. The reason and the “corrects #k” reference sit beside the seal, not inside it, because the payload has five fields; the site’s pages do the same. The alpha app has no corrections yet.</p></li>
+<li><h4>What a pass shows</h4><p>A pass shows the record is unchanged since it was sealed in this tab. It does not show that the result was right, who entered it, or that the instrument was in calibration; that stays with your method, system suitability and second-person review.</p></li>
+</ol>
+<p class="tools" data-jsonly hidden><button class="btn" id="b-export" type="button" data-act="export">Export demo bundle (JSON)</button><button class="btn" id="b-reset-m" type="button" data-act="reset">Reset the demo lab</button></p>
+</div>
+</section>
+</section>
+</div>
+</main>
+<footer class="foot">
+<div class="wrap">
+<p class="ind">Immutable QC is an independent project built on the founder’s own time. It is not affiliated with or endorsed by any employer. Founder: José A. Fernández Abreu · <a href="https://joseqc.com">joseqc.com</a></p>
+<p class="meta"><a href="../index.html">Overview</a><a href="../sealed.html">How a record is sealed</a><a href="../check.html">Check a record</a><a href="../about.html">About</a><span class="m-fonts">Fonts, SIL Open Font License: <a href="../fonts/OFL-IBM-Plex-Sans.txt">IBM Plex Sans</a> <a href="../fonts/OFL-IBM-Plex-Mono.txt">IBM Plex Mono</a> <a href="../fonts/OFL-Archivo.txt">Archivo</a></span></p>
+</div>
+</footer>
 </body>
 </html>

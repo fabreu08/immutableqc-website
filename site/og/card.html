@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Immutable QC · og card</title>
+<style>
+@font-face{font-family:'Archivo C';src:url(__FONTS__/archivo-c-115-620.woff2) format('woff2');font-weight:620}
+@font-face{font-family:'IBM Plex Mono';src:url(__FONTS__/ibm-plex-mono-latin-400-normal.woff2) format('woff2');font-weight:400}
+@font-face{font-family:'IBM Plex Mono';src:url(__FONTS__/ibm-plex-mono-latin-500-normal.woff2) format('woff2');font-weight:500}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1200px;height:630px;overflow:hidden}
+body{background:#0A1520;color:#E8EFF7;font-family:'IBM Plex Mono',monospace;-webkit-font-smoothing:antialiased}
+.card{position:absolute;inset:0;padding:64px 72px 56px;display:flex;flex-direction:column;border-top:10px solid #00D4AA}
+.brand{display:flex;align-items:center;gap:22px}
+.brand svg{width:76px;height:76px;flex:none}
+.name{font:620 46px/1 'Archivo C',sans-serif;letter-spacing:.005em}
+h1{margin-top:auto;font:620 112px/1.02 'Archivo C',sans-serif;letter-spacing:-.015em;text-wrap:balance}
+.rule{margin-top:40px;border-top:2px solid #1E2A36}
+.status{margin-top:22px;font:500 25px/1.35 'IBM Plex Mono',monospace;color:#B9C6D3;letter-spacing:.01em}
+.status span{white-space:nowrap}
+.foot{margin-top:10px;font:400 22px/1.35 'IBM Plex Mono',monospace;color:#8FA1B4}
+</style>
+</head>
+<body>
+<div class="card">
+<div class="brand"><svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="16" fill="#060D14"/><circle cx="16" cy="16" r="9.5" fill="none" stroke="#00D4AA" stroke-width="3"/><circle cx="16" cy="16" r="3.75" fill="#00D4AA"/></svg><span class="name">Immutable QC</span></div>
+<h1>{{h1}}</h1>
+<div class="rule"></div>
+<p class="status">{{statusSpans}}</p>
+<p class="foot">immutableqc.com · tamper-evident lab records</p>
+</div>
+</body>
+</html>

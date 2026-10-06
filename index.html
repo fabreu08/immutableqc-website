@@ -1,378 +1,267 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Immutable QC | Laboratory data that cannot be altered</title>
-    <meta name="description" content="Signed at the instrument. Hash-chained audit trails. Mathematical proof of integrity for laboratory data.">
-    <meta name="theme-color" content="#07090b">
-    <meta property="og:title" content="Immutable QC">
-    <meta property="og:description" content="Laboratory data that cannot be altered. Cryptographic signing at the instrument.">
-    <meta property="og:image" content="https://immutableqc.com/og.jpg">
-    <link rel="icon" type="image/svg+xml" href="favicon.svg">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Immutable QC · Tamper-evident lab records (open alpha)</title>
+<meta name="description" content="Each lab result becomes a sealed record: a SHA-256 fingerprint of its recorded fields, linked to the record before it. Open alpha on synthetic demo data; no customers yet.">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#F4F6F5">
+<link rel="canonical" href="https://immutableqc.com/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Immutable QC">
+<meta property="og:title" content="Immutable QC">
+<meta property="og:description" content="Each lab result becomes a sealed record: a SHA-256 fingerprint of its recorded fields, linked to the record before it. Open alpha on synthetic demo data; no customers yet.">
+<meta property="og:url" content="https://immutableqc.com/">
+<meta property="og:image" content="https://immutableqc.com/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="The Immutable QC mark and name, the tagline and the status line">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preload" href="fonts/archivo-c-115-620.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/site.css?v=6490e6b1">
+<script>(function(d){var c=d.documentElement.classList;c.add('js');try{if(!matchMedia('(prefers-reduced-motion: reduce)').matches)c.add('motion')}catch(e){}})(document)</script>
+<script defer src="assets/iqc.js?v=b3eb48d4"></script>
 </head>
 <body>
-    <header class="nav" id="navbar">
-        <div class="nav__container">
-            <a href="#hero" class="nav__logo">
-                <svg class="nav__mark" viewBox="0 0 24 24" aria-hidden="true">
-                    <circle cx="12" cy="12" r="8.2" fill="none" stroke="currentColor" stroke-width="1.6"/>
-                    <circle cx="12" cy="12" r="2.4" fill="currentColor"/>
-                </svg>
-                <span>Immutable<span class="accent">QC</span></span>
-            </a>
-            <ul class="nav__links" id="navLinks">
-                <li><a href="#how-it-works" class="nav__link">How it works</a></li>
-                <li><a href="/dashboard/" class="nav__cta">Open Alpha</a></li>
-            </ul>
-            <button class="nav__toggle" id="navToggle" aria-label="Toggle navigation" aria-expanded="false">
-                <span></span><span></span><span></span>
-            </button>
-        </div>
-    </header>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><symbol id="i-ok" viewBox="0 0 16 16"><path d="M2.5 8.5l3.5 3.5 7.5-8" fill="none" stroke="currentColor" stroke-width="2"/></symbol><symbol id="i-x" viewBox="0 0 16 16"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9" fill="none" stroke="currentColor" stroke-width="2"/></symbol><symbol id="i-dash" viewBox="0 0 16 16"><path d="M3.5 8h9" fill="none" stroke="currentColor" stroke-width="2"/></symbol><symbol id="i-open" viewBox="0 0 16 16"><circle cx="8" cy="8" r="4.5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-dasharray="2.4 1.8"/></symbol><symbol id="i-arrow" viewBox="0 0 16 16"><path d="M1.5 8h12M9 3.5L13.5 8 9 12.5" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol><symbol id="i-down" viewBox="0 0 16 16"><path d="M8 1.5v12M3.5 9L8 13.5 12.5 9" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol><symbol id="i-mark" viewBox="0 0 32 32"><circle cx="16" cy="16" r="16" style="fill:var(--plate-0)"/><circle cx="16" cy="16" r="9.5" style="fill:none;stroke:var(--ok);stroke-width:3"/><circle cx="16" cy="16" r="3.75" style="fill:var(--ok)"/></symbol></svg>
 
-    <main>
-        <section class="hero" id="hero">
-            <div class="hero__grid" aria-hidden="true"></div>
-            <div class="wrap hero__layout">
-                <div class="hero__copy">
-                    <p class="badge"><span class="badge__dot"></span> Open Alpha · v0.1</p>
-                    <h1 class="hero__title">Laboratory data that cannot be altered</h1>
-                    <p class="hero__sub">Signed at the instrument, hash-chained audit trail. Mathematical proof, not paperwork.</p>
-                    <div class="actions">
-                        <a class="btn btn--primary" href="/dashboard/">Access Open Alpha</a>
-                        <a class="btn btn--secondary" href="#how-it-works">See how it works</a>
-                    </div>
-                </div>
-                <div class="hero__visual" id="heroVisual" aria-hidden="true">
-                    <svg class="seal-loop" viewBox="0 0 320 220" role="img">
-                        <defs>
-                            <linearGradient id="chainGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                                <stop offset="0%" stop-color="#8fd4c4" stop-opacity="0.2"/>
-                                <stop offset="100%" stop-color="#8fd4c4" stop-opacity="0.9"/>
-                            </linearGradient>
-                        </defs>
-                        <!-- Instrument panel -->
-                        <rect class="panel" x="16" y="28" width="140" height="88" rx="10" fill="#101418" stroke="#1e2624"/>
-                        <text class="label" x="28" y="50" fill="#5c6562" font-family="IBM Plex Mono, monospace" font-size="9">MEASUREMENT</text>
-                        <text class="value" x="28" y="78" fill="#e8ebe9" font-family="IBM Plex Mono, monospace" font-size="22" font-weight="500">12.847</text>
-                        <text class="unit" x="28" y="98" fill="#8b9390" font-family="IBM Plex Mono, monospace" font-size="10">mg/L · HPLC-UV</text>
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+<div class="wrap top-in">
+<a class="brand" href="index.html"><svg class="mark" aria-hidden="true"><use href="#i-mark"/></svg><span>Immutable QC</span></a>
+<button class="menu-btn" type="button" aria-expanded="false" aria-controls="nav-list"><span class="bars" aria-hidden="true"></span>Contents</button>
+<nav class="nav" aria-label="Site">
+<ol class="nav-list" id="nav-list">
+<li><a href="index.html" aria-current="page"><span class="id">OV-01</span><span class="t">Overview</span></a></li>
+<li><a href="sealed.html"><span class="id">HS-01</span><span class="t">How a record is sealed</span></a></li>
+<li><a href="check.html"><span class="id">CK-01</span><span class="t">Check a record</span></a></li>
+<li><a href="regulatory.html"><span class="id">RM-01</span><span class="t">Regulatory map</span></a></li>
+<li><a href="roadmap.html"><span class="id">RD-01</span><span class="t">Roadmap</span></a></li>
+<li><a href="about.html"><span class="id">AB-01</span><span class="t">About</span></a></li>
+<li class="nav-demo"><a href="dashboard/"><span class="id">Demo</span><span class="t">Alpha console</span><span class="demo">Demo</span></a></li>
+</ol>
+</nav>
+</div>
+</header>
 
-                        <!-- Seal / hash write -->
-                        <g class="seal">
-                            <rect x="176" y="36" width="128" height="72" rx="10" fill="#101418" stroke="#1e2624"/>
-                            <text x="188" y="56" fill="#5c6562" font-family="IBM Plex Mono, monospace" font-size="9">SEAL</text>
-                            <text class="hash" x="188" y="78" fill="#8fd4c4" font-family="IBM Plex Mono, monospace" font-size="11">sha256:a7f3…</text>
-                            <text class="sig" x="188" y="96" fill="#8b9390" font-family="IBM Plex Mono, monospace" font-size="9">sig · DEMO-SHA256</text>
-                        </g>
+<main id="main" tabindex="-1">
+<div class="wrap">
+<dl class="dochead">
+<div><dt>Document</dt><dd><span class="nw">IQC-OV-01</span></dd></div>
+<div><dt>Revision</dt><dd>Draft 2</dd></div>
+<div><dt>Updated</dt><dd>2026-10-06</dd></div>
+<div class="st"><dt>Status</dt><dd>Independent project · Open alpha · Public test network · Synthetic demo data · No customers yet</dd></div>
+</dl>
 
-                        <!-- Chain link prev → record -->
-                        <g class="chain">
-                            <rect class="prev" x="16" y="140" width="100" height="52" rx="8" fill="#101418" stroke="#1e2624"/>
-                            <text x="28" y="162" fill="#5c6562" font-family="IBM Plex Mono, monospace" font-size="9">PREV</text>
-                            <text x="28" y="178" fill="#8b9390" font-family="IBM Plex Mono, monospace" font-size="10">#0041</text>
-                            <path class="link" d="M116 166 H156" stroke="url(#chainGrad)" stroke-width="2" fill="none" stroke-linecap="round"/>
-                            <circle class="link-dot" cx="136" cy="166" r="3" fill="#8fd4c4"/>
-                            <rect class="record" x="156" y="140" width="148" height="52" rx="8" fill="#101418" stroke="#1e2624"/>
-                            <text x="168" y="162" fill="#5c6562" font-family="IBM Plex Mono, monospace" font-size="9">RECORD</text>
-                            <text x="168" y="178" fill="#e8ebe9" font-family="IBM Plex Mono, monospace" font-size="10">#0042 · chained</text>
-                        </g>
+<div class="hero">
+<div class="hero-text">
+<h1>Tokenized lab data.</h1>
+<section class="sec" aria-labelledby="s1-h">
+<h2 id="s1-h"><span class="no">1</span>Scope</h2>
+<div class="body">
+<p class="lead">Each result becomes a sealed record: a <span class="nw">SHA-256</span> fingerprint of its recorded fields, linked to the record before it. Batches can be anchored on a public test network, so a later rewrite shows. Only a fingerprint goes on the network, never the values.</p>
+</div>
+<h3 id="s11-h"><span class="no">1.1</span>Regulatory position</h3>
+<div class="body">
+<p class="reg">Built toward the audit-trail expectations of <span class="nw">21 CFR Part 11</span>, <span class="nw">EU Annex 11</span> and <span class="nw">ISO/IEC 17025:2017</span>. Not validated. No electronic signatures yet. Not a substitute for your computerized-system validation or SOPs.</p>
+</div>
+</section>
+</div>
+<figure class="fig" aria-labelledby="p-t">
+<div class="plate" data-plate data-n="6" data-sig="fd3cfca2c73346e62ecca8b63809472ef61f4c01d375e91bce8f023b3fefb8cc6904175a9db890fe6bc0e8fe5fc34203cf5297b361db971e6cadf2dfeb420279" data-pub="0458f36cfc0c1e0df9d1b97e3cd6e3e3ca7bc3acd4fa6b835584f63aa4551ef83855cbc7609030d0ddbe6a92bdb73176884a951eb6ba33eece29bdcb30d6b7c66f">
+<div class="plate-h"><p class="fig-no">Fig. 1</p><p class="plate-t" id="p-t">One sealed record</p><p class="sim">Simulated · demo data</p></div>
+<p class="p-sub">Record 6 of 8 · sequence <span class="nw">SEQ-0914-02</span> · Assay of Product 200 mg tablets</p>
+<div class="p-grid">
+<div>
+<h3 class="lab">Sealed fields</h3>
+<dl class="kv">
+<dt>Instrument</dt><dd data-f="instrumentId"><span class="nw">HPLC-02</span></dd>
+<dt>Measurement</dt><dd data-f="sensorType">hplc</dd>
+<dt>Peak area</dt><dd data-f="value">1508811</dd>
+<dt>Unit</dt><dd data-f="unit">counts</dd>
+<dt>Captured (UTC)</dt><dd data-f="capturedAt"><span class="nw">2026-09-14</span><wbr><span class="nw">T08:47:50Z</span></dd>
+</dl>
+</div>
+<div>
+<h3 class="lab">Context <span class="sub">· not sealed in the alpha</span></h3>
+<dl class="kv kv--ctx">
+<dt>Injection</dt><dd>06</dd>
+<dt>Sample</dt><dd>P200-S1, preparation 1</dd>
+<dt>RT</dt><dd>4.82 min</dd>
+</dl>
+</div>
+</div>
+<ol class="coa" aria-label="Verification of record 6">
+<li class="coa-h" aria-hidden="true"><span>Check</span><span>Basis</span><span>Result</span></li>
+<li data-check="fp" data-s="build"><span class="c-n">Fingerprint recomputed</span><span class="c-b"><span class="nw">SHA-256</span> of the five fields vs r<sub>6</sub></span><span class="res"><svg class="i" aria-hidden="true"><use href="#i-ok"/></svg><span class="w">Match</span></span></li>
+<li data-check="sig" data-s="build"><span class="c-n">Signature checked</span><span class="c-b"><span class="nw">ECDSA P-256</span>, demo public key</span><span class="res"><svg class="i" aria-hidden="true"><use href="#i-ok"/></svg><span class="w">Valid</span></span></li>
+<li data-check="link" data-s="build"><span class="c-n">Link recomputed</span><span class="c-b"><span class="nw">SHA-256</span> of h<sub>5</sub> + r<sub>6</sub> + “6” vs h<sub>6</sub></span><span class="res"><svg class="i" aria-hidden="true"><use href="#i-ok"/></svg><span class="w">Intact</span></span></li>
+</ol>
+<div class="plate-f">
+<p class="pst" role="status" data-pst>Checked at build.<span class="nojs"> Live checking in your browser needs JavaScript.</span></p>
+<a class="go" href="check.html#verifier"><span>Check any record yourself</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a>
+</div>
+<div class="p-raw">
+<h3 class="lab p-raw-h">Raw data <span class="sub">· the values the checks above recompute</span></h3>
+<div class="p-blk">
+<p class="lab">Payload <span class="sub">· instrumentId|sensorType|value|unit|capturedAt</span></p>
+<p class="hx hx-s p-pl"><span class="nw">HPLC-02</span>|hplc|1508811|counts|2026-09-14T08:47:50Z</p>
+</div>
+<div class="p-blk">
+<p class="lab">Fingerprint <var>r</var><sub>6</sub></p>
+<p class="hx hx-l" data-h="r"><span>eb1690bc</span><wbr><span>5922a312</span><wbr><span>d90ee139</span><wbr><span>fdf8e20b</span><wbr><span>92bf2cb0</span><wbr><span>feae8ee0</span><wbr><span>e70bd24f</span><wbr><span>bd2b54d7</span></p>
+<p class="say"><span class="nw">SHA-256</span> of the 48-byte payload. One changed character gives a completely different fingerprint.</p>
+</div>
+<div class="p-blk">
+<dl class="p-links">
+<div><dt class="lab">Previous <var>h</var><sub>5</sub> <span class="sub">· link of record 5</span></dt><dd class="hx hx-s" data-h="prev"><span>c04af03f</span><wbr><span>4b9c69a3</span><wbr><span>0d06e27d</span><wbr><span>9906e4e7</span><wbr><span>f2bc176b</span><wbr><span>7ba0a212</span><wbr><span>582ad8c6</span><wbr><span>5f6bdfd5</span></dd></div>
+<div><dt class="lab">Link <var>h</var><sub>6</sub> <span class="sub">· carried by record 7 as its previous link</span></dt><dd class="hx hx-s" data-h="h"><span>c427b83a</span><wbr><span>4e29adf9</span><wbr><span>380bef67</span><wbr><span>d00302e1</span><wbr><span>2ddfd558</span><wbr><span>ae8f5a55</span><wbr><span>8547b2b0</span><wbr><span>cf3cba23</span></dd></div>
+</dl>
+</div>
+<div class="p-blk">
+<p class="lab">Signature <span class="sub">· <span class="nw">ECDSA P-256</span> over r<sub>6</sub> · <a class="kid" href="check.html#method">demo key 7A15F562…</a></span></p>
+<p class="hx hx-s hx-sig">fd3cfca2c73346e6 … 6cadf2dfeb420279</p>
+</div>
+</div>
+<template id="iqc-plate-words"><i data-k="fp.ok">Match</i><i data-k="fp.bad">No match</i><i data-k="sig.ok">Valid</i><i data-k="sig.bad">Fails</i><i data-k="sig.na">Not checked</i><i data-k="link.ok">Intact</i><i data-k="link.bad">Broken</i><i data-k="st">Checked in your browser: {pass} of {n} pass · {ms} ms</i><i data-k="st.nosig">Checked in your browser: {pass} of 2 pass. The signature could not be checked here (it needs an https:// page).</i></template>
+</div>
+<figcaption class="figcap"><b>Fig. 1</b> · Record 6 of the synthetic sequence <span class="nw">SEQ-0914-02</span>, as an auditor reads it. <span class="k">Basis</span> Same five fields, order and link rule as the alpha app’s HPLC import; <span class="nw">SHA-256</span> is <span class="nw">FIPS 180-4</span>. Demo signatures. In the alpha, one server key signs imported rows; per-analyst signatures are on the roadmap.</figcaption>
+</figure>
 
-                        <!-- Verify check -->
-                        <g class="verify">
-                            <circle class="verify-ring" cx="292" cy="48" r="14" fill="none" stroke="#8fd4c4" stroke-width="1.5"/>
-                            <path class="verify-check" d="M285 48 L290 53 L300 42" fill="none" stroke="#8fd4c4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        </g>
-                    </svg>
-                    <p class="demo-tag">DEMO · SYNTHETIC</p>
-                </div>
-            </div>
-        </section>
+</div>
+<section class="sec" id="history" aria-labelledby="s2-h">
+<h2 id="s2-h"><span class="no">2</span>Record history</h2>
+<div class="body">
+<p>The whole synthetic sequence, as an auditor would page through it. When the table comes into view, your browser checks every record and seals it in once; after that nothing moves.</p>
+</div>
+<div class="v-fig">
+<figure class="fig fig--hist" aria-labelledby="h-t">
+<div class="plate plate--hist" data-history>
+<div class="plate-h"><p class="fig-no">Fig. 2</p><p class="plate-t" id="h-t">Record history</p><p class="sim">Simulated · demo data</p></div>
+<dl class="meta"><div><dt>Sequence</dt><dd><span class="nw">SEQ-0914-02</span></dd></div><div><dt>Instrument</dt><dd data-inst><span class="nw">HPLC-02</span></dd></div><div><dt>Method</dt><dd>Assay of Product 200 mg tablets</dd></div><div><dt>Run</dt><dd>2026-09-14, 08:12 to 09:01 UTC</dd></div></dl>
+<table class="hist" role="table">
+<caption>8 injections, one record each: 5 system-suitability injections of the reference standard (STD-A), then 3 preparations of Product 200 mg tablets (P200-S1 to P200-S3).</caption>
+<colgroup><col class="w-sp"><col class="w-n"><col class="w-smp"><col class="w-rt"><col class="w-at"><col class="w-pa"><col class="w-fp"><col class="w-ln"><col class="w-sg"></colgroup>
+<thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader" class="c-sp"><span class="sr-only">Seal</span></th><th scope="col" role="columnheader" class="c-n"><span aria-hidden="true">Rec</span><span class="sr-only">Record</span></th><th scope="col" role="columnheader" class="c-smp">Sample</th><th scope="col" role="columnheader" class="c-rt">RT <span class="u">min</span></th><th scope="col" role="columnheader" class="c-at">Captured <span class="u">UTC</span></th><th scope="col" role="columnheader" class="c-pa">Peak area <span class="u">counts</span></th><th scope="col" role="columnheader" class="c-fp">Finger&shy;print</th><th scope="col" role="columnheader" class="c-ln">Link <span class="u">to next</span></th><th scope="col" role="columnheader" class="c-sg"><span class="lg">Demo signature</span><span class="sm">Demo sig.</span></th></tr></thead>
+<tbody role="rowgroup">
+<tr role="row" data-n="1"><td role="cell" class="c-sp"><svg class="nd" viewBox="0 0 20 20" aria-hidden="true"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/><path class="xx" d="M7.7 7.7l4.6 4.6m0-4.6l-4.6 4.6"/></svg></td><th scope="row" role="rowheader" class="c-n">1</th><td role="cell" class="c-smp">STD-A<span class="kd"> · system suitability, replicate 1</span></td><td role="cell" class="c-rt">4.82</td><td role="cell" class="c-at"><time datetime="2026-09-14T08:12:41Z">08:12:41</time></td><td role="cell" class="c-pa" data-v>1523847</td><td role="cell" class="c-fp"><code>0135c779</code><span class="sr-only" data-fpw>fingerprint checked at build</span></td><td role="cell" class="c-ln" data-m="link" data-s="build"><span class="st"><svg class="i" aria-hidden="true"><use href="#i-open"/></svg><span class="w">intact</span></span></td><td role="cell" class="c-sg" data-m="sig" data-s="build"><span class="st"><svg class="i" aria-hidden="true"><use href="#i-open"/></svg><span class="w">valid</span></span></td></tr>
+<tr role="row" data-n="2"><td role="cell" class="c-sp"><svg class="nd" viewBox="0 0 20 20" aria-hidden="true"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/><path class="xx" d="M7.7 7.7l4.6 4.6m0-4.6l-4.6 4.6"/></svg></td><th scope="row" role="rowheader" class="c-n">2</th><td role="cell" class="c-smp">STD-A<span class="kd"> · system suitability, replicate 2</span></td><td role="cell" class="c-rt">4.81</td><td role="cell" class="c-at"><time datetime="2026-09-14T08:19:43Z">08:19:43</time></td><td role="cell" class="c-pa" data-v>1519962</td><td role="cell" class="c-fp"><code>9892c300</code><span class="sr-only" data-fpw>fingerprint checked at build</span></td><td role="cell" class="c-ln" data-m="link" data-s="build"><span class="st"><svg class="i" aria-hidden="true"><use href="#i-open"/></svg><span class="w">intact</span></span></td><td role="cell" class="c-sg" data-m="sig" data-s="build"><span class="st"><svg class="i" aria-hidden="true"><use href="#i-open"/></svg><span class="w">valid</span></span></td></tr>
+<tr role="row" data-n="3"><td role="cell" class="c-sp"><svg class="nd" viewBox="0 0 20 20" aria-hidden="true"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/><path class="xx" d="M7.7 7.7l4.6 4.6m0-4.6l-4.6 4.6"/></svg></td><th scope="row" role="rowheader" class="c-n">3</th><td role="cell" class="c-smp">STD-A<span class="kd"> · system suitability, replicate 3</span></td><td role="cell" class="c-rt">4.82</td><td role="cell" class="c-at"><time datetime="2026-09-14T08:26:44Z">08:26:44</time></td><td role="cell" class="c-pa" data-v>1527410</td><td role="cell" class="c-fp"><code>ae3ff253</code><span class="sr-only" data-fpw>fingerprint checked at build</span></td><td role="cell" class="c-ln" data-m="link" data-s="build"><span class="st"><svg class="i" aria-hidden="true"><use href="#i-open"/></svg><span class="w">intact</span></span></td><td role="cell" class="c-sg" data-m="sig" data-s="build"><span class="st"><svg class="i" aria-hidden="true"><use href="#i-open"/></svg><span class="w">valid</span></span></td></tr>
+<tr role="row" data-n="4"><td role="cell" class="c-sp"><svg class="nd" viewBox="0 0 20 20" aria-hidden="true"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/><path class="xx" d="M7.7 7.7l4.6 4.6m0-4.6l-4.6 4.6"/></svg></td><th scope="row" role="rowheader" class="c-n">4</th><td role="cell" class="c-smp">STD-A<span class="kd"> · system suitability, replicate 4</span></td><td role="cell" class="c-rt">4.83</td><td role="cell" class="c-at"><time datetime="2026-09-14T08:33:47Z">08:33:47</time></td><td role="cell" class="c-pa" data-v>1521188</td><td role="cell" class="c-fp"><code>976c4d87</code><span class="sr-only" data-fpw>fingerprint checked at build</span></td><td role="cell" class="c-ln" data-m="link" data-s="build"><span class="st"><svg class="i" aria-hidden="true"><use href="#i-open"/></svg><span class="w">intact</span></span></td><td role="cell" class="c-sg" data-m="sig" data-s="build"><span class="st"><svg class="i" aria-hidden="true"><use href="#i-open"/></svg><span class="w">valid</span></span></td></tr>
+<tr role="row" data-n="5"><td role="cell" class="c-sp"><svg class="nd" viewBox="0 0 20 20" aria-hidden="true"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/><path class="xx" d="M7.7 7.7l4.6 4.6m0-4.6l-4.6 4.6"/></svg></td><th scope="row" role="rowheader" class="c-n">5</th><td role="cell" class="c-smp">STD-A<span class="kd"> · system suitability, replicate 5</span></td><td role="cell" class="c-rt">4.82</td><td role="cell" class="c-at"><time datetime="2026-09-14T08:40:49Z">08:40:49</time></td><td role="cell" class="c-pa" data-v>1525603</td><td role="cell" class="c-fp"><code>1f00a3f2</code><span class="sr-only" data-fpw>fingerprint checked at build</span></td><td role="cell" class="c-ln" data-m="link" data-s="build"><span class="st"><svg class="i" aria-hidden="true"><use href="#i-open"/></svg><span class="w">intact</span></span></td><td role="cell" class="c-sg" data-m="sig" data-s="build"><span class="st"><svg class="i" aria-hidden="true"><use href="#i-open"/></svg><span class="w">valid</span></span></td></tr>
+<tr role="row" data-n="6"><td role="cell" class="c-sp"><svg class="nd" viewBox="0 0 20 20" aria-hidden="true"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/><path class="xx" d="M7.7 7.7l4.6 4.6m0-4.6l-4.6 4.6"/></svg></td><th scope="row" role="rowheader" class="c-n">6</th><td role="cell" class="c-smp">P200-S1<span class="kd"> · sample, preparation 1</span></td><td role="cell" class="c-rt">4.82</td><td role="cell" class="c-at"><time datetime="2026-09-14T08:47:50Z">08:47:50</time></td><td role="cell" class="c-pa" data-v>1508811</td><td role="cell" class="c-fp"><code>eb1690bc</code><span class="sr-only" data-fpw>fingerprint checked at build</span></td><td role="cell" class="c-ln" data-m="link" data-s="build"><span class="st"><svg class="i" aria-hidden="true"><use href="#i-open"/></svg><span class="w">intact</span></span></td><td role="cell" class="c-sg" data-m="sig" data-s="build"><span class="st"><svg class="i" aria-hidden="true"><use href="#i-open"/></svg><span class="w">valid</span></span></td></tr>
+<tr role="row" data-n="7"><td role="cell" class="c-sp"><svg class="nd" viewBox="0 0 20 20" aria-hidden="true"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/><path class="xx" d="M7.7 7.7l4.6 4.6m0-4.6l-4.6 4.6"/></svg></td><th scope="row" role="rowheader" class="c-n">7</th><td role="cell" class="c-smp">P200-S2<span class="kd"> · sample, preparation 2</span></td><td role="cell" class="c-rt">4.81</td><td role="cell" class="c-at"><time datetime="2026-09-14T08:54:52Z">08:54:52</time></td><td role="cell" class="c-pa" data-v>1531274</td><td role="cell" class="c-fp"><code>ebe86f04</code><span class="sr-only" data-fpw>fingerprint checked at build</span></td><td role="cell" class="c-ln" data-m="link" data-s="build"><span class="st"><svg class="i" aria-hidden="true"><use href="#i-open"/></svg><span class="w">intact</span></span></td><td role="cell" class="c-sg" data-m="sig" data-s="build"><span class="st"><svg class="i" aria-hidden="true"><use href="#i-open"/></svg><span class="w">valid</span></span></td></tr>
+<tr role="row" data-n="8"><td role="cell" class="c-sp"><svg class="nd" viewBox="0 0 20 20" aria-hidden="true"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/><path class="xx" d="M7.7 7.7l4.6 4.6m0-4.6l-4.6 4.6"/></svg></td><th scope="row" role="rowheader" class="c-n">8</th><td role="cell" class="c-smp">P200-S3<span class="kd"> · sample, preparation 3</span></td><td role="cell" class="c-rt">4.82</td><td role="cell" class="c-at"><time datetime="2026-09-14T09:01:55Z">09:01:55</time></td><td role="cell" class="c-pa" data-v>1516039</td><td role="cell" class="c-fp"><code>45752d11</code><span class="sr-only" data-fpw>fingerprint checked at build</span></td><td role="cell" class="c-ln" data-m="link" data-s="build"><span class="st"><svg class="i" aria-hidden="true"><use href="#i-open"/></svg><span class="w">intact</span></span></td><td role="cell" class="c-sg" data-m="sig" data-s="build"><span class="st"><svg class="i" aria-hidden="true"><use href="#i-open"/></svg><span class="w">valid</span></span></td></tr>
+</tbody>
+</table>
+<div class="sum">
+<p class="sum-row"><span class="k">Status</span><span class="v" data-hist-st data-s="build">Checked at build: 8 of 8 records pass · anchor matches.<span class="nojs"> Live checking in your browser needs JavaScript.</span></span></p>
+<p class="sum-row"><span class="k">Head (last link), replayed from 64 zeros</span><span class="v"><code class="hx" data-head><span>0a35688a</span></code> <span class="res" data-head-st data-s="build"><svg class="i" aria-hidden="true"><use href="#i-open"/></svg><span>matches the anchored fingerprint</span></span></span></p>
+<p class="sum-row"><span class="k">Anchored fingerprint <span class="nb">(simulated, no network call)</span></span><span class="v"><code class="hx">0a35688a</code> <span class="say">the head of records 1 to 8 when the batch was anchored</span></span></p>
+</div>
+<div class="plate-f"><p class="say">Read only. Editing lives on Check a record.</p><a class="go" href="check.html#verifier"><span>Change a value and see what breaks</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></div>
+<template id="iqc-hist-words"><i data-k="fp.ok">fingerprint matches</i><i data-k="fp.bad">fingerprint does not match</i><i data-k="link.ok">intact</i><i data-k="link.bad">broken</i><i data-k="sig.ok">valid</i><i data-k="sig.bad">fails</i><i data-k="sig.na">unchecked</i><i data-k="sig.none">unsigned</i><i data-k="head.ok">matches the anchored fingerprint</i><i data-k="head.bad">no longer matches the anchored fingerprint</i><i data-k="st.head">Checked in your browser: {ok} of {n} records pass</i><i data-k="st.chg">{c} changed</i><i data-k="st.sig1">1 signature fails</i><i data-k="st.sig">{s} signatures fail</i><i data-k="st.link1">link {l} broken</i><i data-k="st.link">links {l} broken</i><i data-k="st.anc">anchor matches</i><i data-k="st.anc.part">anchor matches records 1 to {m}</i><i data-k="st.anc.no">anchor does not match</i><i data-k="st.unanch1">record {a} not yet anchored</i><i data-k="st.unanch">records {a} to {b} not yet anchored</i><i data-k="st.nosig">signatures not checked here</i></template>
+</div>
+<figcaption class="figcap"><b>Fig. 2</b> · The eight records of sequence <span class="nw">SEQ-0914-02</span>, oldest first. Your browser checks each one from the values in the table: the fingerprint of its five sealed fields, its signature, and the link it carries into the next record; the head is the whole history replayed from 64 zeros. Sample and RT are context, not sealed in the alpha. Demo signatures. In the alpha, one server key signs imported rows; per-analyst signatures are on the roadmap.</figcaption>
+</figure>
 
-        <section class="status" aria-label="Current project status">
-            <div class="status__row wrap">
-                <div><span class="live">Live</span><span class="status__text">signing + ledger</span></div>
-                <div><span class="live">Live</span><span class="status__text">public registry</span></div>
-                <div><span class="progress">In progress</span><span class="status__text">instrument capture</span></div>
-                <div><span class="planned">Planned</span><span class="status__text">auditor portal</span></div>
-            </div>
-        </section>
+</div>
+</section>
+<section class="sec sec--side" id="today" aria-labelledby="s3-h">
+<h2 id="s3-h"><span class="no">3</span>What it does today</h2>
+<div class="body">
+<ul class="items">
+<li><span class="k">Alpha console · demo in your browser</span><span>Runs on a synthetic lab, only in your browser. It gives each record a <span class="nw">SHA-256</span> fingerprint, links it to the record before it, signs it with a demo key made in your browser, and keeps corrections as new records with a reason. Its anchor is simulated, with no network call.</span></li>
+<li><span class="k">Alpha app · not public</span><span>Imports HPLC CSV exports. Each peak area becomes a record of instrument, measurement type, value, unit and capture time, signed by one server key. Reviewer sign-off and the app’s own verification do not work yet.</span></li>
+<li><span class="k">Anchoring · manual</span><span>A batch fingerprint can be written by hand to a small registry contract on a public test network. There is no shared registry yet, so every anchor on this site and in the console is simulated.</span></li>
+<li><span class="k">Not yet</span><span>No customers, no instrument capture, no electronic signatures, no validation and no Filecoin storage.</span></li>
+</ul>
+<p class="note"><span class="k">Basis</span>The same five fields and link rule in the alpha app’s HPLC import and on these pages. The console documents its own payload in its Method panel.</p>
+</div>
+</section>
+<section class="sec" id="fits" aria-labelledby="s4-h">
+<h2 id="s4-h"><span class="no">4</span>Where it fits</h2>
+<div class="body">
+<p>Your instrument, CDS, LIMS and QA review stay as they are. In the alpha, Immutable QC sits beside the CDS export: results imported from the CSV export are sealed and linked into a <span class="nw">tamper-evident</span> record history, so a later change to a sealed value shows. Changes made before import are not covered.</p>
+</div>
+<figure class="flow" aria-labelledby="f3-c">
+<ol class="lane">
+<li class="node"><span class="nm">Instrument</span><span class="sub">acquires the run</span></li>
+<li class="node node--cds"><span class="nm">CDS</span><span class="sub">integrates peaks and keeps its own audit trail</span></li>
+<li class="node"><span class="nm">LIMS</span><span class="sub">holds results and specifications</span></li>
+<li class="node node--qa"><span class="nm">QA review</span><span class="sub">second-person review, approval and release</span></li>
+</ol>
+<div class="iqc">
+<p class="iqc-in"><span class="lab-s">CSV export from the CDS</span><span aria-hidden="true">↓</span></p>
+<div class="iqc-box">
+<p class="nm"><svg class="mark" aria-hidden="true"><use href="#i-mark"/></svg>Immutable QC <span class="tag">Alpha</span></p>
+<p class="sub">Imports the HPLC CSV export and keeps a sealed, linked record history of the results.</p>
+</div>
+<p class="iqc-out"><span class="lab-s">Planned: QA review checks the sealed history</span></p>
+</div>
+<figcaption class="figcap" id="f3-c"><b>Fig. 3</b> · Where Immutable QC sits. The CDS export feeds it; nothing is sent back to the CDS or LIMS. The dashed link to QA review is planned, not built.</figcaption>
+</figure>
+</section>
+<section class="sec sec--side" id="public" aria-labelledby="s5-h">
+<h2 id="s5-h"><span class="no">5</span>What goes public</h2>
+<div class="body">
+<div class="pub">
+<div class="pub-c">
+<h3 class="pub-h">Stays with the lab</h3>
+<ul class="plain">
+<li>Peak areas and every other value</li>
+<li>Sample, method and sequence records</li>
+<li>Names, reasons and review notes</li>
+<li>The record history itself</li>
+</ul>
+</div>
+<div class="pub-c">
+<h3 class="pub-h">Can go on a public test network</h3>
+<p>One batch fingerprint: 64 hex characters for a whole run of records, here the last link of records 1 to 8.</p>
+<p class="hx-p"><span>0a35688a</span><wbr><span>4c3ec82a</span><wbr><span>5e621ced</span><wbr><span>e1f173a6</span><wbr><span>d436ade0</span><wbr><span>e20f159d</span><wbr><span>ca92c2a3</span><wbr><span>711e3dc1</span></p>
+<p class="say-p">Simulated here, with no network call. Anyone who already holds the records can recompute it and see whether they still match.</p>
+</div>
+</div>
+<p>A fingerprint is not encryption. A plain <span class="nw">SHA-256</span> of a few guessable fields can in principle be matched by trying likely values, which is why a single record’s fingerprint is never published. Salted commitments, and later zero-knowledge proofs, are on the roadmap so that what goes on a public network says nothing about results.</p>
+<p><a class="xref" href="roadmap.html#privacy"><span class="id"><span class="nw">IQC-RD-01</span> §2.2</span><span>Privacy on public networks</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
+</div>
+</section>
+<section class="sec sec--side" id="agents" aria-labelledby="s6-h">
+<h2 id="s6-h"><span class="no">6</span><span>Agentic workflows <span class="tag">Roadmap</span></span></h2>
+<div class="body">
+<blockquote class="pull"><p>In an intelligence explosion, human review can’t keep up with every result; records have to verify themselves.</p><footer><span class="nw">José A. Fernández Abreu</span>, founder</footer></blockquote>
+<p>Planned: verified experiment data that AI agents can check before they use it. An agent would recompute the fingerprint from the fields, check the signature and the link, and compare the anchor, and treat the record as unchanged only if all four pass. That says whether a result changed after it was sealed, not whether it was right when it was captured.</p>
+<p>Check a record shows one record the way an agent would receive it. It is labelled roadmap: there is no API today.</p>
+<p><a class="xref" href="roadmap.html#agents"><span class="id"><span class="nw">IQC-RD-01</span> §2.1</span><span>Agentic workflows on the roadmap</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
+</div>
+</section>
+<section class="sec sec--side" id="docs" aria-labelledby="s7-h">
+<h2 id="s7-h"><span class="no">7</span>The document set</h2>
+<div class="body">
+<ul class="docs">
+<li><a class="xref" href="sealed.html"><span class="id"><span class="nw">IQC-HS-01</span></span><span>How a record is sealed</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>The payload, the fingerprint, the link rule, demo signatures, corrections, anchoring, what a check shows, and the privacy note.</p></li>
+<li><a class="xref" href="check.html"><span class="id"><span class="nw">IQC-CK-01</span></span><span>Check a record</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>Change any sealed field and watch the checks; rewrite the history to hide it, or append a correction instead.</p></li>
+<li><a class="xref" href="regulatory.html"><span class="id"><span class="nw">IQC-RM-01</span></span><span>Regulatory map</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>Clause by clause: <span class="nw">21 CFR Part 11</span>, <span class="nw">EU Annex 11</span>, <span class="nw">ISO/IEC 17025:2017</span>, ALCOA+, GMP and TNI.</p></li>
+<li><a class="xref" href="roadmap.html"><span class="id"><span class="nw">IQC-RD-01</span></span><span>Roadmap</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>What exists today, and what is planned.</p></li>
+<li><a class="xref" href="about.html"><span class="id"><span class="nw">IQC-AB-01</span></span><span>About</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>Who builds it, status, and questions.</p></li>
+<li><a class="xref" href="dashboard/"><span class="id">Demo</span><span>Alpha console</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>A synthetic lab that runs only in your browser.</p></li>
+</ul>
+</div>
+</section>
+<script type="application/json" id="iqc-seq">{"seq":"SEQ-0914-02","pub":"0458f36cfc0c1e0df9d1b97e3cd6e3e3ca7bc3acd4fa6b835584f63aa4551ef83855cbc7609030d0ddbe6a92bdb73176884a951eb6ba33eece29bdcb30d6b7c66f","keyId":"7A15F56288146023D45A47796F6A5553","anchor":"0a35688a4c3ec82a5e621cede1f173a6d436ade0e20f159dca92c2a3711e3dc1","anchorN":8,"select":6,"records":[{"n":1,"f":{"instrumentId":"HPLC-02","sensorType":"hplc","value":"1523847","unit":"counts","capturedAt":"2026-09-14T08:12:41Z"},"r":"0135c7794c42473a750237d2d67f4ebf1280584fcafe4c4b8718364c8b26ae70","prev":"0000000000000000000000000000000000000000000000000000000000000000","h":"c891c783b0f446a14670814ba59d71f405dee3eec6b4e710bc28ae13a529341d","sig":"2bd517ee97bddb412628829d7ace9193e9f3911611e498065f20dea04a68b9fae0666986698fdd600ebcdad3266f74ce29e30c1effcd6c17e6ef7e335d2c7b48","ctx":{"inj":"01","kind":"SST","sample":"STD-A","desc":"Reference standard, 0.20 mg/mL, replicate 1","prep":"replicate 1","rt":"4.82"}},{"n":2,"f":{"instrumentId":"HPLC-02","sensorType":"hplc","value":"1519962","unit":"counts","capturedAt":"2026-09-14T08:19:43Z"},"r":"9892c300f7ec0534343e67419a7fdf9ad16daff60e5145aacd514732a9c95f60","prev":"c891c783b0f446a14670814ba59d71f405dee3eec6b4e710bc28ae13a529341d","h":"7a4953a2414b01e28d9347ad1d6a6579c8b555bbf2e52b96cde03d642e87e6d0","sig":"fb4906e998e815c6b7ec5c7e5e9c4b7f385797190624a6da6e5a361dad6065a723a21a5666da2edb1df833ad79c8a1f58b7914ccb874b36577bee7eb79e9469c","ctx":{"inj":"02","kind":"SST","sample":"STD-A","desc":"Reference standard, 0.20 mg/mL, replicate 2","prep":"replicate 2","rt":"4.81"}},{"n":3,"f":{"instrumentId":"HPLC-02","sensorType":"hplc","value":"1527410","unit":"counts","capturedAt":"2026-09-14T08:26:44Z"},"r":"ae3ff2536da7c5c4be08a49d1f343da31f6e3cf399408708e14693f473c8a4c2","prev":"7a4953a2414b01e28d9347ad1d6a6579c8b555bbf2e52b96cde03d642e87e6d0","h":"5bca5e029bf1be13f6b38333d9ee3577ef36903b857cf4be390dc72cf8b6948a","sig":"9d664cf62477cf1f951e6b4deb4fbf1aed9f9186b098d5ee6b4874d51c285011f4a0d9fa11f5dd9ac23ac9d0248858c1ea7fbafdc1854b647864bfec7450071f","ctx":{"inj":"03","kind":"SST","sample":"STD-A","desc":"Reference standard, 0.20 mg/mL, replicate 3","prep":"replicate 3","rt":"4.82"}},{"n":4,"f":{"instrumentId":"HPLC-02","sensorType":"hplc","value":"1521188","unit":"counts","capturedAt":"2026-09-14T08:33:47Z"},"r":"976c4d87814195123fd9e64813eb7b76184c6272fcae2f74d354bf9cce5164b3","prev":"5bca5e029bf1be13f6b38333d9ee3577ef36903b857cf4be390dc72cf8b6948a","h":"469c206de1a395be9be00bac58e07dcf3bfad47ec8fef1153fbaad8502b1d36b","sig":"6f4e98a69a9ec9a5bcead850b5cc014b4a986680aa61e2c72c1fded4037de0391d8b14749546c9058f40b0a9d1a9c23d1a8f7887d9e64c83cb8bae950c432bc5","ctx":{"inj":"04","kind":"SST","sample":"STD-A","desc":"Reference standard, 0.20 mg/mL, replicate 4","prep":"replicate 4","rt":"4.83"}},{"n":5,"f":{"instrumentId":"HPLC-02","sensorType":"hplc","value":"1525603","unit":"counts","capturedAt":"2026-09-14T08:40:49Z"},"r":"1f00a3f2554c93ee86aaa49d49402b9740986cf4777bfa356da50e28fbfa121a","prev":"469c206de1a395be9be00bac58e07dcf3bfad47ec8fef1153fbaad8502b1d36b","h":"c04af03f4b9c69a30d06e27d9906e4e7f2bc176b7ba0a212582ad8c65f6bdfd5","sig":"70def28d6c5a20e5b97fb878e05087198604a09dad7219311400fbf258122a71502018cb2814d34ab8349d4d6012ba69940e29c33db80a165a2883c05a4f5bcf","ctx":{"inj":"05","kind":"SST","sample":"STD-A","desc":"Reference standard, 0.20 mg/mL, replicate 5","prep":"replicate 5","rt":"4.82"}},{"n":6,"f":{"instrumentId":"HPLC-02","sensorType":"hplc","value":"1508811","unit":"counts","capturedAt":"2026-09-14T08:47:50Z"},"r":"eb1690bc5922a312d90ee139fdf8e20b92bf2cb0feae8ee0e70bd24fbd2b54d7","prev":"c04af03f4b9c69a30d06e27d9906e4e7f2bc176b7ba0a212582ad8c65f6bdfd5","h":"c427b83a4e29adf9380bef67d00302e12ddfd558ae8f5a558547b2b0cf3cba23","sig":"fd3cfca2c73346e62ecca8b63809472ef61f4c01d375e91bce8f023b3fefb8cc6904175a9db890fe6bc0e8fe5fc34203cf5297b361db971e6cadf2dfeb420279","ctx":{"inj":"06","kind":"Sample","sample":"P200-S1","desc":"Product 200 mg tablets, preparation 1","prep":"preparation 1","rt":"4.82"}},{"n":7,"f":{"instrumentId":"HPLC-02","sensorType":"hplc","value":"1531274","unit":"counts","capturedAt":"2026-09-14T08:54:52Z"},"r":"ebe86f04fb007ecdcc87296ddd9fcab2fce7646d1b172220ec3ce3a63833948c","prev":"c427b83a4e29adf9380bef67d00302e12ddfd558ae8f5a558547b2b0cf3cba23","h":"b43dc487a612cb06fcec3ba624d25a40354c31e91a8095c5e32f785b284c778a","sig":"c62736903ebbbea78273b59ad62db18c44d7af0dec612f92ec240d373e9638dd2cd13356cbe733b520e6171b2381900d39669d382fa0b54ac54a41bb6a55944a","ctx":{"inj":"07","kind":"Sample","sample":"P200-S2","desc":"Product 200 mg tablets, preparation 2","prep":"preparation 2","rt":"4.81"}},{"n":8,"f":{"instrumentId":"HPLC-02","sensorType":"hplc","value":"1516039","unit":"counts","capturedAt":"2026-09-14T09:01:55Z"},"r":"45752d1145d10b60f0c0f67923c25c1536acb705dcd1492ae4b0746d48804e5f","prev":"b43dc487a612cb06fcec3ba624d25a40354c31e91a8095c5e32f785b284c778a","h":"0a35688a4c3ec82a5e621cede1f173a6d436ade0e20f159dca92c2a3711e3dc1","sig":"c7926ae188ec1d5fffd70c46d5c8e5e97fe74a9ea0bdf8abd55a7b35c0d83c144cf5334fc0ff2b1c5a59cdbda9c4305109e449af72b4636dc9a324d0ad0ba717","ctx":{"inj":"08","kind":"Sample","sample":"P200-S3","desc":"Product 200 mg tablets, preparation 3","prep":"preparation 3","rt":"4.82"}}]}</script>
 
-        <section id="how-it-works" class="how">
-            <div class="wrap how__inner">
-                <div class="how__head">
-                    <div>
-                        <p class="kicker">How it works</p>
-                        <h2 class="how__title">One injection. One unbroken record.</h2>
-                    </div>
-                    <p class="how__lede">Scroll through a single run. Each stage writes to the ledger as it happens. Later corrections link back to the original instead of overwriting it.</p>
-                </div>
-                <div class="how__track" id="howTrack">
-                <div class="how__stage" id="howStage">
-                    <div class="how__list" id="howList">
-                        <div class="how__rail" id="howRail" aria-hidden="true"><div class="how__railFill" id="howRailFill"></div></div>
-                        <ol class="how__steps" id="howSteps">
-                            <li class="how__step is-active" data-step="0" style="--dur: 0.16">
-                                <button type="button" class="how__btn" data-step="0">
-                                    <span class="how__num">01</span>
-                                    <span class="how__label">Inject</span>
-                                    <span class="how__desc">The autosampler draws sample 2231-A. The injection time is written to ImmutableQC before the sample moves.</span>
-                                    <span class="how__rec" id="rec0"><span class="how__recTag">REC #0042</span>INJ · 2026-09-21T14:22:07.318Z</span>
-                                </button>
-                            </li>
-                            <li class="how__step" data-step="1" style="--dur: 0.22">
-                                <button type="button" class="how__btn" data-step="1">
-                                    <span class="how__num">02</span>
-                                    <span class="how__label">Transport</span>
-                                    <span class="how__desc">A peristaltic pump carries the sample plug through the carrier stream to the column. Method parameters are already part of the signed run header.</span>
-                                    <span class="how__rec how__rec--status" id="rec1"><span class="how__recTag">FLOW</span>0.80 mL/min · 1.9 bar · FIA-UV-01</span>
-                                </button>
-                            </li>
-                            <li class="how__step" data-step="2" style="--dur: 0.32">
-                                <button type="button" class="how__btn" data-step="2">
-                                    <span class="how__num">03</span>
-                                    <span class="how__label">Separate and detect</span>
-                                    <span class="how__desc">Analytes separate on the column and pass the detector. Each peak's retention time, height and area is recorded the moment it integrates.</span>
-                                    <span class="how__rec" id="rec2"><span class="how__recTag">REC #0043</span>PEAKS · 3 · 1.44 / 3.44 / 5.68 min</span>
-                                </button>
-                            </li>
-                            <li class="how__step" data-step="3" style="--dur: 0.15">
-                                <button type="button" class="how__btn" data-step="3">
-                                    <span class="how__num">04</span>
-                                    <span class="how__label">Report</span>
-                                    <span class="how__desc">The run report is assembled from ledger entries and hashed. The hash is committed to the chain.</span>
-                                    <span class="how__rec" id="rec3"><span class="how__recTag">REC #0044</span>RPT · sha256:9c2e…41b7</span>
-                                </button>
-                            </li>
-                            <li class="how__step" data-step="4" style="--dur: 0.15">
-                                <button type="button" class="how__btn" data-step="4">
-                                    <span class="how__num">05</span>
-                                    <span class="how__label">Amend</span>
-                                    <span class="how__desc">Weeks later a dilution factor is corrected. The correction is a new record that links to the original. Nothing is overwritten.</span>
-                                    <span class="how__rec how__rec--amd" id="rec4"><span class="how__recTag">REC #0045</span>AMD · dilution 1.00 → 2.50 · refs #0044</span>
-                                </button>
-                            </li>
-                        </ol>
-                    </div>
-                    <div class="how__pin">
-                    <div class="how__diagram" id="howDiagram" aria-hidden="true">
-                        <svg class="fia" id="fiaSvg" viewBox="0 0 560 400" focusable="false">
-                            <defs>
-                                <pattern id="fiaPack" width="4" height="4" patternUnits="userSpaceOnUse">
-                                    <circle class="fia-pack" cx="2" cy="2" r="0.6"/>
-                                </pattern>
-                                <clipPath id="fiaTraceClip">
-                                    <rect id="fiaTraceClipRect" x="32" y="166" width="0" height="114"/>
-                                </clipPath>
-                                <marker id="fiaArrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto">
-                                    <path class="fia-arrowhead" d="M0 0 L8 4 L0 8 Z"/>
-                                </marker>
-                            </defs>
+</div>
+</main>
+<footer class="foot">
+<div class="wrap">
+<p class="ind">Immutable QC is an independent project built on the founder’s own time. It is not affiliated with or endorsed by any employer. Founder: <span class="nw">José A. Fernández Abreu</span> · <a href="https://joseqc.com">joseqc.com</a></p>
+<p class="meta"><span class="m-doc"><span class="nw">IQC-OV-01</span> · Draft 2 · Updated 2026-10-06 · <a href="about.html#history">Revision history</a></span><span class="m-fonts">Fonts, SIL Open Font License: <a href="fonts/OFL-IBM-Plex-Sans.txt">IBM Plex Sans</a> <a href="fonts/OFL-IBM-Plex-Mono.txt">IBM Plex Mono</a> <a href="fonts/OFL-Archivo.txt">Archivo</a></span></p>
+</div>
+</footer>
 
-                            <!-- Instrument train -->
-                            <g class="fia-train">
-                                <text class="fia-lbl" x="24" y="18">Autosampler</text>
-                                <text class="fia-lbl" x="236" y="18">Pump</text>
-                                <text class="fia-lbl" x="372" y="18">Column</text>
-                                <text class="fia-lbl" x="506" y="81">Detector</text>
-                                <text class="fia-lbl" x="500" y="134">Waste</text>
-                                <text class="fia-clock" id="fiaClock" x="548" y="18" text-anchor="end">t = 00:00.0</text>
-
-                                <line class="fia-gantry" x1="30" y1="56" x2="134" y2="56"/>
-                                <rect class="fia-rack" x="24" y="72" width="112" height="66" rx="8"/>
-                                <g class="fia-vials">
-                                    <circle cx="42" cy="92" r="7"/><circle cx="90" cy="92" r="7"/><circle cx="114" cy="92" r="7"/>
-                                    <circle cx="42" cy="118" r="7"/><circle cx="66" cy="118" r="7"/><circle cx="90" cy="118" r="7"/><circle cx="114" cy="118" r="7"/>
-                                </g>
-                                <circle class="fia-vial-target" cx="66" cy="92" r="7"/>
-                                <circle class="fia-vial-fill" id="fiaVialFill" cx="66" cy="92" r="5"/>
-                                <rect class="fia-carriage" x="60" y="52" width="12" height="8" rx="2"/>
-                                <line class="fia-needle" id="fiaNeedle" x1="66" y1="60" x2="66" y2="66"/>
-
-                                <path class="fia-housing" d="M 277.6 64.9 A 36 36 0 1 1 222.4 64.9"/>
-                                <circle class="fia-rotor" cx="250" cy="88" r="21"/>
-
-                                <rect class="fia-colcap" x="366" y="26" width="8" height="16" rx="2"/>
-                                <rect class="fia-colcap" x="470" y="26" width="8" height="16" rx="2"/>
-                                <rect class="fia-colbody" x="372" y="24" width="100" height="20" rx="5"/>
-                                <rect class="fia-colpack" x="376" y="27" width="92" height="14" rx="3" fill="url(#fiaPack)"/>
-
-                                <rect class="fia-det" x="476" y="66" width="24" height="24" rx="4"/>
-                                <rect class="fia-detglow" id="fiaDetGlow" x="479" y="69" width="18" height="18" rx="3"/>
-                                <path class="fia-waste" d="M 481 126 L 495 126 L 491.5 135 L 484.5 135 Z"/>
-
-                                <path class="fia-tube" id="fiaTube" d="M 66 52 L 66 42 Q 66 34 74 34 L 224 34 Q 232 34 232 42 L 232 64 A 30 30 0 1 0 268 64 L 268 42 Q 268 34 276 34 L 372 34 L 472 34 L 480 34 Q 488 34 488 42 L 488 66 L 488 90 L 488 124"/>
-                                <path class="fia-carrier" id="fiaCarrier" pathLength="1000"/>
-                                <path class="fia-band fia-band--2" id="fiaBand2" pathLength="1000"/>
-                                <path class="fia-band fia-band--1" id="fiaBand1" pathLength="1000"/>
-                                <path class="fia-band fia-band--0" id="fiaBand0" pathLength="1000"/>
-
-                                <g class="fia-rollers" id="fiaRollers">
-                                    <circle cx="250" cy="113" r="5"/>
-                                    <circle cx="228.35" cy="75.5" r="5"/>
-                                    <circle cx="271.65" cy="75.5" r="5"/>
-                                </g>
-                                <circle class="fia-hub" cx="250" cy="88" r="2.5"/>
-                            </g>
-
-                            <!-- Detector output -->
-                            <g class="fia-plot">
-                                <text class="fia-lbl" x="32" y="160">UV 254 nm · mAU</text>
-                                <line class="fia-axis" x1="32" y1="170" x2="32" y2="272"/>
-                                <line class="fia-axis" x1="32" y1="272" x2="348" y2="272"/>
-                                <g class="fia-ticks">
-                                    <line x1="32" y1="272" x2="32" y2="275"/><text x="32" y="284">0</text>
-                                    <line x1="111" y1="272" x2="111" y2="275"/><text x="111" y="284">2</text>
-                                    <line x1="190" y1="272" x2="190" y2="275"/><text x="190" y="284">4</text>
-                                    <line x1="269" y1="272" x2="269" y2="275"/><text x="269" y="284">6</text>
-                                    <line x1="348" y1="272" x2="348" y2="275"/><text x="348" y="284">8 min</text>
-                                </g>
-                                <g clip-path="url(#fiaTraceClip)">
-                                    <path class="fia-pfill fia-pfill--0" id="fiaPfill0"/>
-                                    <path class="fia-pfill fia-pfill--1" id="fiaPfill1"/>
-                                    <path class="fia-pfill fia-pfill--2" id="fiaPfill2"/>
-                                    <path class="fia-trace" id="fiaTrace"/>
-                                </g>
-                                <circle class="fia-pen" id="fiaPen" r="2.4"/>
-                                <text class="fia-pk fia-pk--0" id="fiaPk0">1.44</text>
-                                <text class="fia-pk fia-pk--1" id="fiaPk1">3.44</text>
-                                <text class="fia-pk fia-pk--2" id="fiaPk2">5.68</text>
-                            </g>
-
-                            <!-- Run record -->
-                            <g class="fia-rec">
-                                <rect class="fia-recbox" x="372" y="164" width="176" height="126" rx="10"/>
-                                <text class="fia-rectitle" x="384" y="181">Run record</text>
-                                <text class="fia-recid" x="536" y="181" text-anchor="end">2231-A · run 014</text>
-                                <line class="fia-recrule" x1="384" y1="188" x2="536" y2="188"/>
-
-                                <text class="fia-key" x="384" y="203">injected</text>
-                                <text class="fia-val fia-fade" id="fiaRowInj" x="430" y="203">14:22:07.318Z</text>
-
-                                <text class="fia-key" x="384" y="216">flow</text>
-                                <text class="fia-val fia-fade" id="fiaRowFlow" x="430" y="216">0.80 mL/min · 1.9 bar</text>
-
-                                <text class="fia-key" x="384" y="229">peaks</text>
-                                <text class="fia-val" x="430" y="229"><tspan class="fia-tfade fia-tint--0" id="fiaRt0">1.44</tspan><tspan class="fia-tfade fia-tint--1" id="fiaRt1" dx="7">3.44</tspan><tspan class="fia-tfade fia-tint--2" id="fiaRt2" dx="7">5.68</tspan><tspan class="fia-tfade fia-dim" id="fiaRtU" dx="7">min</tspan></text>
-
-                                <text class="fia-key" x="384" y="242">dilution</text>
-                                <text class="fia-val fia-fade" id="fiaRowDil" x="430" y="242">1.00</text>
-                                <text class="fia-val fia-fade" id="fiaRowDilAmd" x="430" y="242"><tspan class="fia-old">1.00</tspan><tspan class="fia-new" dx="7">2.50</tspan></text>
-
-                                <text class="fia-key" x="384" y="255">result</text>
-                                <text class="fia-val fia-fade" id="fiaRowRes" x="430" y="255">12.847 mg/L</text>
-                                <text class="fia-val fia-fade" id="fiaRowResAmd" x="430" y="255"><tspan class="fia-old">12.847</tspan><tspan class="fia-new" dx="7">32.118 mg/L</tspan></text>
-
-                                <text class="fia-key" x="384" y="268">report</text>
-                                <text class="fia-val fia-fade fia-hash" id="fiaRowHash" x="430" y="268">sha256:9c2e…41b7</text>
-
-                                <text class="fia-key" x="384" y="281">amended</text>
-                                <text class="fia-val fia-fade fia-hash fia-new" id="fiaRowAmd" x="430" y="281">v2 e17d…8a03 · refs v1</text>
-                            </g>
-
-                            <!-- Ledger chain -->
-                            <g class="fia-chain">
-                                <text class="fia-lbl fia-lbl--accent" x="24" y="316">ImmutableQC ledger</text>
-                                <text class="fia-lbl fia-intact" id="fiaIntact" x="548" y="316" text-anchor="end">chain intact ✓</text>
-
-                                <g class="fia-blk fia-blk--prev">
-                                    <rect x="24" y="328" width="96" height="48" rx="8"/>
-                                    <text x="36" y="347">#0041</text>
-                                    <text class="fia-blk-sub" x="36" y="362">prev · a7f3…c91b</text>
-                                </g>
-                                <line class="fia-lnk" id="fiaLnk1" x1="120" y1="352" x2="132" y2="352"/>
-                                <g class="fia-blk" id="fiaBlk1">
-                                    <rect x="132" y="328" width="96" height="48" rx="8"/>
-                                    <text x="144" y="347">#0042 · INJ</text>
-                                    <text class="fia-blk-sub" x="144" y="362">14:22:07.318Z</text>
-                                </g>
-                                <line class="fia-lnk" id="fiaLnk2" x1="228" y1="352" x2="240" y2="352"/>
-                                <g class="fia-blk" id="fiaBlk2">
-                                    <rect x="240" y="328" width="96" height="48" rx="8"/>
-                                    <text x="252" y="347">#0043 · PEAKS</text>
-                                    <text class="fia-blk-sub" x="252" y="362">3 peaks · RT H A</text>
-                                </g>
-                                <line class="fia-lnk" id="fiaLnk3" x1="336" y1="352" x2="348" y2="352"/>
-                                <g class="fia-blk" id="fiaBlk3">
-                                    <rect x="348" y="328" width="96" height="48" rx="8"/>
-                                    <text x="360" y="347">#0044 · RPT</text>
-                                    <text class="fia-blk-sub" x="360" y="362">sha256:9c2e…41b7</text>
-                                </g>
-                                <line class="fia-lnk" id="fiaLnk4" x1="444" y1="352" x2="456" y2="352"/>
-                                <g class="fia-blk fia-blk--amd" id="fiaBlk4">
-                                    <rect x="456" y="328" width="96" height="48" rx="8"/>
-                                    <text x="468" y="347">#0045 · AMD</text>
-                                    <text class="fia-blk-sub" x="468" y="362">refs #0044 · v2</text>
-                                </g>
-                                <path class="fia-back" id="fiaBack" d="M 504 376 C 504 398 396 398 396 378" pathLength="100" marker-end="url(#fiaArrow)"/>
-                            </g>
-                        </svg>
-                        <div class="how__foot">
-                            <span class="demo-tag">Demo · synthetic</span>
-                            <span class="how__hint" id="howHint">Scroll to run the sequence</span>
-                        </div>
-                    </div>
-                    </div>
-                </div>
-                </div>
-            </div>
-        </section>
-
-        <section class="tamper" id="tamper" aria-label="Tamper detection demonstration">
-            <div class="wrap tamper__inner">
-                <p class="kicker">Tamper evident</p>
-                <h2 class="tamper__title">Change one value. The chain notices.</h2>
-                <div class="tamper__stage" id="tamperStage" aria-hidden="true">
-                    <svg class="tamper-svg" viewBox="0 0 480 160">
-                        <g class="tamper-value">
-                            <rect x="20" y="40" width="120" height="70" rx="10" fill="#101418" stroke="#1e2624"/>
-                            <text x="36" y="68" fill="#5c6562" font-family="IBM Plex Mono, monospace" font-size="10">VALUE</text>
-                            <text class="tv" x="36" y="94" fill="#e8ebe9" font-family="IBM Plex Mono, monospace" font-size="20">12.847</text>
-                        </g>
-                        <path class="tamper-link" d="M140 75 H200" stroke="#8fd4c4" stroke-width="2"/>
-                        <g class="tamper-hash">
-                            <rect x="200" y="40" width="140" height="70" rx="10" fill="#101418" stroke="#1e2624"/>
-                            <text x="216" y="68" fill="#5c6562" font-family="IBM Plex Mono, monospace" font-size="10">CHAIN</text>
-                            <text class="th" x="216" y="94" fill="#8fd4c4" font-family="IBM Plex Mono, monospace" font-size="14">a7f3…c91</text>
-                        </g>
-                        <path class="tamper-link2" d="M340 75 H390" stroke="#8fd4c4" stroke-width="2"/>
-                        <g class="tamper-check">
-                            <circle class="tc-ring" cx="430" cy="75" r="28" fill="none" stroke="#8fd4c4" stroke-width="2"/>
-                            <path class="tc-mark" d="M416 76 L426 86 L446 64" fill="none" stroke="#8fd4c4" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-                        </g>
-                    </svg>
-                    <p class="demo-tag">DEMO · SYNTHETIC</p>
-                </div>
-            </div>
-        </section>
-
-        <aside class="footnote wrap">
-            <p>Industry context: FDA Warning Letters frequently cite data integrity failures in analytical labs. Immutable QC targets cryptographic evidence aligned with 21 CFR Part 11 and ISO 17025, not a substitute for validation.</p>
-        </aside>
-
-        <section class="audience wrap" aria-label="Who it's for">
-            <p class="audience__line">Pharma QC · Environmental · Contract labs</p>
-        </section>
-    </main>
-
-    <footer class="footer">
-        <div class="wrap footer__row">
-            <a href="#hero" class="nav__logo">
-                <svg class="nav__mark" viewBox="0 0 24 24" aria-hidden="true">
-                    <circle cx="12" cy="12" r="8.2" fill="none" stroke="currentColor" stroke-width="1.6"/>
-                    <circle cx="12" cy="12" r="2.4" fill="currentColor"/>
-                </svg>
-                <span>Immutable<span class="accent">QC</span></span>
-            </a>
-            <a href="mailto:hi@immutableqc.com">hi@immutableqc.com</a>
-            <a href="https://github.com/fabreu08/IQC-ui-ux-review" target="_blank" rel="noopener noreferrer">Research</a>
-            <span class="legal">© 2026</span>
-        </div>
-    </footer>
-    <script src="script.js"></script>
 </body>
 </html>
