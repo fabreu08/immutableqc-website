@@ -1,0 +1,52 @@
+<div class="hero">
+<div class="hero-text">
+<h1>{{h1}}</h1>
+<section class="sec" aria-labelledby="s1-h">
+<h2 id="s1-h"><span class="no">1</span>Scope</h2>
+<div class="body">
+<p class="lead">{{definition}}</p>
+</div>
+<h3 id="s11-h"><span class="no">1.1</span>Regulatory position</h3>
+<div class="body">
+<p class="reg">{{regulatory}}</p>
+</div>
+</section>
+</div>
+{{> plate-record}}
+</div>
+<section class="sec sec--side" aria-labelledby="s2-h">
+<h2 id="s2-h"><span class="no">2</span>How a record is sealed</h2>
+<div class="body">
+<p>The alpha seals five fields of each result: instrument, measurement type, value, unit and capture time; sample and method metadata inside the seal are on the roadmap. Each record’s SHA-256 fingerprint is linked to the previous record’s, which makes the record history tamper-evident: a change anywhere breaks that link and every later one. A correction is a new record with a reason; the original stays.</p>
+<p class="note"><span class="k">Basis</span>Signatures: ECDSA P-256, FIPS 186-5.</p>
+<p><a class="xref" href="sealed.html"><span class="id">IQC-HS-01</span><span>How a record is sealed</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
+</div>
+</section>
+<section class="sec sec--side" aria-labelledby="s3-h">
+<h2 id="s3-h"><span class="no">3</span>Check a record</h2>
+<div class="body">
+<p>Change any sealed field of the eight demo records and your browser recomputes the fingerprint, checks the signature and replays the links as you type, with the shell commands to repeat each step outside the browser. Then try to hide the change, or correct it in the open.</p>
+<p><a class="xref" href="check.html"><span class="id">IQC-CK-01</span><span>Check a record</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
+</div>
+</section>
+<section class="sec sec--side" aria-labelledby="s4-h">
+<h2 id="s4-h"><span class="no">4</span>Regulatory map</h2>
+<div class="body">
+<p>Clause by clause, what the alpha shows against 21 CFR Part 11, EU Annex 11, ISO/IEC 17025:2017 and ALCOA+, and what it does not do.</p>
+<p><a class="xref" href="regulatory.html"><span class="id">IQC-RM-01</span><span>Regulatory map</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
+</div>
+</section>
+<section class="sec sec--side" aria-labelledby="s5-h">
+<h2 id="s5-h"><span class="no">5</span>Roadmap</h2>
+<div class="body">
+<p>Today there is a browser demo on a synthetic lab and an alpha app that imports HPLC CSV files. Planned: verified experiment data that AI agents can check before they use it, per-analyst signatures, sample and method metadata inside the sealed record, a shared registry, and Filecoin integration.</p>
+<p><a class="xref" href="roadmap.html"><span class="id">IQC-RD-01</span><span>Roadmap</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
+</div>
+</section>
+<section class="sec sec--side" aria-labelledby="s6-h">
+<h2 id="s6-h"><span class="no">6</span>About</h2>
+<div class="body">
+<p>An independent project by José A. Fernández Abreu, built on his own time.</p>
+<p><a class="xref" href="about.html"><span class="id">IQC-AB-01</span><span>About</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
+</div>
+</section>

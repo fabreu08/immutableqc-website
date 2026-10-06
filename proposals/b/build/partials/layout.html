@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{title}}</title>
+<meta name="description" content="{{description}}">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#F4F6F5">
+<link rel="icon" href="{{favicon}}">
+{{preloads}}<link rel="stylesheet" href="assets/site.css?v={{cssv}}">
+<script>{{prepaint}}</script>
+<script defer src="assets/iqc.js?v={{jsv}}"></script>
+</head>
+<body>
+{{> sprite}}
+<a class="skip" href="#main">Skip to content</a>
+{{> top}}
+<main id="main" tabindex="-1">
+<div class="wrap">
+{{> dochead}}
+{{body}}
+</div>
+</main>
+{{> footer}}
+</body>
+</html>
