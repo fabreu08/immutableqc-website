@@ -1,8 +1,9 @@
 {
   "origin": "https://immutableqc.com/",
-  "revision": "Draft 4",
+  "revision": "Draft 5",
   "updated": "2026-10-07",
   "history": [
+    { "rev": "Draft 5", "date": "2026-10-07", "change": "The Overview gains section 2, “How a result becomes a sealed record”, which walks record 6 through seven animated steps (captured, fingerprinted, signed, linked, a change, a correction, and what is upcoming) with every value computed at build; the later sections and figures are renumbered." },
     { "rev": "Draft 4", "date": "2026-10-07", "change": "Adds one upcoming item, signatures that cover each record’s position, so a removed or moved record shows without an anchor; How a record is sealed links to it. Today’s signatures still cover only each record’s own fingerprint, as in the alpha app." },
     { "rev": "Draft 3", "date": "2026-10-07", "change": "Everything not built yet is labeled Upcoming, under one label, and the Scope states anchoring as upcoming; the status line no longer names a test network; the Roadmap lists nine upcoming items; on the Regulatory map, clause numbers stay only where confirmed and “Not covered” replaces “Not yet”; the alpha app’s capture time, and what a removed record shows, described as they are; a missing signature, or a field holding the separator, now fails its check; corrections need a reason of at least three words and, in the console too, carry the result’s capture time, not the time they were made; the console can simulate a deleted record; the set is marked informational, not a controlled document; GitHub Pages publishes only the built site, through GitHub Actions." },
     { "rev": "Draft 2", "date": "2026-10-06", "change": "Full document set: every page written in full; Fig. 2 Record history on the Overview; one ring-and-dot mark for the nav, favicon and og card; the auditor’s link rule (a changed value breaks only the link into the next record); the privacy roadmap item; a regulatory map clause by clause; the alpha console reworked as an in-browser demo and linked again." },

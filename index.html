@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-De8f8Cc6y268V8BKaDpGYrx+EUmmODPs6Yx3XJ+n/o4='; style-src 'self'; style-src-attr 'unsafe-inline'; font-src 'self'; img-src 'self'; connect-src 'none'; base-uri 'self'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-QGLyMocFs/dkxzBWIRJqgCyleXT7quFM9/nfaNur/JE='; style-src 'self'; style-src-attr 'unsafe-inline'; font-src 'self'; img-src 'self'; connect-src 'none'; base-uri 'self'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <title>Immutable QC · Tamper-evident lab records (open alpha)</title>
 <meta name="description" content="Each lab result becomes a sealed record: a SHA-256 fingerprint of five recorded fields, linked to the record before it and signed with a demo key. Open alpha on synthetic demo data; no customers yet.">
@@ -24,9 +24,9 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preload" href="fonts/archivo-c-115-620.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="assets/site.css?v=183b457a">
-<script>(function(d){var c=d.documentElement.classList;c.add('js');try{if(!matchMedia('(prefers-reduced-motion: reduce)').matches)c.add('motion')}catch(e){}var q=function(s){return d.querySelector(s)},b=function(){return q('.menu-btn')},n=function(){return q('.nav')},o=function(){var x=b();return!!x&&x.getAttribute('aria-expanded')==='true'},s=function(v){var x=b(),y=n();if(x&&y){x.setAttribute('aria-expanded',String(v));y.classList.toggle('open',v)}};d.addEventListener('click',function(e){var t=e.target,x=b(),y=n();if(!t||!t.closest)return;if(q('base')&&t.closest('.skip')){e.preventDefault();var m=d.getElementById('main');if(m){m.focus();m.scrollIntoView()}return}if(!x||!y)return;if(x.contains(t))s(!o());else if(o()&&!y.contains(t))s(false)});d.addEventListener('keydown',function(e){if(e.key==='Escape'&&o()){s(false);b().focus()}});d.addEventListener('focusout',function(e){var x=b(),y=n(),r=e.relatedTarget;if(o()&&r&&(y.contains(e.target)||x.contains(e.target))&&!y.contains(r)&&!x.contains(r))s(false)})})(document)</script>
-<script defer src="assets/iqc.js?v=f96485a1"></script>
+<link rel="stylesheet" href="assets/site.css?v=1914a376">
+<script>(function(d){var c=d.documentElement.classList;c.add('js');try{if(!matchMedia('(prefers-reduced-motion: reduce)').matches)c.add('motion')}catch(e){}var r=d.documentElement,h=innerHeight;r.style.setProperty('--svh',h+'px');if(innerWidth>=960&&h>=(innerWidth>=1180?600:700)&&'IntersectionObserver'in window)c.add('stage');var q=function(s){return d.querySelector(s)},b=function(){return q('.menu-btn')},n=function(){return q('.nav')},o=function(){var x=b();return!!x&&x.getAttribute('aria-expanded')==='true'},s=function(v){var x=b(),y=n();if(x&&y){x.setAttribute('aria-expanded',String(v));y.classList.toggle('open',v)}};d.addEventListener('click',function(e){var t=e.target,x=b(),y=n();if(!t||!t.closest)return;if(q('base')&&t.closest('.skip')){e.preventDefault();var m=d.getElementById('main');if(m){m.focus();m.scrollIntoView()}return}if(!x||!y)return;if(x.contains(t))s(!o());else if(o()&&!y.contains(t))s(false)});d.addEventListener('keydown',function(e){if(e.key==='Escape'&&o()){s(false);b().focus()}});d.addEventListener('focusout',function(e){var x=b(),y=n(),r=e.relatedTarget;if(o()&&r&&(y.contains(e.target)||x.contains(e.target))&&!y.contains(r)&&!x.contains(r))s(false)})})(document)</script>
+<script defer src="assets/iqc.js?v=e7ae5d1e"></script>
 </head>
 <body data-doc="IQC-OV-01">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><symbol id="i-ok" viewBox="0 0 16 16"><path d="M2.5 8.5l3.5 3.5 7.5-8" fill="none" stroke="currentColor" stroke-width="2"/></symbol><symbol id="i-x" viewBox="0 0 16 16"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9" fill="none" stroke="currentColor" stroke-width="2"/></symbol><symbol id="i-dash" viewBox="0 0 16 16"><path d="M3.5 8h9" fill="none" stroke="currentColor" stroke-width="2"/></symbol><symbol id="i-open" viewBox="0 0 16 16"><circle cx="8" cy="8" r="4.5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-dasharray="2.4 1.8"/></symbol><symbol id="i-arrow" viewBox="0 0 16 16"><path d="M1.5 8h12M9 3.5L13.5 8 9 12.5" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol><symbol id="i-down" viewBox="0 0 16 16"><path d="M8 1.5v12M3.5 9L8 13.5 12.5 9" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol><symbol id="i-mark" viewBox="0 0 32 32"><circle cx="16" cy="16" r="16" style="fill:var(--plate-0)"/><circle cx="16" cy="16" r="9.5" style="fill:none;stroke:var(--ok);stroke-width:3"/><circle cx="16" cy="16" r="3.75" style="fill:var(--ok)"/></symbol></svg>
@@ -54,7 +54,7 @@
 <div class="wrap">
 <dl class="dochead">
 <div><dt>Document</dt><dd><span class="nw">IQC-OV-01</span></dd></div>
-<div><dt>Revision</dt><dd>Draft 4</dd></div>
+<div><dt>Revision</dt><dd>Draft 5</dd></div>
 <div><dt>Updated</dt><dd>2026-10-07</dd></div>
 <div class="st"><dt>Status</dt><dd>Independent project · Open alpha · Synthetic demo data · No customers yet</dd></div>
 <div class="use"><dt>Use</dt><dd>Informational draft. Not a controlled document; not a regulatory assessment or a validation statement.</dd></div>
@@ -140,15 +140,315 @@
 </figure>
 
 </div>
-<section class="sec" id="history" aria-labelledby="s2-h">
-<h2 id="s2-h"><span class="no">2</span>Record history</h2>
+<section class="sec story" id="story" aria-labelledby="s2-h" data-story>
+<h2 id="s2-h"><span class="no">2</span>How a result becomes a sealed record</h2>
+<div class="body">
+<p>One record from the demo sequence, record 6 of <span class="nw">SEQ-0914-02</span>, in seven steps from the instrument run to its place in the record history. Every value shown is computed from the signed demo data when the site is built.</p>
+</div>
+<div class="step-grid">
+<ol class="step-list">
+<li class="step" id="st-1" data-step="1"><span class="step-seg" aria-hidden="true"><span class="step-fill"></span></span>
+<h3><span class="no">2.1</span><a class="step-a" href="#st-1">Captured</a></h3>
+<div class="step-t">
+<p>Injection 06 on <span class="nw">HPLC-02</span>. The chromatography data system (CDS) integrates the peak at 4.82 min, and its area, 1508811 counts, becomes the value of record 6, with four more fields: the instrument, the measurement type, the unit and the capture time.</p>
+</div>
+<figure class="fig sf" data-fig="1" aria-labelledby="sf1-c">
+<div class="plate sc" data-sc data-s="1" data-from="0" style="--c1:401px;--c2:390.578px;--c3:287px;--c4:225px">
+<div class="plate-h"><p class="fig-no">Fig. 2.1</p><p class="plate-t">Captured</p><p class="sim">Simulated · demo data</p></div>
+<div class="sc-b">
+<div class="sc-src" data-on="0 1 2 3 4 5 6" data-dim="2 3 4 5 6">
+<p class="chr-h"><span class="lab">Injection 06</span><span class="say sw"><span data-on="0 1 2 3 4 5">illustrative trace</span></span></p>
+<div class="chr">
+<svg class="chr-g" viewBox="0 0 300 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path class="chr-pk" d="M94.64,93.93L94.64,93.92L96.43,93.88L98.21,93.83L100,93.76L101.79,93.63L103.57,93.41L105.36,93.02L107.14,92.33L108.93,91.16L110.71,89.26L112.5,86.34L114.29,82.08L116.07,76.19L117.86,68.53L119.64,59.18L121.43,48.54L123.21,37.33L125,26.57L126.79,17.45L128.57,11.07L130.36,8.28L132.14,9.45L133.93,14.43L135.71,22.53L137.5,32.73L139.29,43.85L141.07,54.78L142.86,64.67L144.64,72.98L146.43,79.53L148.21,84.37L150,87.74L151.79,89.96L153.57,91.35L155.36,92.16L157.14,92.6L158.93,92.84L160.71,92.94L162.5,92.99L164.29,93L166.07,93L166.07,93.01Z" data-on="1 2 3 4 5 6" data-d="1:160"/><path class="chr-dl" d="M94.64,93.93L166.07,93.01" data-on="1 2 3 4 5 6" data-d="1:160"/><path class="chr-tr" pathLength="1" d="M0,96.1L26.79,95.42L53.57,94.78L80.36,94.2L94.64,93.92L96.43,93.88L98.21,93.83L100,93.76L101.79,93.63L103.57,93.41L105.36,93.02L107.14,92.33L108.93,91.16L110.71,89.26L112.5,86.34L114.29,82.08L116.07,76.19L117.86,68.53L119.64,59.18L121.43,48.54L123.21,37.33L125,26.57L126.79,17.45L128.57,11.07L130.36,8.28L132.14,9.45L133.93,14.43L135.71,22.53L137.5,32.73L139.29,43.85L141.07,54.78L142.86,64.67L144.64,72.98L146.43,79.53L148.21,84.37L150,87.74L151.79,89.96L153.57,91.35L155.36,92.16L157.14,92.6L158.93,92.84L160.71,92.94L162.5,92.99L164.29,93L166.07,93L176.79,92.92L203.57,92.73L230.36,92.55L257.14,92.34L283.93,92.05" data-draw="1 2 3 4 5 6"/></svg>
+<span class="chr-rt" style="left:43.57%" data-on="1 2 3 4 5 6" data-d="1:140">4.82 min</span>
+<span class="chr-ar" style="left:52.88%" data-on="1 2 3 4 5 6" data-d="1:220" data-fly-at="area">Area <b>1508811</b> counts</span>
+</div>
+<p class="chr-x" aria-hidden="true"><span style="left:14.29%">4</span><span style="left:50%">5</span><span style="left:85.71%">6</span><span class="u">min</span></p>
+</div>
+<div class="sc-card" data-on="1 2 3 4 5 6 7" data-dim="7">
+<div class="cd-h"><p class="lab">Record 6 <span class="sub sw"><span data-on="1 2">· five fields</span></span></p><svg class="sn sn--seal" viewBox="0 0 20 20" aria-hidden="true" focusable="false" data-bad="5" data-d="5:340"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1" data-draw="3 4 5 6 7" data-d="3:300"/><circle class="dt" cx="10" cy="10" r="2.75" data-on="4 6 7" data-d="4:240"/></svg></div>
+<dl class="cd"><div><dt>Instrument</dt><dd data-fly-at="instrumentId"><span class="nw">HPLC-02</span></dd></div><div><dt>Measurement</dt><dd data-fly-at="sensorType">hplc</dd></div><div><dt>Peak area</dt><dd><span class="sw" data-fly-at="value"><span data-on="1 2 3 4 6 7" data-fly="1:area" data-d="1:280">1508811</span></span></dd></div><div><dt>Unit</dt><dd data-fly-at="unit">counts</dd></div><div><dt>Captured (UTC)</dt><dd data-fly-at="capturedAt"><span class="nw">2026-09-14</span><wbr><span class="nw">T08:47:50Z</span></dd></div></dl>
+</div>
+</div>
+</div>
+<figcaption class="figcap" id="sf1-c"><b>Fig. 2.1</b> · Injection 06 on <span class="nw">HPLC-02</span>, an illustrative trace. The shaded peak at 4.82 min has an area of 1508811 counts, the value of record 6; with four more fields it forms the record.</figcaption>
+</figure>
+</li>
+<li class="step" id="st-2" data-step="2"><span class="step-seg" aria-hidden="true"><span class="step-fill"></span></span>
+<h3><span class="no">2.2</span><a class="step-a" href="#st-2">Fingerprinted</a></h3>
+<div class="step-t">
+<p>The five fields are joined by a vertical bar into one line of 48 bytes: <code class="pay-c">HPLC-02|<wbr>hplc|<wbr>1508811|<wbr>counts|<wbr>2026-09-14T08:47:50Z</code>. <span class="nw">SHA-256</span> turns that line into a 64-character fingerprint, r<sub>6</sub>. One changed character gives a completely different fingerprint.</p>
+</div>
+<figure class="fig sf" data-fig="2" aria-labelledby="sf2-c">
+<div class="plate sc" data-sc data-s="2" data-from="1" style="--c1:392px;--c2:382.219px;--c3:339px;--c4:339px">
+<div class="plate-h"><p class="fig-no">Fig. 2.2</p><p class="plate-t">Fingerprinted</p><p class="sim">Simulated · demo data</p></div>
+<div class="sc-b">
+<div class="sc-card" data-on="1 2 3 4 5 6 7" data-dim="7">
+<div class="cd-h"><p class="lab">Record 6 <span class="sub sw"><span data-on="1 2">· five fields</span></span></p><svg class="sn sn--seal" viewBox="0 0 20 20" aria-hidden="true" focusable="false" data-bad="5" data-d="5:340"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1" data-draw="3 4 5 6 7" data-d="3:300"/><circle class="dt" cx="10" cy="10" r="2.75" data-on="4 6 7" data-d="4:240"/></svg></div>
+<dl class="cd"><div><dt>Instrument</dt><dd data-fly-at="instrumentId"><span class="nw">HPLC-02</span></dd></div><div><dt>Measurement</dt><dd data-fly-at="sensorType">hplc</dd></div><div><dt>Peak area</dt><dd><span class="sw" data-fly-at="value"><span data-on="1 2 3 4 6 7" data-fly="1:area" data-d="1:280">1508811</span></span></dd></div><div><dt>Unit</dt><dd data-fly-at="unit">counts</dd></div><div><dt>Captured (UTC)</dt><dd data-fly-at="capturedAt"><span class="nw">2026-09-14</span><wbr><span class="nw">T08:47:50Z</span></dd></div></dl>
+</div>
+<div class="sc-fp" data-on="2">
+<p class="lab" data-on="2" data-d="2:300">Payload <span class="sub">· five fields · 48 bytes</span></p>
+<p class="pay"><span class="tk" data-on="2 3 4 5" data-fly="2:instrumentId" data-d="2:0"><span class="nw">HPLC-02</span></span><span class="br" data-on="2 3 4 5" data-d="2:440">|</span><span class="tk" data-on="2 3 4 5" data-fly="2:sensorType" data-d="2:20">hplc</span><span class="br" data-on="2 3 4 5" data-d="2:440">|</span><span class="tk" data-on="2 3 4 5" data-fly="2:value" data-d="2:40"><span class="sw"><span data-on="2 3 4">1508811</span></span></span><span class="br" data-on="2 3 4 5" data-d="2:440">|</span><span class="tk" data-on="2 3 4 5" data-fly="2:unit" data-d="2:60">counts</span><span class="br" data-on="2 3 4 5" data-d="2:440">|</span><span class="tk" data-on="2 3 4 5" data-fly="2:capturedAt" data-d="2:80">2026-09-14T08:47:50Z</span></p>
+<div class="fpr">
+<p class="fpl"><span class="arr" data-on="2 3 4 5" data-d="2:360"><svg class="i" aria-hidden="true"><use href="#i-down"/></svg><span><span class="nw">SHA-256</span></span></span><span class="lab sw"><span data-on="2 3 4" data-d="2:370">Fingerprint <var>r</var><sub>6</sub></span></span></p>
+<p class="fpw sw"><span class="g4" data-on="2 3 4"><span class="g" data-on="2 3 4" data-d="2:370">eb1690bc</span><span class="g" data-on="2 3 4" data-d="2:382">5922a312</span><span class="g" data-on="2 3 4" data-d="2:394">d90ee139</span><span class="g" data-on="2 3 4" data-d="2:406">fdf8e20b</span><span class="g" data-on="2 3 4" data-d="2:418">92bf2cb0</span><span class="g" data-on="2 3 4" data-d="2:430">feae8ee0</span><span class="g" data-on="2 3 4" data-d="2:442">e70bd24f</span><span class="g" data-on="2 3 4" data-d="2:454">bd2b54d7</span></span></p>
+</div>
+</div>
+</div>
+</div>
+<figcaption class="figcap" id="sf2-c"><b>Fig. 2.2</b> · The five fields joined by bars, 48 bytes, and their <span class="nw">SHA-256</span> fingerprint r<sub>6</sub>, shown in full.</figcaption>
+</figure>
+</li>
+<li class="step" id="st-3" data-step="3"><span class="step-seg" aria-hidden="true"><span class="step-fill"></span></span>
+<h3><span class="no">2.3</span><a class="step-a" href="#st-3">Signed</a></h3>
+<div class="step-t">
+<p>The fingerprint is signed with the demo key (<span class="nw">ECDSA P-256</span>, key id 7A15F562…), and anyone with the public key can check that the signature covers this fingerprint and no other.</p>
+<p class="note">Demo signature. In the alpha, one server key signs imported rows; per-analyst signatures are upcoming.</p>
+</div>
+<figure class="fig sf" data-fig="3" aria-labelledby="sf3-c">
+<div class="plate sc" data-sc data-s="3" data-from="2" style="--c1:486px;--c2:427.109px;--c3:394px;--c4:394px">
+<div class="plate-h"><p class="fig-no">Fig. 2.3</p><p class="plate-t">Signed</p><p class="sim">Simulated · demo data</p></div>
+<div class="sc-b">
+<div class="sc-card" data-on="1 2 3 4 5 6 7" data-dim="7">
+<div class="cd-h"><p class="lab">Record 6 <span class="sub sw"><span data-on="1 2">· five fields</span><span data-on="3" data-d="3:300">· signed</span></span></p><svg class="sn sn--seal" viewBox="0 0 20 20" aria-hidden="true" focusable="false" data-bad="5" data-d="5:340"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1" data-draw="3 4 5 6 7" data-d="3:300"/><circle class="dt" cx="10" cy="10" r="2.75" data-on="4 6 7" data-d="4:240"/></svg></div>
+<dl class="cd"><div><dt>Instrument</dt><dd data-fly-at="instrumentId"><span class="nw">HPLC-02</span></dd></div><div><dt>Measurement</dt><dd data-fly-at="sensorType">hplc</dd></div><div><dt>Peak area</dt><dd><span class="sw" data-fly-at="value"><span data-on="1 2 3 4 6 7" data-fly="1:area" data-d="1:280">1508811</span></span></dd></div><div><dt>Unit</dt><dd data-fly-at="unit">counts</dd></div><div><dt>Captured (UTC)</dt><dd data-fly-at="capturedAt"><span class="nw">2026-09-14</span><wbr><span class="nw">T08:47:50Z</span></dd></div></dl>
+</div>
+<div class="sc-fp" data-on="2 3 4 5" data-dim="4">
+<p class="lab" data-on="2 3 4 5" data-d="2:300">Payload <span class="sub">· five fields · 48 bytes</span></p>
+<p class="pay"><span class="tk" data-on="2 3 4 5" data-fly="2:instrumentId" data-d="2:0"><span class="nw">HPLC-02</span></span><span class="br" data-on="2 3 4 5" data-d="2:440">|</span><span class="tk" data-on="2 3 4 5" data-fly="2:sensorType" data-d="2:20">hplc</span><span class="br" data-on="2 3 4 5" data-d="2:440">|</span><span class="tk" data-on="2 3 4 5" data-fly="2:value" data-d="2:40"><span class="sw"><span data-on="2 3 4">1508811</span></span></span><span class="br" data-on="2 3 4 5" data-d="2:440">|</span><span class="tk" data-on="2 3 4 5" data-fly="2:unit" data-d="2:60">counts</span><span class="br" data-on="2 3 4 5" data-d="2:440">|</span><span class="tk" data-on="2 3 4 5" data-fly="2:capturedAt" data-d="2:80">2026-09-14T08:47:50Z</span></p>
+<div class="fpr">
+<p class="fpl"><span class="arr" data-on="2 3 4 5" data-d="2:360"><svg class="i" aria-hidden="true"><use href="#i-down"/></svg><span><span class="nw">SHA-256</span></span></span><span class="lab sw"><span data-on="2 3 4" data-d="2:370">Fingerprint <var>r</var><sub>6</sub></span></span></p>
+<p class="fpw sw"><span class="g4" data-on="2 3 4"><span class="g" data-on="2 3 4" data-d="2:370">eb1690bc</span><span class="g" data-on="2 3 4" data-d="2:382">5922a312</span><span class="g" data-on="2 3 4" data-d="2:394">d90ee139</span><span class="g" data-on="2 3 4" data-d="2:406">fdf8e20b</span><span class="g" data-on="2 3 4" data-d="2:418">92bf2cb0</span><span class="g" data-on="2 3 4" data-d="2:430">feae8ee0</span><span class="g" data-on="2 3 4" data-d="2:442">e70bd24f</span><span class="g" data-on="2 3 4" data-d="2:454">bd2b54d7</span></span></p>
+</div>
+<div class="sig" data-on="3 4 5">
+<p class="fpl"><span class="arr"><svg class="i" aria-hidden="true"><use href="#i-down"/></svg><span><span class="nw">ECDSA P-256</span></span></span><span class="lab">Signature <span class="sub">· over r<sub>6</sub> · demo key 7A15F562…</span></span></p>
+<p class="sg"><span class="hx-s" data-on="3 4 5" data-d="3:100"><span title="fd3cfca2c73346e62ecca8b63809472ef61f4c01d375e91bce8f023b3fefb8cc6904175a9db890fe6bc0e8fe5fc34203cf5297b361db971e6cadf2dfeb420279">fd3cfca2c73346e6…6cadf2dfeb420279</span></span><span class="res sw"><span class="ok" data-on="3 4" data-d="3:250"><svg class="i" aria-hidden="true"><use href="#i-ok"/></svg><span>valid</span></span></span></p>
+</div>
+</div>
+</div>
+</div>
+<figcaption class="figcap" id="sf3-c"><b>Fig. 2.3</b> · The fingerprint signed with the demo key 7A15F562…: the signature is valid and the record’s ring is drawn; its dot fills once the record is linked.</figcaption>
+</figure>
+</li>
+<li class="step" id="st-4" data-step="4"><span class="step-seg" aria-hidden="true"><span class="step-fill"></span></span>
+<h3><span class="no">2.4</span><a class="step-a" href="#st-4">Linked</a></h3>
+<div class="step-t">
+<p>Record 6 also stores the link of record 5, h<sub>5</sub>. Its own link is h<sub>6</sub> = <span class="nw">SHA-256</span>(h<sub>5</sub> + r<sub>6</sub> + “6”), and record 7 carries h<sub>6</sub> forward as its previous link. So every record is tied to the one before it, back to the fixed start value of 64 zeros.</p>
+</div>
+<figure class="fig sf" data-fig="4" aria-labelledby="sf4-c">
+<div class="plate sc" data-sc data-s="4" data-from="3" style="--c1:240px;--c2:216.266px;--c3:190px;--c4:181px">
+<div class="plate-h"><p class="fig-no">Fig. 2.4</p><p class="plate-t">Linked</p><p class="sim">Simulated · demo data</p></div>
+<div class="sc-b">
+<div class="sc-ch">
+<div class="ch">
+<div class="ch-top"><p class="lab" data-dim="0 1 2 3">Sequence <span class="nw">SEQ-0914-02</span></p><span class="hl hl--a" data-on="4 5" data-d="4:120">h<sub>5</sub></span><span class="hl hl--b" data-on="4 5" data-d="4:240 5:400" data-bad="5">h<sub>6</sub></span></div>
+<ol class="ch-n" aria-label="Records 1 to 8"><li class="cn" data-dim="0 1 2 3"><svg class="sn" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/></svg><span class="nn">1</span></li><li class="cn" data-dim="0 1 2 3"><span class="ln" data-grow="4 5 6 7" data-d="4:0"></span><svg class="sn" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/></svg><span class="nn">2</span></li><li class="cn" data-dim="0 1 2 3"><span class="ln" data-grow="4 5 6 7" data-d="4:40"></span><svg class="sn" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/></svg><span class="nn">3</span></li><li class="cn" data-dim="0 1 2 3"><span class="ln" data-grow="4 5 6 7" data-d="4:80"></span><svg class="sn" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/></svg><span class="nn">4</span></li><li class="cn" data-dim="0 1 2 3"><span class="ln" data-grow="4 5 6 7" data-d="4:120"></span><svg class="sn" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/></svg><span class="nn">5</span></li><li class="cn cn--k" data-dim="0 1 2" data-d="3:340"><span class="ln" data-grow="4 5 6 7" data-d="4:160"></span><svg class="sn" viewBox="0 0 20 20" aria-hidden="true" focusable="false" data-bad="5" data-d="5:380"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1" data-draw="3 4 5 6 7" data-d="3:340"/><circle class="dt" cx="10" cy="10" r="2.75" data-on="4 6 7" data-d="4:240"/></svg><span class="nn">6</span></li><li class="cn" data-on="4 5 6 7" data-d="4:200"><span class="ln" data-on="4 6 7" data-grow="4 5 6 7" data-d="4:200 5:380"></span><svg class="sn" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/></svg><span class="nn">7</span></li><li class="cn" data-on="4 5 6 7" data-d="4:260"><span class="ln" data-grow="4 5 6 7" data-d="4:260"></span><svg class="sn" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/></svg><span class="nn">8</span></li></ol>
+<div class="ch-b" aria-hidden="true"><span class="ch-br" data-on="4 5 6 7" data-d="4:320"></span></div>
+<p class="ch-t sw"><span data-on="4" data-d="4:340">simulated anchor: h<sub>8</sub> <span class="h8" title="0a35688a4c3ec82a5e621cede1f173a6d436ade0e20f159dca92c2a3711e3dc1">0a35688a…</span></span></p>
+</div>
+<div class="ch-i sw"><p data-on="4" data-d="4:380">h<sub>6</sub> = <span class="nw">SHA-256</span>(h<sub>5</sub> <span class="h8" title="c04af03f4b9c69a30d06e27d9906e4e7f2bc176b7ba0a212582ad8c65f6bdfd5">c04af03f…</span> + r<sub>6</sub> <span class="h8" title="eb1690bc5922a312d90ee139fdf8e20b92bf2cb0feae8ee0e70bd24fbd2b54d7">eb1690bc…</span> + “6”) = <span class="h8" title="c427b83a4e29adf9380bef67d00302e12ddfd558ae8f5a558547b2b0cf3cba23">c427b83a…</span></p></div>
+</div>
+</div>
+</div>
+<figcaption class="figcap" id="sf4-c"><b>Fig. 2.4</b> · Records 1 to 8, each linked to the one before. Record 6 takes in h<sub>5</sub> and passes h<sub>6</sub> on to record 7; signed and linked, it is sealed, and its dot fills.</figcaption>
+</figure>
+</li>
+<li class="step" id="st-5" data-step="5"><span class="step-seg" aria-hidden="true"><span class="step-fill"></span></span>
+<h3><span class="no">2.5</span><a class="step-a" href="#st-5">A change shows</a></h3>
+<div class="step-t">
+<p>Suppose the peak area is changed after sealing, from 1508811 to 1508911: the recomputed fingerprint differs from the stored r<sub>6</sub>, the signature fails and the link into record 7 breaks, while records 7 and 8 still pass their own checks. So a changed value fails that record’s fingerprint and signature and breaks only the link into the next record. Replayed from 64 zeros, the head (the newest record’s link) no longer matches the anchored fingerprint, which is simulated here.</p>
+<details class="vals"><summary>Values in full</summary>
+<dl><div><dt>Recomputed fingerprint of record 6</dt><dd><code>3cafb26418ae173c328561dcc93084e7deec8bf90d91256182d563b673a554b2</code></dd></div><div><dt>Recomputed link h<sub>6</sub></dt><dd><code>9b5c58aa6abab7daa23c1f4e53775232309c59ee360fa24342e2888fadcd8a86</code></dd></div><div><dt>Link h<sub>6</sub> that record 7 carries</dt><dd><code>c427b83a4e29adf9380bef67d00302e12ddfd558ae8f5a558547b2b0cf3cba23</code></dd></div><div><dt>Replayed head</dt><dd><code>75d3969cb8e256fdaa255eeaf895a3c57ec59e4ad68158850a6731bfb9cd05d3</code></dd></div><div><dt>Simulated anchor, h<sub>8</sub></dt><dd><code>0a35688a4c3ec82a5e621cede1f173a6d436ade0e20f159dca92c2a3711e3dc1</code></dd></div></dl>
+</details>
+</div>
+<figure class="fig sf" data-fig="5" aria-labelledby="sf5-c">
+<div class="plate sc" data-sc data-s="5" data-from="4" style="--c1:713px;--c2:667.344px;--c3:561px;--c4:551px">
+<div class="plate-h"><p class="fig-no">Fig. 2.5</p><p class="plate-t">A change shows</p><p class="sim">Simulated · demo data</p></div>
+<div class="sc-b">
+<div class="sc-card" data-on="1 2 3 4 5 6 7" data-dim="7"><span class="fr" data-on="4 6 7" data-d="4:240 5:340"></span><span class="fr fr--x" data-on="5" data-d="5:340"></span>
+<div class="cd-h"><p class="lab">Record 6 <span class="sub sw"><span data-on="4 7" data-d="4:240">· sealed</span><span data-on="5">· changed after sealing</span></span></p><svg class="sn sn--seal" viewBox="0 0 20 20" aria-hidden="true" focusable="false" data-bad="5" data-d="5:340"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1" data-draw="3 4 5 6 7" data-d="3:300"/><circle class="dt" cx="10" cy="10" r="2.75" data-on="4 6 7" data-d="4:240"/><path class="xx" d="M7.2 7.2l5.6 5.6m0-5.6l-5.6 5.6" data-on="5"/></svg></div>
+<dl class="cd"><div><dt>Instrument</dt><dd data-fly-at="instrumentId"><span class="nw">HPLC-02</span></dd></div><div><dt>Measurement</dt><dd data-fly-at="sensorType">hplc</dd></div><div><dt>Peak area</dt><dd><span class="sw" data-fly-at="value"><span data-on="1 2 3 4 6 7" data-fly="1:area" data-d="1:280">1508811</span><span class="vx" data-on="5" data-bad="5">1508<b>9</b>11</span></span></dd></div><div><dt>Unit</dt><dd data-fly-at="unit">counts</dd></div><div><dt>Captured (UTC)</dt><dd data-fly-at="capturedAt"><span class="nw">2026-09-14</span><wbr><span class="nw">T08:47:50Z</span></dd></div></dl>
+</div>
+<div class="sc-fp" data-on="2 3 4 5" data-dim="4">
+<p class="lab" data-on="2 3 4 5" data-d="2:300">Payload <span class="sub">· five fields · 48 bytes</span></p>
+<p class="pay"><span class="tk" data-on="2 3 4 5" data-fly="2:instrumentId" data-d="2:0"><span class="nw">HPLC-02</span></span><span class="br" data-on="2 3 4 5" data-d="2:440">|</span><span class="tk" data-on="2 3 4 5" data-fly="2:sensorType" data-d="2:20">hplc</span><span class="br" data-on="2 3 4 5" data-d="2:440">|</span><span class="tk" data-on="2 3 4 5" data-fly="2:value" data-d="2:40"><span class="sw"><span data-on="2 3 4">1508811</span><span class="vx" data-on="5" data-bad="5" data-d="5:30">1508<b>9</b>11</span></span></span><span class="br" data-on="2 3 4 5" data-d="2:440">|</span><span class="tk" data-on="2 3 4 5" data-fly="2:unit" data-d="2:60">counts</span><span class="br" data-on="2 3 4 5" data-d="2:440">|</span><span class="tk" data-on="2 3 4 5" data-fly="2:capturedAt" data-d="2:80">2026-09-14T08:47:50Z</span></p>
+<div class="fpr">
+<p class="fpl"><span class="arr" data-on="2 3 4 5" data-d="2:360"><svg class="i" aria-hidden="true"><use href="#i-down"/></svg><span><span class="nw">SHA-256</span></span></span><span class="lab sw"><span data-on="2 3 4" data-d="2:370">Fingerprint <var>r</var><sub>6</sub></span><span data-on="5" data-bad="5" data-d="5:60">Fingerprint, recomputed</span></span><span class="fps" data-on="5" data-d="5:250">≠ stored <var>r</var><sub>6</sub> <span class="h8" title="eb1690bc5922a312d90ee139fdf8e20b92bf2cb0feae8ee0e70bd24fbd2b54d7">eb1690bc…</span></span></p>
+<p class="fpw sw"><span class="g4" data-on="2 3 4"><span class="g" data-on="2 3 4" data-d="2:370">eb1690bc</span><span class="g" data-on="2 3 4" data-d="2:382">5922a312</span><span class="g" data-on="2 3 4" data-d="2:394">d90ee139</span><span class="g" data-on="2 3 4" data-d="2:406">fdf8e20b</span><span class="g" data-on="2 3 4" data-d="2:418">92bf2cb0</span><span class="g" data-on="2 3 4" data-d="2:430">feae8ee0</span><span class="g" data-on="2 3 4" data-d="2:442">e70bd24f</span><span class="g" data-on="2 3 4" data-d="2:454">bd2b54d7</span></span><span class="g4" data-on="5" data-bad="5"><span class="g" data-on="5" data-d="5:80">3cafb264</span><span class="g" data-on="5" data-d="5:100">18ae173c</span><span class="g" data-on="5" data-d="5:120">328561dc</span><span class="g" data-on="5" data-d="5:140">c93084e7</span><span class="g" data-on="5" data-d="5:160">deec8bf9</span><span class="g" data-on="5" data-d="5:180">0d912561</span><span class="g" data-on="5" data-d="5:200">82d563b6</span><span class="g" data-on="5" data-d="5:220">73a554b2</span></span></p>
+</div>
+<div class="sig" data-on="3 4 5">
+<p class="fpl"><span class="arr"><svg class="i" aria-hidden="true"><use href="#i-down"/></svg><span><span class="nw">ECDSA P-256</span></span></span><span class="lab">Signature <span class="sub">· over r<sub>6</sub> · demo key 7A15F562…</span></span></p>
+<p class="sg"><span class="hx-s" data-on="3 4 5" data-d="3:100"><span title="fd3cfca2c73346e62ecca8b63809472ef61f4c01d375e91bce8f023b3fefb8cc6904175a9db890fe6bc0e8fe5fc34203cf5297b361db971e6cadf2dfeb420279">fd3cfca2c73346e6…6cadf2dfeb420279</span></span><span class="res sw"><span class="ok" data-on="3 4" data-d="3:250"><svg class="i" aria-hidden="true"><use href="#i-ok"/></svg><span>valid</span></span><span class="bad" data-on="5" data-d="5:300"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg><span>fails</span></span></span></p>
+</div>
+</div>
+<div class="sc-ch">
+<div class="ch">
+<div class="ch-top"><p class="lab" data-dim="0 1 2 3">Sequence <span class="nw">SEQ-0914-02</span></p><span class="hl hl--a" data-on="4 5" data-d="4:120">h<sub>5</sub></span><span class="hl hl--b" data-on="4 5" data-d="4:240 5:400" data-bad="5">h<sub>6</sub><span class="ne" data-on="5"> ≠</span></span></div>
+<ol class="ch-n" aria-label="Records 1 to 8"><li class="cn" data-dim="0 1 2 3"><svg class="sn" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/></svg><span class="nn">1</span></li><li class="cn" data-dim="0 1 2 3"><span class="ln" data-grow="4 5 6 7" data-d="4:0"></span><svg class="sn" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/></svg><span class="nn">2</span></li><li class="cn" data-dim="0 1 2 3"><span class="ln" data-grow="4 5 6 7" data-d="4:40"></span><svg class="sn" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/></svg><span class="nn">3</span></li><li class="cn" data-dim="0 1 2 3"><span class="ln" data-grow="4 5 6 7" data-d="4:80"></span><svg class="sn" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/></svg><span class="nn">4</span></li><li class="cn" data-dim="0 1 2 3"><span class="ln" data-grow="4 5 6 7" data-d="4:120"></span><svg class="sn" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/></svg><span class="nn">5</span></li><li class="cn cn--k" data-dim="0 1 2" data-d="3:340"><span class="ln" data-grow="4 5 6 7" data-d="4:160"></span><svg class="sn" viewBox="0 0 20 20" aria-hidden="true" focusable="false" data-bad="5" data-d="5:380"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1" data-draw="3 4 5 6 7" data-d="3:340"/><circle class="dt" cx="10" cy="10" r="2.75" data-on="4 6 7" data-d="4:240"/><path class="xx" d="M7.2 7.2l5.6 5.6m0-5.6l-5.6 5.6" data-on="5"/></svg><span class="nn">6</span></li><li class="cn" data-on="4 5 6 7" data-d="4:200"><span class="ln" data-on="4 6 7" data-grow="4 5 6 7" data-d="4:200 5:380"></span><span class="lnx" data-on="5" data-d="5:340"></span><svg class="sn" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/></svg><span class="nn">7</span></li><li class="cn" data-on="4 5 6 7" data-d="4:260"><span class="ln" data-grow="4 5 6 7" data-d="4:260"></span><svg class="sn" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/></svg><span class="nn">8</span></li></ol>
+<div class="ch-b" aria-hidden="true"><span class="ch-br" data-on="4 5 6 7" data-d="4:320"></span></div>
+<p class="ch-t sw"><span data-on="4" data-d="4:340">simulated anchor: h<sub>8</sub> <span class="h8" title="0a35688a4c3ec82a5e621cede1f173a6d436ade0e20f159dca92c2a3711e3dc1">0a35688a…</span></span><span class="bad" data-on="5" data-d="5:450 6:0">replayed head <span class="h8" title="75d3969cb8e256fdaa255eeaf895a3c57ec59e4ad68158850a6731bfb9cd05d3">75d3969c…</span> ≠ simulated anchor <span class="h8" title="0a35688a4c3ec82a5e621cede1f173a6d436ade0e20f159dca92c2a3711e3dc1">0a35688a…</span></span></p>
+</div>
+<div class="ch-i sw"><p data-on="4" data-d="4:380">h<sub>6</sub> = <span class="nw">SHA-256</span>(h<sub>5</sub> <span class="h8" title="c04af03f4b9c69a30d06e27d9906e4e7f2bc176b7ba0a212582ad8c65f6bdfd5">c04af03f…</span> + r<sub>6</sub> <span class="h8" title="eb1690bc5922a312d90ee139fdf8e20b92bf2cb0feae8ee0e70bd24fbd2b54d7">eb1690bc…</span> + “6”) = <span class="h8" title="c427b83a4e29adf9380bef67d00302e12ddfd558ae8f5a558547b2b0cf3cba23">c427b83a…</span></p><p class="bad" data-on="5" data-d="5:420 6:0">link 6→7 broken: recomputed h<sub>6</sub> <span class="h8" title="9b5c58aa6abab7daa23c1f4e53775232309c59ee360fa24342e2888fadcd8a86">9b5c58aa…</span> ≠ <span class="h8" title="c427b83a4e29adf9380bef67d00302e12ddfd558ae8f5a558547b2b0cf3cba23">c427b83a…</span> · records 7 and 8 pass</p></div>
+</div>
+</div>
+</div>
+<figcaption class="figcap" id="sf5-c"><b>Fig. 2.5</b> · The peak area changed to 1508911: the recomputed fingerprint differs, the signature fails, link 6→7 breaks and the replayed head no longer matches the simulated anchor. Records 7 and 8 pass their own checks.</figcaption>
+</figure>
+</li>
+<li class="step" id="st-6" data-step="6"><span class="step-seg" aria-hidden="true"><span class="step-fill"></span></span>
+<h3><span class="no">2.6</span><a class="step-a" href="#st-6">A correction is appended</a></h3>
+<div class="step-t">
+<p>Made the right way, the same change is a correction: record 6 stays as sealed, and a new record 9 holds the new value, 1508911, with its own fingerprint, a link from record 8 and a signature. Its reason (“Peak reintegrated in the CDS after review; result imported again”) and “corrects #6” sit beside the seal, not inside it; all 9 records pass, and the new head, h<sub>9</sub>, is not yet anchored.</p>
+<p class="note">Record 9 is signed with a one-time demo key (key id FEE1BE86…), made at build and then discarded, as Check a record signs a correction with a one-time demo key made in your browser; the demo key that signed records 1 to 8 was discarded too, so it cannot sign anything new.</p>
+<details class="vals"><summary>Values in full</summary>
+<dl><div><dt>Fingerprint r<sub>9</sub> (the same five fields as the change, so the same fingerprint)</dt><dd><code>3cafb26418ae173c328561dcc93084e7deec8bf90d91256182d563b673a554b2</code></dd></div><div><dt>Link h<sub>9</sub></dt><dd><code>128206a058f6bf9d72741d670e5ecd966c4eacfadc54137a4871a694d7a393aa</code></dd></div><div><dt>Signature of record 9</dt><dd><code>cb757702b66cf3984809b7c1c1dfb71f4731a5bf6526a4b43893aa95e89c207574cddb19cc97b97d2c40b1a82a33a85d249af2c721a58e26c5e053003ac985b3</code></dd></div><div><dt>One-time public key (uncompressed point)</dt><dd><code>040d586f9eeccc0c9e711002279871b277cca37e8bf05d52610d0415e044dcbfc8e9bb9c57500c81dd5dec6b1276a414a899f9e0a962eab91a9854841f07dbf817</code></dd></div><div><dt>Its key id (first 16 bytes of <span class="nw">SHA-256</span> of its SPKI)</dt><dd><code>FEE1BE866091FC4D427FD85C383BDCA1</code></dd></div></dl>
+</details>
+</div>
+<figure class="fig sf" data-fig="6" aria-labelledby="sf6-c">
+<div class="plate sc" data-sc data-s="6" data-from="4" style="--c1:607px;--c2:549.984px;--c3:478px;--c4:431px">
+<div class="plate-h"><p class="fig-no">Fig. 2.6</p><p class="plate-t">A correction is appended</p><p class="sim">Simulated · demo data</p></div>
+<div class="sc-b">
+<div class="sc-k6" data-on="6"><svg class="sn" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/></svg><p class="lab">Record 6 <span class="sub">· stays as sealed · peak area 1508811</span></p></div>
+<div class="sc-cor" data-on="6" data-d="6:360">
+<div class="cor-c"><span class="fr" data-on="6" data-d="6:420"></span>
+<div class="cd-h"><p class="lab">Record 9 <span class="sub">· other fields as in #6 · one-time demo key FEE1BE86…</span></p><svg class="sn sn--seal" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1" data-draw="6" data-d="6:420"/><circle class="dt" cx="10" cy="10" r="2.75" data-on="6" data-d="6:460"/></svg></div>
+<dl class="cd cd--9">
+<div><dt>Peak area</dt><dd>1508911</dd></div>
+<div><dt>Fingerprint r<sub>9</sub></dt><dd><span class="h8" title="3cafb26418ae173c328561dcc93084e7deec8bf90d91256182d563b673a554b2">3cafb264…</span></dd></div>
+<div><dt>Link h<sub>9</sub></dt><dd><span class="h8" title="128206a058f6bf9d72741d670e5ecd966c4eacfadc54137a4871a694d7a393aa">128206a0…</span></dd></div>
+<div><dt>Signature</dt><dd><span class="hx-s"><span title="cb757702b66cf3984809b7c1c1dfb71f4731a5bf6526a4b43893aa95e89c207574cddb19cc97b97d2c40b1a82a33a85d249af2c721a58e26c5e053003ac985b3">cb757702b66cf398…c5e053003ac985b3</span></span> <span class="ok"><svg class="i" aria-hidden="true"><use href="#i-ok"/></svg>valid</span></dd></div>
+</dl>
+</div>
+<p class="cd-n">Beside the seal: corrects #6 · reason “Peak reintegrated in the CDS after review; result imported again”</p>
+</div>
+<div class="sc-ch">
+<div class="ch">
+<div class="ch-top"><p class="lab" data-dim="0 1 2 3">Sequence <span class="nw">SEQ-0914-02</span></p><span class="hl hl--a" data-on="4 5" data-d="4:120">h<sub>5</sub></span><span class="hl hl--b" data-on="4 5" data-d="4:240 5:400" data-bad="5">h<sub>6</sub></span><span class="arc" data-on="6" data-wipe="6" data-d="6:440"><span>corrects #6</span></span></div>
+<ol class="ch-n" aria-label="Records 1 to 9"><li class="cn" data-dim="0 1 2 3"><svg class="sn" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/></svg><span class="nn">1</span></li><li class="cn" data-dim="0 1 2 3"><span class="ln" data-grow="4 5 6 7" data-d="4:0"></span><svg class="sn" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/></svg><span class="nn">2</span></li><li class="cn" data-dim="0 1 2 3"><span class="ln" data-grow="4 5 6 7" data-d="4:40"></span><svg class="sn" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/></svg><span class="nn">3</span></li><li class="cn" data-dim="0 1 2 3"><span class="ln" data-grow="4 5 6 7" data-d="4:80"></span><svg class="sn" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/></svg><span class="nn">4</span></li><li class="cn" data-dim="0 1 2 3"><span class="ln" data-grow="4 5 6 7" data-d="4:120"></span><svg class="sn" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/></svg><span class="nn">5</span></li><li class="cn cn--k" data-dim="0 1 2" data-d="3:340"><span class="ln" data-grow="4 5 6 7" data-d="4:160"></span><svg class="sn" viewBox="0 0 20 20" aria-hidden="true" focusable="false" data-bad="5" data-d="5:380"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1" data-draw="3 4 5 6 7" data-d="3:340"/><circle class="dt" cx="10" cy="10" r="2.75" data-on="4 6 7" data-d="4:240"/></svg><span class="nn">6</span></li><li class="cn" data-on="4 5 6 7" data-d="4:200"><span class="ln" data-on="4 6 7" data-grow="4 5 6 7" data-d="4:200 5:380"></span><svg class="sn" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/></svg><span class="nn">7</span></li><li class="cn" data-on="4 5 6 7" data-d="4:260"><span class="ln" data-grow="4 5 6 7" data-d="4:260"></span><svg class="sn" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/></svg><span class="nn">8</span></li><li class="cn cn--9" data-on="6 7" data-d="6:360"><span class="ln" data-grow="6 7" data-d="6:360"></span><svg class="sn" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1" data-draw="6 7" data-d="6:400"/><circle class="dt" cx="10" cy="10" r="2.75" data-on="6 7" data-d="6:440"/></svg><span class="nn">9</span></li></ol>
+<div class="ch-b" aria-hidden="true"><span class="ch-br" data-on="4 5 6 7" data-d="4:320"></span><span class="ch-br9" data-on="6 7" data-d="6:440"></span></div>
+<p class="ch-t sw"><span data-on="4" data-d="4:340">simulated anchor: h<sub>8</sub> <span class="h8" title="0a35688a4c3ec82a5e621cede1f173a6d436ade0e20f159dca92c2a3711e3dc1">0a35688a…</span></span><span data-on="6" data-d="6:460">simulated anchor matches records 1 to 8 · record 9 not yet anchored</span></p>
+</div>
+<div class="ch-i sw"><p data-on="4" data-d="4:380">h<sub>6</sub> = <span class="nw">SHA-256</span>(h<sub>5</sub> <span class="h8" title="c04af03f4b9c69a30d06e27d9906e4e7f2bc176b7ba0a212582ad8c65f6bdfd5">c04af03f…</span> + r<sub>6</sub> <span class="h8" title="eb1690bc5922a312d90ee139fdf8e20b92bf2cb0feae8ee0e70bd24fbd2b54d7">eb1690bc…</span> + “6”) = <span class="h8" title="c427b83a4e29adf9380bef67d00302e12ddfd558ae8f5a558547b2b0cf3cba23">c427b83a…</span></p><p data-on="6" data-d="6:460">h<sub>9</sub> = <span class="nw">SHA-256</span>(h<sub>8</sub> + r<sub>9</sub> + “9”) = <span class="h8" title="128206a058f6bf9d72741d670e5ecd966c4eacfadc54137a4871a694d7a393aa">128206a0…</span> · all 9 records pass</p></div>
+</div>
+</div>
+</div>
+<figcaption class="figcap" id="sf6-c"><b>Fig. 2.6</b> · Record 6 stays as sealed. Record 9 holds the new value with its own fingerprint, a link from h<sub>8</sub> and a signature with a one-time demo key; its reason and “corrects #6” sit beside the seal. All 9 records pass, and record 9 is not yet anchored.</figcaption>
+</figure>
+</li>
+<li class="step" id="st-7" data-step="7">
+<h3><span class="no">2.7</span><a class="step-a" href="#st-7"><span>What comes next <span class="tag">Upcoming</span></span></a></h3>
+<div class="step-t">
+<p>Upcoming: the head of a batch, here h<sub>8</sub>, written to a public network. Only that fingerprint would go on the network, never the values. Upcoming too: an AI agent that checks fingerprint, signature, link and anchor before it uses a result.</p>
+<p><a class="xref" href="check.html#verifier"><span class="id"><span class="nw">IQC-CK-01</span></span><span>Check it yourself</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
+<p><a class="xref" href="roadmap.html#planned"><span class="id"><span class="nw">IQC-RD-01</span> §2</span><span>Roadmap: what is upcoming</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
+</div>
+<figure class="fig sf" data-fig="7" aria-labelledby="sf7-c">
+<div class="plate sc" data-sc data-s="7" data-from="6" style="--c1:541px;--c2:531.422px;--c3:452px;--c4:435px">
+<div class="plate-h"><p class="fig-no">Fig. 2.7</p><p class="plate-t">What comes next</p><p class="sim">Simulated · demo data</p></div>
+<div class="sc-b">
+<div class="sc-net up" data-on="7">
+<p class="lab">Public network <span class="tag">Upcoming</span></p>
+<p class="net-h" data-on="7" data-d="7:200"><span class="sub">h<sub>8</sub></span> <span class="h8" title="0a35688a4c3ec82a5e621cede1f173a6d436ade0e20f159dca92c2a3711e3dc1">0a35688a…</span></p>
+<p class="say">Only this fingerprint would go on the network, never the values.</p>
+</div>
+<div class="sc-ag up" data-on="7">
+<p class="lab">AI agent <span class="tag">Upcoming</span></p>
+<ol class="agc"><li data-on="7" data-d="7:200"><svg class="i" aria-hidden="true"><use href="#i-open"/></svg><span>Fingerprint</span></li><li data-on="7" data-d="7:240"><svg class="i" aria-hidden="true"><use href="#i-open"/></svg><span>Signature</span></li><li data-on="7" data-d="7:280"><svg class="i" aria-hidden="true"><use href="#i-open"/></svg><span>Link</span></li><li data-on="7" data-d="7:320"><svg class="i" aria-hidden="true"><use href="#i-open"/></svg><span>Anchor</span></li></ol>
+<p class="say">It would check all four before it uses a result.</p>
+</div>
+<div class="sc-ch">
+<div class="ch">
+<div class="ch-top"><p class="lab" data-dim="0 1 2 3">Sequence <span class="nw">SEQ-0914-02</span></p><span class="arc" data-on="6" data-wipe="6" data-d="6:440"><span>corrects #6</span></span></div>
+<ol class="ch-n" aria-label="Records 1 to 9"><li class="cn" data-dim="0 1 2 3"><svg class="sn" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/></svg><span class="nn">1</span></li><li class="cn" data-dim="0 1 2 3"><span class="ln" data-grow="4 5 6 7" data-d="4:0"></span><svg class="sn" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/></svg><span class="nn">2</span></li><li class="cn" data-dim="0 1 2 3"><span class="ln" data-grow="4 5 6 7" data-d="4:40"></span><svg class="sn" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/></svg><span class="nn">3</span></li><li class="cn" data-dim="0 1 2 3"><span class="ln" data-grow="4 5 6 7" data-d="4:80"></span><svg class="sn" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/></svg><span class="nn">4</span></li><li class="cn" data-dim="0 1 2 3"><span class="ln" data-grow="4 5 6 7" data-d="4:120"></span><svg class="sn" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/></svg><span class="nn">5</span></li><li class="cn cn--k" data-dim="0 1 2" data-d="3:340"><span class="ln" data-grow="4 5 6 7" data-d="4:160"></span><svg class="sn" viewBox="0 0 20 20" aria-hidden="true" focusable="false" data-bad="5" data-d="5:380"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1" data-draw="3 4 5 6 7" data-d="3:340"/><circle class="dt" cx="10" cy="10" r="2.75" data-on="4 6 7" data-d="4:240"/></svg><span class="nn">6</span></li><li class="cn" data-on="4 5 6 7" data-d="4:200"><span class="ln" data-on="4 6 7" data-grow="4 5 6 7" data-d="4:200 5:380"></span><svg class="sn" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/></svg><span class="nn">7</span></li><li class="cn" data-on="4 5 6 7" data-d="4:260"><span class="ln" data-grow="4 5 6 7" data-d="4:260"></span><svg class="sn" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/></svg><span class="nn">8</span></li><li class="cn cn--9" data-on="6 7" data-d="6:360"><span class="ln" data-grow="6 7" data-d="6:360"></span><svg class="sn" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1" data-draw="6 7" data-d="6:400"/><circle class="dt" cx="10" cy="10" r="2.75" data-on="6 7" data-d="6:440"/></svg><span class="nn">9</span></li></ol>
+<div class="ch-b" aria-hidden="true"><span class="ch-br" data-on="4 5 6 7" data-d="4:320"></span><span class="ch-br9" data-on="6 7" data-d="6:440"></span></div>
+<p class="ch-t sw"><span data-on="6" data-d="6:460">simulated anchor matches records 1 to 8 · record 9 not yet anchored</span><span data-on="7" data-d="7:100">h<sub>8</sub> <span class="h8" title="0a35688a4c3ec82a5e621cede1f173a6d436ade0e20f159dca92c2a3711e3dc1">0a35688a…</span>, the head of records 1 to 8</span></p>
+</div>
+<div class="ch-i sw"><p data-on="6" data-d="6:460">h<sub>9</sub> = <span class="nw">SHA-256</span>(h<sub>8</sub> + r<sub>9</sub> + “9”) = <span class="h8" title="128206a058f6bf9d72741d670e5ecd966c4eacfadc54137a4871a694d7a393aa">128206a0…</span> · all 9 records pass</p><p data-on="7" data-d="7:140">Record 9 would go in the next batch.</p></div>
+</div>
+</div>
+</div>
+<figcaption class="figcap" id="sf7-c"><b>Fig. 2.7</b> · Upcoming: h<sub>8</sub>, the head of records 1 to 8, written to a public network, and an AI agent that checks fingerprint, signature, link and anchor. Nothing here touches a network.</figcaption>
+</figure>
+</li>
+</ol>
+<div class="step-stage">
+<figure class="fig sf sf--stage" data-stage aria-hidden="true">
+<div class="plate sc sc--stage" data-sc data-s="1">
+<div class="plate-h"><p class="fig-no">Fig. 2.<span class="sw"><span data-on="0 1">1</span><span data-on="2">2</span><span data-on="3">3</span><span data-on="4">4</span><span data-on="5">5</span><span data-on="6">6</span><span data-on="7">7</span></span></p><p class="plate-t sw"><span data-on="0 1">Captured</span><span data-on="2">Fingerprinted</span><span data-on="3">Signed</span><span data-on="4">Linked</span><span data-on="5">A change shows</span><span data-on="6">A correction is appended</span><span data-on="7">What comes next</span></p><p class="sim">Simulated · demo data</p></div>
+<div class="sc-b">
+<div class="sc-src" data-on="0 1 2 3 4 5 6" data-dim="2 3 4 5 6">
+<p class="chr-h"><span class="lab">Injection 06</span><span class="say sw"><span data-on="0 1 2 3 4 5">illustrative trace</span><span data-on="6">illustrative · sealed in #6</span></span></p>
+<div class="chr">
+<svg class="chr-g" viewBox="0 0 300 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path class="chr-pk" d="M94.64,93.93L94.64,93.92L96.43,93.88L98.21,93.83L100,93.76L101.79,93.63L103.57,93.41L105.36,93.02L107.14,92.33L108.93,91.16L110.71,89.26L112.5,86.34L114.29,82.08L116.07,76.19L117.86,68.53L119.64,59.18L121.43,48.54L123.21,37.33L125,26.57L126.79,17.45L128.57,11.07L130.36,8.28L132.14,9.45L133.93,14.43L135.71,22.53L137.5,32.73L139.29,43.85L141.07,54.78L142.86,64.67L144.64,72.98L146.43,79.53L148.21,84.37L150,87.74L151.79,89.96L153.57,91.35L155.36,92.16L157.14,92.6L158.93,92.84L160.71,92.94L162.5,92.99L164.29,93L166.07,93L166.07,93.01Z" data-on="1 2 3 4 5 6" data-d="1:160"/><path class="chr-dl" d="M94.64,93.93L166.07,93.01" data-on="1 2 3 4 5 6" data-d="1:160"/><path class="chr-tr" pathLength="1" d="M0,96.1L26.79,95.42L53.57,94.78L80.36,94.2L94.64,93.92L96.43,93.88L98.21,93.83L100,93.76L101.79,93.63L103.57,93.41L105.36,93.02L107.14,92.33L108.93,91.16L110.71,89.26L112.5,86.34L114.29,82.08L116.07,76.19L117.86,68.53L119.64,59.18L121.43,48.54L123.21,37.33L125,26.57L126.79,17.45L128.57,11.07L130.36,8.28L132.14,9.45L133.93,14.43L135.71,22.53L137.5,32.73L139.29,43.85L141.07,54.78L142.86,64.67L144.64,72.98L146.43,79.53L148.21,84.37L150,87.74L151.79,89.96L153.57,91.35L155.36,92.16L157.14,92.6L158.93,92.84L160.71,92.94L162.5,92.99L164.29,93L166.07,93L176.79,92.92L203.57,92.73L230.36,92.55L257.14,92.34L283.93,92.05" data-draw="1 2 3 4 5 6"/></svg>
+<span class="chr-rt" style="left:43.57%" data-on="1 2 3 4 5 6" data-d="1:140">4.82 min</span>
+<span class="chr-ar" style="left:52.88%" data-on="1 2 3 4 5 6" data-d="1:220" data-fly-at="area">Area <b>1508811</b> counts</span>
+</div>
+<p class="chr-x" aria-hidden="true"><span style="left:14.29%">4</span><span style="left:50%">5</span><span style="left:85.71%">6</span><span class="u">min</span></p>
+</div>
+<div class="sc-net up" data-on="7">
+<p class="lab">Public network <span class="tag">Upcoming</span></p>
+<p class="net-h" data-on="7" data-d="7:200"><span class="sub">h<sub>8</sub></span> <span class="h8" title="0a35688a4c3ec82a5e621cede1f173a6d436ade0e20f159dca92c2a3711e3dc1">0a35688a…</span></p>
+<p class="say">Only this fingerprint would go on the network, never the values.</p>
+</div>
+<div class="sc-card" data-on="1 2 3 4 5 6 7" data-dim="7"><span class="fr" data-on="4 6 7" data-d="4:240 5:340"></span><span class="fr fr--x" data-on="5" data-d="5:340"></span>
+<div class="cd-h"><p class="lab">Record 6 <span class="sub sw"><span data-on="1 2">· five fields</span><span data-on="3" data-d="3:300">· signed</span><span data-on="4 7" data-d="4:240">· sealed</span><span data-on="5">· changed after sealing</span><span data-on="6">· stays as sealed</span></span></p><svg class="sn sn--seal" viewBox="0 0 20 20" aria-hidden="true" focusable="false" data-bad="5" data-d="5:340"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1" data-draw="3 4 5 6 7" data-d="3:300"/><circle class="dt" cx="10" cy="10" r="2.75" data-on="4 6 7" data-d="4:240"/><path class="xx" d="M7.2 7.2l5.6 5.6m0-5.6l-5.6 5.6" data-on="5"/></svg></div>
+<dl class="cd"><div><dt>Instrument</dt><dd data-fly-at="instrumentId"><span class="nw">HPLC-02</span></dd></div><div><dt>Measurement</dt><dd data-fly-at="sensorType">hplc</dd></div><div><dt>Peak area</dt><dd><span class="sw" data-fly-at="value"><span data-on="1 2 3 4 6 7" data-fly="1:area" data-d="1:280">1508811</span><span class="vx" data-on="5" data-bad="5">1508<b>9</b>11</span></span></dd></div><div><dt>Unit</dt><dd data-fly-at="unit">counts</dd></div><div><dt>Captured (UTC)</dt><dd data-fly-at="capturedAt"><span class="nw">2026-09-14</span><wbr><span class="nw">T08:47:50Z</span></dd></div></dl>
+</div>
+<div class="sc-fp" data-on="2 3 4 5" data-dim="4">
+<p class="lab" data-on="2 3 4 5" data-d="2:300">Payload <span class="sub">· five fields · 48 bytes</span></p>
+<p class="pay"><span class="tk" data-on="2 3 4 5" data-fly="2:instrumentId" data-d="2:0"><span class="nw">HPLC-02</span></span><span class="br" data-on="2 3 4 5" data-d="2:440">|</span><span class="tk" data-on="2 3 4 5" data-fly="2:sensorType" data-d="2:20">hplc</span><span class="br" data-on="2 3 4 5" data-d="2:440">|</span><span class="tk" data-on="2 3 4 5" data-fly="2:value" data-d="2:40"><span class="sw"><span data-on="2 3 4">1508811</span><span class="vx" data-on="5" data-bad="5" data-d="5:30">1508<b>9</b>11</span></span></span><span class="br" data-on="2 3 4 5" data-d="2:440">|</span><span class="tk" data-on="2 3 4 5" data-fly="2:unit" data-d="2:60">counts</span><span class="br" data-on="2 3 4 5" data-d="2:440">|</span><span class="tk" data-on="2 3 4 5" data-fly="2:capturedAt" data-d="2:80">2026-09-14T08:47:50Z</span></p>
+<div class="fpr">
+<p class="fpl"><span class="arr" data-on="2 3 4 5" data-d="2:360"><svg class="i" aria-hidden="true"><use href="#i-down"/></svg><span><span class="nw">SHA-256</span></span></span><span class="lab sw"><span data-on="2 3 4" data-d="2:370">Fingerprint <var>r</var><sub>6</sub></span><span data-on="5" data-bad="5" data-d="5:60">Fingerprint, recomputed</span></span><span class="fps" data-on="5" data-d="5:250">≠ stored <var>r</var><sub>6</sub> <span class="h8" title="eb1690bc5922a312d90ee139fdf8e20b92bf2cb0feae8ee0e70bd24fbd2b54d7">eb1690bc…</span></span></p>
+<p class="fpw sw"><span class="g4" data-on="2 3 4"><span class="g" data-on="2 3 4" data-d="2:370">eb1690bc</span><span class="g" data-on="2 3 4" data-d="2:382">5922a312</span><span class="g" data-on="2 3 4" data-d="2:394">d90ee139</span><span class="g" data-on="2 3 4" data-d="2:406">fdf8e20b</span><span class="g" data-on="2 3 4" data-d="2:418">92bf2cb0</span><span class="g" data-on="2 3 4" data-d="2:430">feae8ee0</span><span class="g" data-on="2 3 4" data-d="2:442">e70bd24f</span><span class="g" data-on="2 3 4" data-d="2:454">bd2b54d7</span></span><span class="g4" data-on="5" data-bad="5"><span class="g" data-on="5" data-d="5:80">3cafb264</span><span class="g" data-on="5" data-d="5:100">18ae173c</span><span class="g" data-on="5" data-d="5:120">328561dc</span><span class="g" data-on="5" data-d="5:140">c93084e7</span><span class="g" data-on="5" data-d="5:160">deec8bf9</span><span class="g" data-on="5" data-d="5:180">0d912561</span><span class="g" data-on="5" data-d="5:200">82d563b6</span><span class="g" data-on="5" data-d="5:220">73a554b2</span></span></p>
+</div>
+<div class="sig" data-on="3 4 5">
+<p class="fpl"><span class="arr"><svg class="i" aria-hidden="true"><use href="#i-down"/></svg><span><span class="nw">ECDSA P-256</span></span></span><span class="lab">Signature <span class="sub">· over r<sub>6</sub> · demo key 7A15F562…</span></span></p>
+<p class="sg"><span class="hx-s" data-on="3 4 5" data-d="3:100"><span title="fd3cfca2c73346e62ecca8b63809472ef61f4c01d375e91bce8f023b3fefb8cc6904175a9db890fe6bc0e8fe5fc34203cf5297b361db971e6cadf2dfeb420279">fd3cfca2c73346e6…6cadf2dfeb420279</span></span><span class="res sw"><span class="ok" data-on="3 4" data-d="3:250"><svg class="i" aria-hidden="true"><use href="#i-ok"/></svg><span>valid</span></span><span class="bad" data-on="5" data-d="5:300"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg><span>fails</span></span></span></p>
+</div>
+</div>
+<div class="sc-cor" data-on="6" data-d="6:360">
+<div class="cor-c"><span class="fr" data-on="6" data-d="6:420"></span>
+<div class="cd-h"><p class="lab">Record 9 <span class="sub">· other fields as in #6 · one-time demo key FEE1BE86…</span></p><svg class="sn sn--seal" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1" data-draw="6" data-d="6:420"/><circle class="dt" cx="10" cy="10" r="2.75" data-on="6" data-d="6:460"/></svg></div>
+<dl class="cd cd--9">
+<div><dt>Peak area</dt><dd>1508911</dd></div>
+<div><dt>Fingerprint r<sub>9</sub></dt><dd><span class="h8" title="3cafb26418ae173c328561dcc93084e7deec8bf90d91256182d563b673a554b2">3cafb264…</span></dd></div>
+<div><dt>Link h<sub>9</sub></dt><dd><span class="h8" title="128206a058f6bf9d72741d670e5ecd966c4eacfadc54137a4871a694d7a393aa">128206a0…</span></dd></div>
+<div><dt>Signature</dt><dd><span class="hx-s"><span title="cb757702b66cf3984809b7c1c1dfb71f4731a5bf6526a4b43893aa95e89c207574cddb19cc97b97d2c40b1a82a33a85d249af2c721a58e26c5e053003ac985b3">cb757702b66cf398…c5e053003ac985b3</span></span> <span class="ok"><svg class="i" aria-hidden="true"><use href="#i-ok"/></svg>valid</span></dd></div>
+</dl>
+</div>
+<p class="cd-n">Beside the seal: corrects #6 · reason “Peak reintegrated in the CDS after review; result imported again”</p>
+</div>
+<div class="sc-ag up" data-on="7">
+<p class="lab">AI agent <span class="tag">Upcoming</span></p>
+<ol class="agc"><li data-on="7" data-d="7:200"><svg class="i" aria-hidden="true"><use href="#i-open"/></svg><span>Fingerprint</span></li><li data-on="7" data-d="7:240"><svg class="i" aria-hidden="true"><use href="#i-open"/></svg><span>Signature</span></li><li data-on="7" data-d="7:280"><svg class="i" aria-hidden="true"><use href="#i-open"/></svg><span>Link</span></li><li data-on="7" data-d="7:320"><svg class="i" aria-hidden="true"><use href="#i-open"/></svg><span>Anchor</span></li></ol>
+<p class="say">It would check all four before it uses a result.</p>
+</div>
+<div class="sc-ch">
+<div class="ch">
+<div class="ch-top"><p class="lab" data-dim="0 1 2 3">Sequence <span class="nw">SEQ-0914-02</span></p><span class="hl hl--a" data-on="4 5" data-d="4:120">h<sub>5</sub></span><span class="hl hl--b" data-on="4 5" data-d="4:240 5:400" data-bad="5">h<sub>6</sub><span class="ne" data-on="5"> ≠</span></span><span class="arc" data-on="6" data-wipe="6" data-d="6:440"><span>corrects #6</span></span></div>
+<ol class="ch-n" aria-label="Records of SEQ-0914-02"><li class="cn" data-dim="0 1 2 3"><svg class="sn" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/></svg><span class="nn">1</span></li><li class="cn" data-dim="0 1 2 3"><span class="ln" data-grow="4 5 6 7" data-d="4:0"></span><svg class="sn" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/></svg><span class="nn">2</span></li><li class="cn" data-dim="0 1 2 3"><span class="ln" data-grow="4 5 6 7" data-d="4:40"></span><svg class="sn" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/></svg><span class="nn">3</span></li><li class="cn" data-dim="0 1 2 3"><span class="ln" data-grow="4 5 6 7" data-d="4:80"></span><svg class="sn" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/></svg><span class="nn">4</span></li><li class="cn" data-dim="0 1 2 3"><span class="ln" data-grow="4 5 6 7" data-d="4:120"></span><svg class="sn" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/></svg><span class="nn">5</span></li><li class="cn cn--k" data-dim="0 1 2" data-d="3:340"><span class="ln" data-grow="4 5 6 7" data-d="4:160"></span><svg class="sn" viewBox="0 0 20 20" aria-hidden="true" focusable="false" data-bad="5" data-d="5:380"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1" data-draw="3 4 5 6 7" data-d="3:340"/><circle class="dt" cx="10" cy="10" r="2.75" data-on="4 6 7" data-d="4:240"/><path class="xx" d="M7.2 7.2l5.6 5.6m0-5.6l-5.6 5.6" data-on="5"/></svg><span class="nn">6</span></li><li class="cn" data-on="4 5 6 7" data-d="4:200"><span class="ln" data-on="4 6 7" data-grow="4 5 6 7" data-d="4:200 5:380"></span><span class="lnx" data-on="5" data-d="5:340"></span><svg class="sn" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/></svg><span class="nn">7</span></li><li class="cn" data-on="4 5 6 7" data-d="4:260"><span class="ln" data-grow="4 5 6 7" data-d="4:260"></span><svg class="sn" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/></svg><span class="nn">8</span></li><li class="cn cn--9" data-on="6 7" data-d="6:360"><span class="ln" data-grow="6 7" data-d="6:360"></span><svg class="sn" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1" data-draw="6 7" data-d="6:400"/><circle class="dt" cx="10" cy="10" r="2.75" data-on="6 7" data-d="6:440"/></svg><span class="nn">9</span></li></ol>
+<div class="ch-b" aria-hidden="true"><span class="ch-br" data-on="4 5 6 7" data-d="4:320"></span><span class="ch-br9" data-on="6 7" data-d="6:440"></span></div>
+<p class="ch-t sw"><span data-on="4" data-d="4:340">simulated anchor: h<sub>8</sub> <span class="h8" title="0a35688a4c3ec82a5e621cede1f173a6d436ade0e20f159dca92c2a3711e3dc1">0a35688a…</span></span><span class="bad" data-on="5" data-d="5:450 6:0">replayed head <span class="h8" title="75d3969cb8e256fdaa255eeaf895a3c57ec59e4ad68158850a6731bfb9cd05d3">75d3969c…</span> ≠ simulated anchor <span class="h8" title="0a35688a4c3ec82a5e621cede1f173a6d436ade0e20f159dca92c2a3711e3dc1">0a35688a…</span></span><span data-on="6" data-d="6:460">simulated anchor matches records 1 to 8 · record 9 not yet anchored</span><span data-on="7" data-d="7:100">h<sub>8</sub> <span class="h8" title="0a35688a4c3ec82a5e621cede1f173a6d436ade0e20f159dca92c2a3711e3dc1">0a35688a…</span>, the head of records 1 to 8</span></p>
+</div>
+<div class="ch-i sw"><p data-on="4" data-d="4:380">h<sub>6</sub> = <span class="nw">SHA-256</span>(h<sub>5</sub> <span class="h8" title="c04af03f4b9c69a30d06e27d9906e4e7f2bc176b7ba0a212582ad8c65f6bdfd5">c04af03f…</span> + r<sub>6</sub> <span class="h8" title="eb1690bc5922a312d90ee139fdf8e20b92bf2cb0feae8ee0e70bd24fbd2b54d7">eb1690bc…</span> + “6”) = <span class="h8" title="c427b83a4e29adf9380bef67d00302e12ddfd558ae8f5a558547b2b0cf3cba23">c427b83a…</span></p><p class="bad" data-on="5" data-d="5:420 6:0">link 6→7 broken: recomputed h<sub>6</sub> <span class="h8" title="9b5c58aa6abab7daa23c1f4e53775232309c59ee360fa24342e2888fadcd8a86">9b5c58aa…</span> ≠ <span class="h8" title="c427b83a4e29adf9380bef67d00302e12ddfd558ae8f5a558547b2b0cf3cba23">c427b83a…</span> · records 7 and 8 pass</p><p data-on="6" data-d="6:460">h<sub>9</sub> = <span class="nw">SHA-256</span>(h<sub>8</sub> + r<sub>9</sub> + “9”) = <span class="h8" title="128206a058f6bf9d72741d670e5ecd966c4eacfadc54137a4871a694d7a393aa">128206a0…</span> · all 9 records pass</p><p data-on="7" data-d="7:140">Record 9 would go in the next batch.</p></div>
+</div>
+</div>
+</div>
+</figure>
+</div>
+</div>
+</section>
+
+<section class="sec" id="history" aria-labelledby="s3-h">
+<h2 id="s3-h"><span class="no">3</span>Record history</h2>
 <div class="body">
 <p>The whole synthetic sequence, as an auditor would page through it. When the table comes into view, your browser checks every record once and marks each result; after that nothing moves.</p>
 </div>
 <div class="v-fig">
 <figure class="fig fig--hist" aria-labelledby="h-t">
 <div class="plate plate--hist" data-history>
-<div class="plate-h"><p class="fig-no">Fig. 2</p><p class="plate-t" id="h-t">Record history</p><p class="sim">Simulated · demo data</p></div>
+<div class="plate-h"><p class="fig-no">Fig. 3</p><p class="plate-t" id="h-t">Record history</p><p class="sim">Simulated · demo data</p></div>
 <dl class="meta"><div><dt>Sequence</dt><dd><span class="nw">SEQ-0914-02</span></dd></div><div><dt>Instrument</dt><dd data-inst><span class="nw">HPLC-02</span></dd></div><div><dt>Method</dt><dd>Assay of Product 200 mg tablets</dd></div><div><dt>Injections</dt><dd>2026-09-14, 08:12 to 09:01 UTC</dd></div></dl>
 <table class="hist" role="table">
 <caption>8 injections, one record each: 5 system-suitability injections of the reference standard (STD-A), then 3 preparations of Product 200 mg tablets (P200-S1 to P200-S3).</caption>
@@ -173,13 +473,13 @@
 <div class="plate-f"><p class="say">Read only. Editing lives on Check a record.</p><a class="go" href="check.html#verifier"><span>Change a value on Check a record</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></div>
 <template id="iqc-hist-words"><i data-k="fp.ok">fingerprint matches</i><i data-k="fp.bad">fingerprint does not match</i><i data-k="link.ok">intact</i><i data-k="link.bad">broken</i><i data-k="sig.ok">valid</i><i data-k="sig.bad">fails</i><i data-k="sig.na">unchecked</i><i data-k="sig.none">unsigned</i><i data-k="head.ok">matches the anchored fingerprint</i><i data-k="head.bad">no longer matches the anchored fingerprint</i><i data-k="st.head">Checked in your browser: {ok} of {n} records pass</i><i data-k="st.head.nosig">Checked in your browser: {ok} of {n} records pass the fingerprint and link checks</i><i data-k="st.chg">{c} changed</i><i data-k="st.sig1">1 signature fails</i><i data-k="st.sig">{s} signatures fail</i><i data-k="st.link1">link {l} broken</i><i data-k="st.link">links {l} broken</i><i data-k="st.anc">simulated anchor matches</i><i data-k="st.anc.part">simulated anchor matches records 1 to {m}</i><i data-k="st.anc.no">simulated anchor does not match</i><i data-k="st.unanch1">record {a} not yet anchored</i><i data-k="st.unanch">records {a} to {b} not yet anchored</i><i data-k="st.nosig">signatures not checked here</i></template>
 </div>
-<figcaption class="figcap"><b>Fig. 2</b> · The eight records of sequence <span class="nw">SEQ-0914-02</span>, oldest first. Your browser checks each one from the values in the table: the fingerprint of its five sealed fields, its signature, and the link it carries into the next record. The head is the link of the newest record, recomputed by replaying the whole history from 64 zeros. Sample and retention time are context, not sealed in the alpha. Signatures as in Fig. 1.</figcaption>
+<figcaption class="figcap"><b>Fig. 3</b> · The eight records of sequence <span class="nw">SEQ-0914-02</span>, oldest first. Your browser checks each one from the values in the table: the fingerprint of its five sealed fields, its signature, and the link it carries into the next record. The head is the link of the newest record, recomputed by replaying the whole history from 64 zeros. Sample and retention time are context, not sealed in the alpha. Signatures as in Fig. 1.</figcaption>
 </figure>
 
 </div>
 </section>
-<section class="sec sec--side" id="today" aria-labelledby="s3-h">
-<h2 id="s3-h"><span class="no">3</span>Today, upcoming and not claimed</h2>
+<section class="sec sec--side" id="today" aria-labelledby="s4-h">
+<h2 id="s4-h"><span class="no">4</span>Today, upcoming and not claimed</h2>
 <div class="body">
 <ul class="items">
 <li><span class="k">Alpha console · demo in your browser</span><span>Runs on a synthetic lab, only in your browser. Each record gets a <span class="nw">SHA-256</span> fingerprint, a link to the record before it (the first record links to a fixed start value of 64 zeros), and a signature from a demo key made in your browser. Corrections are new records with a reason, and every check is recomputed after each change. Its anchor is simulated, with no network call.</span></li>
@@ -191,12 +491,12 @@
 <p class="note"><span class="k">Basis</span>The same five fields and link rule in the alpha app’s HPLC import and on these pages; in the app, the instrument field is its internal instrument number. The console documents its own payload in its Method panel.</p>
 </div>
 </section>
-<section class="sec" id="fits" aria-labelledby="s4-h">
-<h2 id="s4-h"><span class="no">4</span>Where it fits</h2>
+<section class="sec" id="fits" aria-labelledby="s5-h">
+<h2 id="s5-h"><span class="no">5</span>Where it fits</h2>
 <div class="body">
 <p>Your instrument, CDS, LIMS and QA review stay as they are. In the alpha, Immutable QC sits beside the CDS export. The alpha app fingerprints, links and signs each imported peak area with one server key; checking them in the app is upcoming. On these pages and in the console the record history is <span class="nw">tamper-evident</span>, so a later change to a sealed value fails its checks. Changes made before import are not covered.</p>
 </div>
-<figure class="flow" aria-labelledby="f3-c">
+<figure class="flow" aria-labelledby="f4-c">
 <ol class="lane">
 <li class="node"><span class="nm">Instrument</span><span class="sub">acquires the run</span></li>
 <li class="node node--cds"><span class="nm">CDS</span><span class="sub">integrates peaks and keeps its own audit trail</span></li>
@@ -211,11 +511,11 @@
 </div>
 <p class="iqc-out"><span class="lab-s">Upcoming: QA review would check the sealed history</span></p>
 </div>
-<figcaption class="figcap" id="f3-c"><b>Fig. 3</b> · Where Immutable QC sits. The CDS export feeds it; nothing is sent back to the CDS or LIMS. The dashed link to QA review is upcoming (reviewer sign-off).</figcaption>
+<figcaption class="figcap" id="f4-c"><b>Fig. 4</b> · Where Immutable QC sits. The CDS export feeds it; nothing is sent back to the CDS or LIMS. The dashed link to QA review is upcoming (reviewer sign-off).</figcaption>
 </figure>
 </section>
-<section class="sec sec--side" id="public" aria-labelledby="s5-h">
-<h2 id="s5-h"><span class="no">5</span><span>What would go public <span class="tag">Upcoming</span></span></h2>
+<section class="sec sec--side" id="public" aria-labelledby="s6-h">
+<h2 id="s6-h"><span class="no">6</span><span>What would go public <span class="tag">Upcoming</span></span></h2>
 <div class="body">
 <div class="pub">
 <div class="pub-c">
@@ -238,8 +538,8 @@
 <p><a class="xref" href="sealed.html#privacy"><span class="id"><span class="nw">IQC-HS-01</span> §9</span><span>Privacy on public networks</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
 </div>
 </section>
-<section class="sec sec--side" id="agents" aria-labelledby="s6-h">
-<h2 id="s6-h"><span class="no">6</span><span>Agentic workflows <span class="tag">Upcoming</span></span></h2>
+<section class="sec sec--side" id="agents" aria-labelledby="s7-h">
+<h2 id="s7-h"><span class="no">7</span><span>Agentic workflows <span class="tag">Upcoming</span></span></h2>
 <div class="body">
 <blockquote class="pull"><p>In an intelligence explosion, human review can’t keep up with every result; records have to verify themselves.</p><footer><span class="nw">José A. Fernández Abreu</span>, founder</footer></blockquote>
 <p>An agent would run the same four checks as Check a record before it uses a result. Passing them says a result has not changed since it was sealed; it does not say the result was right when it was captured.</p>
@@ -247,8 +547,8 @@
 <p><a class="xref" href="roadmap.html#agents"><span class="id"><span class="nw">IQC-RD-01</span> §2.1</span><span>Agentic workflows</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
 </div>
 </section>
-<section class="sec sec--side" id="docs" aria-labelledby="s7-h">
-<h2 id="s7-h"><span class="no">7</span>The document set</h2>
+<section class="sec sec--side" id="docs" aria-labelledby="s8-h">
+<h2 id="s8-h"><span class="no">8</span>The document set</h2>
 <div class="body">
 <ul class="docs">
 <li><a class="xref" href="sealed.html"><span class="id"><span class="nw">IQC-HS-01</span></span><span>How a record is sealed</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>The payload, the fingerprint, the link rule, demo signatures, corrections, what a check shows, upcoming anchoring and the privacy note.</p></li>
@@ -267,7 +567,7 @@
 <footer class="foot">
 <div class="wrap">
 <p class="ind">Immutable QC is an independent project built on the founder’s own time. It is not affiliated with or endorsed by any employer. Founder: <span class="nw">José A. Fernández Abreu</span> · <a href="https://joseqc.com">joseqc.com</a></p>
-<p class="meta"><span class="m-doc"><span class="nw">IQC-OV-01</span> · Draft 4 · Updated 2026-10-07 · <a href="about.html#history">Revision history</a></span><span class="m-fonts">Fonts, SIL Open Font License: <a href="fonts/OFL-IBM-Plex-Sans.txt">IBM Plex Sans</a> <a href="fonts/OFL-IBM-Plex-Mono.txt">IBM Plex Mono</a> <a href="fonts/OFL-Archivo.txt">Archivo</a></span></p>
+<p class="meta"><span class="m-doc"><span class="nw">IQC-OV-01</span> · Draft 5 · Updated 2026-10-07 · <a href="about.html#history">Revision history</a></span><span class="m-fonts">Fonts, SIL Open Font License: <a href="fonts/OFL-IBM-Plex-Sans.txt">IBM Plex Sans</a> <a href="fonts/OFL-IBM-Plex-Mono.txt">IBM Plex Mono</a> <a href="fonts/OFL-Archivo.txt">Archivo</a></span></p>
 </div>
 </footer>
 
