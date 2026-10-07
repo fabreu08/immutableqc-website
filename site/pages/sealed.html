@@ -53,7 +53,7 @@
 <div class="body">
 <p>A checker recomputes each record’s link from the previous link that record stores, its recomputed fingerprint and its position. It compares the result with the link the record stores, which is also the link the next record carries. So a changed value fails that record’s fingerprint and signature and breaks only the link into the next record. The later records still pass their own checks.</p>
 <p>The change still shows across the whole history. Replayed from 64 zeros over the recomputed fingerprints, the link of the newest record comes out different, so the head no longer matches the anchored fingerprint (section 7).</p>
-<p>The links do not show a record that was removed when every later link was rewritten. Each signature covers only its own record’s fingerprint, so that rewrite needs no key. Only a fingerprint anchored beforehand would show it.</p>
+<p>The links do not show a record that was removed when every later link was rewritten. Each signature covers only its own record’s fingerprint, so that rewrite needs no key. Only a fingerprint anchored beforehand would show it. Signatures that cover each record’s position are an <a href="roadmap.html#position">upcoming feature</a>.</p>
 </div>
 </section>
 <section class="sec sec--side" id="signature" aria-labelledby="s5-h">
