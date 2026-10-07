@@ -1,0 +1,18 @@
+{
+  "name": "immutableqc-site",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Static build for immutableqc.com. No runtime dependencies; the dev dependencies run the browser checks.",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "build": "node build.mjs",
+    "check": "node build.mjs --check",
+    "og": "node build.mjs --og",
+    "browser-check": "node tools/check.mjs"
+  },
+  "devDependencies": {
+    "axe-core": "4.14.0",
+    "playwright": "1.56.1"
+  }
+}

@@ -1,0 +1,8 @@
+# Keeps the pinned GitHub Actions current: a monthly pull request that moves each pinned commit SHA, and the version in
+# the comment beside it, to the action's newest release. site/build.mjs (section 7d) checks that form.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

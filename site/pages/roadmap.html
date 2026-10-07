@@ -1,0 +1,71 @@
+<h1 class="h1-doc">Roadmap</h1>
+<section class="sec sec--side" id="today" aria-labelledby="s1-h">
+<h2 id="s1-h"><span class="no">1</span>Today: open alpha</h2>
+<div class="body">
+<ul class="items">
+<li><span class="k">These pages</span><span>One synthetic HPLC sequence, sealed with the alpha’s five-field payload and link rule from 64 zeros, signed with a demo key at build, with a simulated anchor. Your browser recomputes every check.</span></li>
+<li><span class="k">Alpha console · demo</span><span>A synthetic lab that runs only in your browser: records sealed and linked, signed with a demo key made in your browser, corrections appended with a reason, and every check recomputed after each change. Its anchor is simulated, with no network call.</span></li>
+<li><span class="k">Alpha app · not public</span><span>Imports HPLC CSV files, then fingerprints, links and signs each peak area with one server key, using the same payload construction and link rule.</span></li>
+</ul>
+<p><a class="xref" href="dashboard/"><span class="id">Demo</span><span>Open the alpha console</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
+</div>
+</section>
+<section class="sec sec--side" id="planned" aria-labelledby="s2-h">
+<h2 id="s2-h"><span class="no">2</span>Upcoming</h2>
+<div class="body">
+<p>In no fixed order, and with no dates. Each item is labeled Upcoming until it works.</p>
+</div>
+<h3 id="agents"><span class="no">2.1</span><span>Agentic workflows <span class="tag">Upcoming</span></span></h3>
+<div class="body">
+<p>Verified experiment data that AI agents could check before they use it in research and work, with the four checks shown on Check a record.</p>
+<p>Check a record shows one record the way an agent would receive it, as JSON. It is a preview, not an API. It would need a documented record schema, keys published outside the lab and a shared registry first.</p>
+<p><a class="xref" href="check.html#agent"><span class="id">IQC-CK-01 §2</span><span>The agent-readable record</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
+</div>
+<h3 id="privacy"><span class="no">2.2</span><span>Privacy on public networks <span class="tag">Upcoming</span></span></h3>
+<div class="body">
+<p>Anything written to a public network should reveal nothing about results. A plain SHA-256 of a few guessable fields can in principle be matched by trying likely values, so a plain fingerprint is not enough. When anchoring becomes available it will write only a batch fingerprint, never the values; even so, two anchors one record apart would let the record between them be tried the same way.</p>
+<ul class="items">
+<li><span class="k">First</span><span>Salted (hiding) commitments in place of plain fingerprints. The lab keeps a random salt, and what is published reveals nothing without it.</span></li>
+<li><span class="k">Later</span><span>Zero-knowledge proofs, so that a lab can show a property, such as “within specification” or “reviewed before release”, without disclosing the value.</span></li>
+</ul>
+</div>
+<h3 id="anchoring"><span class="no">2.3</span><span>Anchoring on a public test network <span class="tag">Upcoming</span></span></h3>
+<div class="body">
+<p>Anchoring will write a batch fingerprint, with a time, to a registry on a public test network, so that a later rewrite of the record history shows against a fingerprint the lab does not control. The registry code (a smart contract) is written; nothing on this site or in the console writes to a network, and every anchor shown here is simulated. A test network can be reset, so this is a first step; anchoring on Filecoin itself (2.4) will follow.</p>
+<p><a class="xref" href="sealed.html#anchoring"><span class="id">IQC-HS-01 §7</span><span>Anchoring a batch</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
+</div>
+<h3 id="filecoin"><span class="no">2.4</span><span>Filecoin integration <span class="tag">Upcoming</span></span></h3>
+<div class="body">
+<p>Anchoring batch fingerprints on Filecoin itself will follow the public test network. The details are not decided.</p>
+</div>
+<h3 id="signatures"><span class="no">2.5</span><span>Per-analyst signatures <span class="tag">Upcoming</span></span></h3>
+<div class="body">
+<p>Each analyst would sign with their own key, in place of the one server key. Electronic signatures under 21 CFR Part 11 need more than a key: verified identity, the signature’s meaning, and controls over credentials.</p>
+</div>
+<h3 id="position"><span class="no">2.6</span><span>Signatures that cover each record’s position <span class="tag">Upcoming</span></span></h3>
+<div class="body">
+<p>Today each signature covers only its own record’s fingerprint, as in the alpha app. So a record removed or moved, with every later link rewritten, passes every check except an anchor taken earlier. Signing the record’s link, which depends on its position and on every record before it, would show that change without an anchor. It would change the alpha app and these pages together.</p>
+</div>
+<h3 id="review"><span class="no">2.7</span><span>Reviewer sign-off <span class="tag">Upcoming</span></span></h3>
+<div class="body">
+<p>Second-person review recorded as a signed record that names the records it covers, signed with the reviewer’s own key.</p>
+</div>
+<h3 id="verification"><span class="no">2.8</span><span>Server-side verification in the app <span class="tag">Upcoming</span></span></h3>
+<div class="body">
+<p>The alpha app recomputing every fingerprint, link and signature on the server, as these pages and the console do in your browser.</p>
+</div>
+<h3 id="metadata"><span class="no">2.9</span><span>Sample and method metadata in the seal <span class="tag">Upcoming</span></span></h3>
+<div class="body">
+<p>Sample, method, injection and retention time sealed inside each record, not shown beside it; and a correction’s reason and reference sealed with it.</p>
+</div>
+<h3 id="registry"><span class="no">2.10</span><span>A shared registry <span class="tag">Upcoming</span></span></h3>
+<div class="body">
+<p>One public registry of batch fingerprints, which anyone would be able to check; no lab would have to run its own.</p>
+</div>
+</section>
+<section class="sec sec--side" id="not-claimed" aria-labelledby="s3-h">
+<h2 id="s3-h"><span class="no">3</span>Not claimed</h2>
+<div class="body">
+<p>Nothing is in production use. There are no customers, no electronic signatures, no validation, no instrument capture and no Filecoin storage, and nothing on this site writes to a public network.</p>
+</div>
+</section>

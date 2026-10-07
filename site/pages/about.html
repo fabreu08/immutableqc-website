@@ -1,0 +1,73 @@
+<h1 class="h1-doc">About</h1>
+<section class="sec sec--side" id="who" aria-labelledby="s1-h">
+<h2 id="s1-h"><span class="no">1</span>Who builds it</h2>
+<div class="body">
+<p>Immutable QC is built by José A. Fernández Abreu. For contact, and for more about him and his work, see joseqc.com.</p>
+<p><a class="xref" href="https://joseqc.com"><span>joseqc.com</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
+</div>
+</section>
+<section class="sec sec--side" id="independence" aria-labelledby="s2-h">
+<h2 id="s2-h"><span class="no">2</span>Independence</h2>
+<div class="body">
+<p>{{independence}}</p>
+</div>
+</section>
+<section class="sec sec--side" id="status" aria-labelledby="s3-h">
+<h2 id="s3-h"><span class="no">3</span>Status</h2>
+<div class="body">
+<p>{{status}}</p>
+<p>The demo data is synthetic. Nothing on this site is validated for regulated use.</p>
+</div>
+</section>
+<section class="sec sec--side" id="why" aria-labelledby="s4-h">
+<h2 id="s4-h"><span class="no">4</span>Why it exists</h2>
+<div class="body">
+<p>In a regulated lab, work that is not documented is treated as not done. Labs already keep audit trails; the aim is a record that someone outside the lab can check from the record itself: a reviewer, an auditor, or later an AI agent.</p>
+</div>
+</section>
+<section class="sec sec--side" id="faq" aria-labelledby="s5-h">
+<h2 id="s5-h"><span class="no">5</span>Questions</h2>
+<h3 id="q1"><span class="no">5.1</span>Do I need to buy or hold anything?</h3>
+<div class="body">
+<p>No. There is nothing to buy, hold or connect. These pages and the alpha console run in your browser, with no sign-up.</p>
+</div>
+<h3 id="q2"><span class="no">5.2</span>Is my data put on a blockchain?</h3>
+<div class="body">
+<p>No. Nothing on this site or in the alpha console writes to any network, and the values you enter stay in your browser. Anchoring is an upcoming feature. At most it will put one batch fingerprint, a 64-character code for a whole run of records, on a public test network (a blockchain run for testing). On this site and in the console the anchor is simulated.</p>
+</div>
+<h3 id="q3"><span class="no">5.3</span>Does it replace my CDS, LIMS or audit trail?</h3>
+<div class="body">
+<p>No. It sits beside the CDS export. The alpha app fingerprints, links and signs each imported peak area with one server key; checking them in the app is upcoming. Your CDS audit trail, LIMS, SOPs and validation stay as they are.</p>
+</div>
+<h3 id="q4"><span class="no">5.4</span>Can I use it for GMP records today?</h3>
+<div class="body">
+<p>No. It is an open alpha on synthetic data: not validated, with no electronic signatures, no user accounts and no instrument capture. Use it to judge the approach, and keep regulated records in your validated systems.</p>
+</div>
+<h3 id="q5"><span class="no">5.5</span>What does a fingerprint cover?</h3>
+<div class="body">
+<p>In the alpha, five fields: instrument, measurement type, value, unit and capture time, joined by a vertical bar and hashed with SHA-256. Sample, injection and retention time are shown for context only; sealing sample and method metadata is upcoming.</p>
+</div>
+<h3 id="q6"><span class="no">5.6</span>What if someone edits the database directly?</h3>
+<div class="body">
+<p>The edited record no longer matches its fingerprint, its signature fails, and the link into the next record breaks. Someone who also rewrites every later link and re-signs with the signing key can make the history consistent again. Deleting a record and relinking the ones after it needs no key at all, because each signature covers only its own record’s fingerprint. In the alpha one server key signs, so whoever holds it could do either. Only a fingerprint anchored outside the lab beforehand would still show it, and anchoring is upcoming.</p>
+</div>
+</section>
+<section class="sec sec--side" id="sources" aria-labelledby="s6-h">
+<h2 id="s6-h"><span class="no">6</span>Sources and licenses</h2>
+<div class="body">
+<p>SHA-256: FIPS 180-4. ECDSA: FIPS 186-5. Fonts: IBM Plex Sans, IBM Plex Mono and Archivo, self-hosted under the SIL Open Font License 1.1; the license texts are linked in the footer. No third-party requests, no analytics and no cookies.</p>
+</div>
+</section>
+<section class="sec sec--side" id="history" aria-labelledby="s7-h">
+<h2 id="s7-h"><span class="no">7</span>Revision history</h2>
+<div class="body">
+<table class="rev">
+<caption class="sr-only">Revision history of this document set</caption>
+<thead><tr><th scope="col">Revision</th><th scope="col">Date</th><th scope="col">Change</th></tr></thead>
+<tbody>
+{{historyRows}}
+</tbody>
+</table>
+<p>The document set stays in draft until the founder publishes a first release. It is informational: not a controlled document, and not a regulatory assessment or a validation statement.</p>
+</div>
+</section>

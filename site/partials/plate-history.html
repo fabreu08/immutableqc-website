@@ -1,0 +1,22 @@
+<figure class="fig fig--hist" aria-labelledby="h-t">
+<div class="plate plate--hist" data-history>
+<div class="plate-h"><p class="fig-no">Fig. 2</p><p class="plate-t" id="h-t">Record history</p><p class="sim">Simulated · demo data</p></div>
+<dl class="meta"><div><dt>Sequence</dt><dd>{{seq}}</dd></div><div><dt>Instrument</dt><dd data-inst>{{instrument}}</dd></div><div><dt>Method</dt><dd>{{assay}}</dd></div><div><dt>Injections</dt><dd>{{runLine}}</dd></div></dl>
+<table class="hist" role="table">
+<caption>{{histCaption}}</caption>
+<colgroup><col class="w-sp"><col class="w-n"><col class="w-smp"><col class="w-rt"><col class="w-at"><col class="w-pa"><col class="w-fp"><col class="w-ln"><col class="w-sg"></colgroup>
+<thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader" class="c-sp"><span class="sr-only">Seal</span></th><th scope="col" role="columnheader" class="c-n"><span aria-hidden="true">#</span><span class="sr-only">Record</span></th><th scope="col" role="columnheader" class="c-smp">Sample <span class="u">context</span></th><th scope="col" role="columnheader" class="c-rt"><abbr title="retention time">RT</abbr> <span class="u">min · context</span></th><th scope="col" role="columnheader" class="c-at">Captured <span class="u">UTC</span></th><th scope="col" role="columnheader" class="c-pa">Peak area <span class="u">counts</span></th><th scope="col" role="columnheader" class="c-fp">Finger&shy;print</th><th scope="col" role="columnheader" class="c-ln">Link <span class="u">to next</span></th><th scope="col" role="columnheader" class="c-sg"><span class="lg">Demo signature</span><span class="sm">Demo sig.</span></th></tr></thead>
+<tbody role="rowgroup">
+{{histRows}}
+</tbody>
+</table>
+<div class="sum">
+<p class="sum-row"><span class="k">Status</span><span class="v" data-hist-st data-s="build">{{buildStatus}}<span class="nojs"> Live checking in your browser needs JavaScript.</span></span></p>
+<p class="sum-row"><span class="k">Head (link of the newest record), replayed from 64 zeros</span><span class="v"><code class="hx" data-head>{{headShort}}</code> <span class="res" data-head-st data-s="build"><svg class="i" aria-hidden="true"><use href="#i-open"/></svg><span>matches the anchored fingerprint</span></span></span></p>
+<p class="sum-row"><span class="k">Anchored fingerprint <span class="nb">(simulated, no network call)</span></span><span class="v"><code class="hx">{{ancShort}}</code> <span class="say">the head of records 1 to {{AN}}, stored on this page as a simulated anchor</span></span></p>
+</div>
+<div class="plate-f"><p class="say">Read only. Editing lives on Check a record.</p><a class="go" href="check.html#verifier"><span>Change a value on Check a record</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></div>
+<template id="iqc-hist-words"><i data-k="fp.ok">fingerprint matches</i><i data-k="fp.bad">fingerprint does not match</i><i data-k="link.ok">intact</i><i data-k="link.bad">broken</i><i data-k="sig.ok">valid</i><i data-k="sig.bad">fails</i><i data-k="sig.na">unchecked</i><i data-k="sig.none">unsigned</i><i data-k="head.ok">matches the anchored fingerprint</i><i data-k="head.bad">no longer matches the anchored fingerprint</i><i data-k="st.head">Checked in your browser: {ok} of {n} records pass</i><i data-k="st.head.nosig">Checked in your browser: {ok} of {n} records pass the fingerprint and link checks</i><i data-k="st.chg">{c} changed</i><i data-k="st.sig1">1 signature fails</i><i data-k="st.sig">{s} signatures fail</i><i data-k="st.link1">link {l} broken</i><i data-k="st.link">links {l} broken</i><i data-k="st.anc">simulated anchor matches</i><i data-k="st.anc.part">simulated anchor matches records 1 to {m}</i><i data-k="st.anc.no">simulated anchor does not match</i><i data-k="st.unanch1">record {a} not yet anchored</i><i data-k="st.unanch">records {a} to {b} not yet anchored</i><i data-k="st.nosig">signatures not checked here</i></template>
+</div>
+<figcaption class="figcap"><b>Fig. 2</b> · The eight records of sequence {{seq}}, oldest first. Your browser checks each one from the values in the table: the fingerprint of its five sealed fields, its signature, and the link it carries into the next record. The head is the link of the newest record, recomputed by replaying the whole history from 64 zeros. Sample and retention time are context, not sealed in the alpha. Signatures as in Fig. 1.</figcaption>
+</figure>

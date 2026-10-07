@@ -1,0 +1,62 @@
+name: pages
+
+# Publishes immutableqc.com: only the built site, never the sources. It runs on every push to main and by hand, and it
+# builds and deploys only from main. Nothing goes live until Settings → Pages → Source is set to "GitHub Actions" (see
+# site/HANDOFF.md, "Deploying"). Every action is pinned to a full commit SHA; the version is in the comment beside it.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# one deployment at a time; a newer run waits, and a deployment in progress is never cancelled halfway
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build check, then assemble the site from the allowlist
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    # the build runs the repository's own scripts, so it gets read access only; the Pages permissions are the deploy job's
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Rebuild in memory and compare with the committed output (asserts and lints)
+        run: node site/build.mjs --check
+      # The allowlist lives in one place, site/tools/deploy.mjs, and the browser checks serve the same set:
+      #   the 7 pages (index, sealed, check, regulatory, roadmap, about, 404), assets/, fonts/, favicon.svg, og.png,
+      #   apple-touch-icon.png, CNAME, and dashboard/index.html, console.js, console.css.
+      #   Never site/, contracts/, .github/, dashboard/registry-*.js or any .md.
+      # deploy.mjs also checks every href, src and url() in the assembled pages and stylesheets: each must resolve to a
+      # file inside _site/, so nothing that is not on the allowlist can be needed by a published page.
+      - name: Assemble _site/ from the allowlist, and check that every link and asset resolves inside it
+        run: node site/tools/deploy.mjs _site
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: _site/
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

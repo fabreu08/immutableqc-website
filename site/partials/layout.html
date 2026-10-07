@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+{{csp}}{{base}}<title>{{title}}</title>
+<meta name="description" content="{{description}}">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#F4F6F5">
+{{meta}}<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+{{preloads}}<link rel="stylesheet" href="assets/site.css?v={{cssv}}">
+<script>{{prepaint}}</script>
+<script defer src="assets/iqc.js?v={{jsv}}"></script>
+</head>
+<body data-doc="{{doc}}">
+{{> sprite}}
+<a class="skip" href="#main">Skip to content</a>
+{{> top}}
+<main id="main" tabindex="-1">
+<div class="wrap">
+{{> dochead}}
+{{body}}
+</div>
+</main>
+{{> footer}}
+</body>
+</html>

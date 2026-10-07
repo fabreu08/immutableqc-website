@@ -1,0 +1,21 @@
+{
+  "_note": "Synthetic demo data. One HPLC sequence: 5 system-suitability standard injections + 3 sample injections. Vendor-neutral. The sealed record covers instrumentId, sensorType, value, unit and capturedAt (the alpha app's canonical payload); everything under ctx is context, not sealed in the alpha.",
+  "sequence": "SEQ-0914-02",
+  "instrumentId": "HPLC-02",
+  "sensorType": "hplc",
+  "unit": "counts",
+  "assay": "Assay of Product 200 mg tablets",
+  "analyte": "main peak",
+  "standard": "Reference standard, 0.20 mg/mL",
+  "showcase": 6,
+  "records": [
+    { "inj": "01", "kind": "SST", "sample": "STD-A", "desc": "Reference standard, 0.20 mg/mL, replicate 1", "value": "1523847", "rt": "4.82", "capturedAt": "2026-09-14T08:12:41Z" },
+    { "inj": "02", "kind": "SST", "sample": "STD-A", "desc": "Reference standard, 0.20 mg/mL, replicate 2", "value": "1519962", "rt": "4.81", "capturedAt": "2026-09-14T08:19:43Z" },
+    { "inj": "03", "kind": "SST", "sample": "STD-A", "desc": "Reference standard, 0.20 mg/mL, replicate 3", "value": "1527410", "rt": "4.82", "capturedAt": "2026-09-14T08:26:44Z" },
+    { "inj": "04", "kind": "SST", "sample": "STD-A", "desc": "Reference standard, 0.20 mg/mL, replicate 4", "value": "1521188", "rt": "4.83", "capturedAt": "2026-09-14T08:33:47Z" },
+    { "inj": "05", "kind": "SST", "sample": "STD-A", "desc": "Reference standard, 0.20 mg/mL, replicate 5", "value": "1525603", "rt": "4.82", "capturedAt": "2026-09-14T08:40:49Z" },
+    { "inj": "06", "kind": "Sample", "sample": "P200-S1", "desc": "Product 200 mg tablets, preparation 1", "value": "1508811", "rt": "4.82", "capturedAt": "2026-09-14T08:47:50Z" },
+    { "inj": "07", "kind": "Sample", "sample": "P200-S2", "desc": "Product 200 mg tablets, preparation 2", "value": "1531274", "rt": "4.81", "capturedAt": "2026-09-14T08:54:52Z" },
+    { "inj": "08", "kind": "Sample", "sample": "P200-S3", "desc": "Product 200 mg tablets, preparation 3", "value": "1516039", "rt": "4.82", "capturedAt": "2026-09-14T09:01:55Z" }
+  ]
+}

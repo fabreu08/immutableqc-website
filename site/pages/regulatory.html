@@ -1,0 +1,231 @@
+<h1 class="h1-doc">Regulatory map</h1>
+<section class="sec sec--side" aria-labelledby="s1-h">
+<h2 id="s1-h"><span class="no">1</span>Scope</h2>
+<div class="body">
+<p class="reg">{{regulatory}}</p>
+<p>For each expectation: what it asks, in plain words; how Immutable QC approaches it; what exists today; and what it does not cover. A clause number is given only where it is confirmed; elsewhere the standard is named and the expectation paraphrased. This is a reading aid, not a claim that anything here meets an expectation. Check each one against your own copy of the text and the edition you work to.</p>
+<p class="note"><span class="k">Legend</span>Today means the open alpha: these pages, the alpha console (a demo in your browser) or the alpha app (not public), as stated. Not covered lists what Immutable QC does not do; items tagged <span class="tag">Upcoming</span> are listed in the Roadmap, and the rest are not. All demo data is synthetic.</p>
+</div>
+</section>
+<section class="sec" id="part11" aria-labelledby="s2-h">
+<h2 id="s2-h"><span class="no">2</span>21 CFR Part 11</h2>
+<div class="clauses">
+<article class="cl" aria-labelledby="c-2-1"><h3 id="c-2-1"><span class="no">2.1</span><span>Validation; discerning altered records <span class="cl-id">§11.10(a)</span></span></h3><dl>
+<div><dt>Expectation</dt><dd>Systems are validated for accuracy, reliability, consistent intended performance and the ability to discern invalid or altered records.</dd></div>
+<div><dt>Approach</dt><dd>Each record carries a SHA-256 fingerprint of its sealed fields, a link to the record before it and a signature, so an altered record fails its own checks and breaks the link into the next record.</dd></div>
+<div><dt>Today</dt><dd>The checks run on these pages and in the console demo, on synthetic data. The alpha app fingerprints, links and signs each imported peak area.</dd></div>
+<div><dt>Not covered</dt><dd>Validation of any kind; Immutable QC is not validated. <a href="roadmap.html#verification">Server-side verification in the app</a> <span class="tag">Upcoming</span></dd></div>
+</dl></article>
+<article class="cl" aria-labelledby="c-2-2"><h3 id="c-2-2"><span class="no">2.2</span>Protection of records for retrieval</h3><dl>
+<div><dt>Expectation</dt><dd>Records are protected so they can be retrieved accurately and readily throughout the retention period.</dd></div>
+<div><dt>Approach</dt><dd>Fingerprints show whether a retrieved record still reads as it was sealed. They do not keep the record.</dd></div>
+<div><dt>Today</dt><dd>Nothing beyond the check itself. The console keeps its synthetic lab in your browser only.</dd></div>
+<div><dt>Not covered</dt><dd>Storage, backup, retention and archiving.</dd></div>
+</dl></article>
+<article class="cl" aria-labelledby="c-2-3"><h3 id="c-2-3"><span class="no">2.3</span>Limiting system access</h3><dl>
+<div><dt>Expectation</dt><dd>System access is limited to authorized individuals.</dd></div>
+<div><dt>Approach</dt><dd>Not addressed. Per-analyst signatures would tie each record to the key that signed it, which is not access control.</dd></div>
+<div><dt>Today</dt><dd>None. There are no logins, and the alpha app’s interfaces are open.</dd></div>
+<div><dt>Not covered</dt><dd>Authentication, roles and access control.</dd></div>
+</dl></article>
+<article class="cl" aria-labelledby="c-2-4"><h3 id="c-2-4"><span class="no">2.4</span><span>Audit trails <span class="cl-id">§11.10(e)</span></span></h3><dl>
+<div><dt>Expectation</dt><dd>Secure, computer-generated, time-stamped audit trails independently record the date and time of operator entries and actions that create, modify or delete records. Changes do not obscure what was recorded before.</dd></div>
+<div><dt>Approach</dt><dd>A correction is a new record with a reason; the original stays readable and keeps passing. A record changed after sealing fails its checks. A removed record, or a history rewritten to hide a change, shows only against a fingerprint anchored beforehand (anchoring is upcoming; simulated on these pages).</dd></div>
+<div><dt>Today</dt><dd>Corrections with a reason on these pages and in the console demo. The reason and the correction time sit beside the seal, not inside it.</dd></div>
+<div><dt>Not covered</dt><dd>Operator identity. A trusted time source: in the alpha app the capture time is an injection time typed at import, or the server’s clock if none is given, the same for every peak in a file. Corrections in the alpha app.</dd></div>
+</dl></article>
+<article class="cl" aria-labelledby="c-2-5"><h3 id="c-2-5"><span class="no">2.5</span>Controls for open systems</h3><dl>
+<div><dt>Expectation</dt><dd>Additional measures, such as document encryption and appropriate digital signature standards, ensure record authenticity, integrity and, where needed, confidentiality.</dd></div>
+<div><dt>Approach</dt><dd>ECDSA P-256 signatures (FIPS 186-5) over each record’s fingerprint. When anchoring becomes available, only a fingerprint will go on a public network, never the values.</dd></div>
+<div><dt>Today</dt><dd>Demo keys only: a build-time key on these pages, a key made in your browser in the console, one server key in the alpha app.</dd></div>
+<div><dt>Not covered</dt><dd>Managed keys and encryption. <a href="roadmap.html#signatures">Per-analyst signatures</a> <span class="tag">Upcoming</span> <a href="roadmap.html#privacy">Privacy on public networks</a>, with salted commitments in place of plain fingerprints <span class="tag">Upcoming</span></dd></div>
+</dl></article>
+<article class="cl" aria-labelledby="c-2-6"><h3 id="c-2-6"><span class="no">2.6</span><span>Signature manifestations and linking <span class="cl-id">§11.50, §11.70</span></span></h3><dl>
+<div><dt>Expectation</dt><dd>A signed record shows the signer’s printed name, the date and time, and the meaning of the signature, such as review or approval. Signatures are linked to their records so they cannot be excised, copied or transferred.</dd></div>
+<div><dt>Approach</dt><dd>A digital signature over a record’s fingerprint covers exactly those sealed fields and fails on any other.</dd></div>
+<div><dt>Today</dt><dd>Demo signatures that cover the fingerprint. A digital signature on a record’s bytes is not an electronic signature by a person.</dd></div>
+<div><dt>Not covered</dt><dd>Signer name, signing time and meaning. <a href="roadmap.html#review">Reviewer sign-off</a> <span class="tag">Upcoming</span></dd></div>
+</dl></article>
+<article class="cl" aria-labelledby="c-2-7"><h3 id="c-2-7"><span class="no">2.7</span>Electronic signatures</h3><dl>
+<div><dt>Expectation</dt><dd>Electronic signatures are unique to one person, the person’s identity is verified, and identification codes and passwords are controlled.</dd></div>
+<div><dt>Approach</dt><dd>Per-analyst signatures and reviewer sign-off are upcoming; an electronic signature needs more than a key.</dd></div>
+<div><dt>Today</dt><dd>None.</dd></div>
+<div><dt>Not covered</dt><dd>Electronic signatures of any kind.</dd></div>
+</dl></article>
+</div>
+</section>
+<section class="sec" id="annex11" aria-labelledby="s3-h">
+<h2 id="s3-h"><span class="no">3</span><span>EU GMP Annex 11 (2011)</span></h2>
+<div class="body">
+<p>A revised Annex 11 has been in consultation; check the numbering against the edition you work to.</p>
+</div>
+<div class="clauses">
+<article class="cl" aria-labelledby="c-3-1"><h3 id="c-3-1"><span class="no">3.1</span>Validation</h3><dl>
+<div><dt>Expectation</dt><dd>Computerized systems are validated across their life cycle, with documented evidence.</dd></div>
+<div><dt>Approach</dt><dd>The method is public, and every value on these pages is recomputed in your browser and at build.</dd></div>
+<div><dt>Today</dt><dd>Build-time checks of the demo data and the page’s own functions.</dd></div>
+<div><dt>Not covered</dt><dd>Validation of any kind; Immutable QC is not validated.</dd></div>
+</dl></article>
+<article class="cl" aria-labelledby="c-3-2"><h3 id="c-3-2"><span class="no">3.2</span>Data storage</h3><dl>
+<div><dt>Expectation</dt><dd>Data are secured against damage, and checked for accessibility, readability and accuracy throughout the retention period.</dd></div>
+<div><dt>Approach</dt><dd>Fingerprints let stored data be checked against what was sealed.</dd></div>
+<div><dt>Today</dt><dd>The check, on demo data.</dd></div>
+<div><dt>Not covered</dt><dd>Storage, backup and restore.</dd></div>
+</dl></article>
+<article class="cl" aria-labelledby="c-3-3"><h3 id="c-3-3"><span class="no">3.3</span><span>Audit trails <span class="cl-id">§9</span></span></h3><dl>
+<div><dt>Expectation</dt><dd>Based on risk, the system records GMP-relevant changes and deletions; for a change or deletion the reason is documented. Audit trails are available, intelligible and regularly reviewed.</dd></div>
+<div><dt>Approach</dt><dd>Corrections are appended with a required reason; the original stays. A deleted record, or a history rewritten to hide a change, shows only against a fingerprint anchored beforehand (anchoring is upcoming; simulated on these pages).</dd></div>
+<div><dt>Today</dt><dd>On these pages and in the console demo, with the reason and the correction time beside the seal, not inside it.</dd></div>
+<div><dt>Not covered</dt><dd>Who made the change; review of the audit trail; corrections in the alpha app. <a href="roadmap.html#review">Reviewer sign-off</a> <span class="tag">Upcoming</span></dd></div>
+</dl></article>
+<article class="cl" aria-labelledby="c-3-4"><h3 id="c-3-4"><span class="no">3.4</span>Security</h3><dl>
+<div><dt>Expectation</dt><dd>Physical or logical controls restrict access to authorized persons, and the system records the identity of operators entering, changing, confirming or deleting data, with the date and time.</dd></div>
+<div><dt>Approach</dt><dd>Not addressed. Per-analyst signatures would record which key signed each record, which is not access control.</dd></div>
+<div><dt>Today</dt><dd>None.</dd></div>
+<div><dt>Not covered</dt><dd>Access control and operator identity.</dd></div>
+</dl></article>
+<article class="cl" aria-labelledby="c-3-5"><h3 id="c-3-5"><span class="no">3.5</span><span>Electronic signature <span class="cl-id">§14</span></span></h3><dl>
+<div><dt>Expectation</dt><dd>Electronic signatures have the same impact as handwritten ones within the company, are permanently linked to their record, and include the time and date they were applied.</dd></div>
+<div><dt>Approach</dt><dd>A digital signature over the fingerprint is bound to the record’s sealed fields.</dd></div>
+<div><dt>Today</dt><dd>Demo signatures only; no person signs anything.</dd></div>
+<div><dt>Not covered</dt><dd>Electronic signatures.</dd></div>
+</dl></article>
+<article class="cl" aria-labelledby="c-3-6"><h3 id="c-3-6"><span class="no">3.6</span>Archiving</h3><dl>
+<div><dt>Expectation</dt><dd>Archived data are checked for accessibility, readability and integrity, including after changes to the system.</dd></div>
+<div><dt>Approach</dt><dd>A fingerprint and a link can be recomputed years later with standard tools, without the original software.</dd></div>
+<div><dt>Today</dt><dd>The recompute recipe on Check a record.</dd></div>
+<div><dt>Not covered</dt><dd>An archive, and a documented export format.</dd></div>
+</dl></article>
+</div>
+</section>
+<section class="sec" id="iso17025" aria-labelledby="s4-h">
+<h2 id="s4-h"><span class="no">4</span>ISO/IEC 17025:2017</h2>
+<div class="clauses">
+<article class="cl" aria-labelledby="c-4-1"><h3 id="c-4-1"><span class="no">4.1</span>Technical records</h3><dl>
+<div><dt>Expectation</dt><dd>Technical records include the date and the identity of the personnel responsible for each activity and for checking data and results. Original observations, data and calculations are recorded when they are made.</dd></div>
+<div><dt>Approach</dt><dd>The capture time is one of the sealed fields.</dd></div>
+<div><dt>Today</dt><dd>In the alpha app the capture time sealed with each peak area is an injection time typed at import, or the server’s clock if none is given, the same for every peak in a file. It is not read from the export or from the instrument.</dd></div>
+<div><dt>Not covered</dt><dd>Personnel identity; instrument capture; reading the injection time from the export; a trusted clock.</dd></div>
+</dl></article>
+<article class="cl" aria-labelledby="c-4-2"><h3 id="c-4-2"><span class="no">4.2</span>Amendments to technical records</h3><dl>
+<div><dt>Expectation</dt><dd>Amendments can be tracked to previous versions or original observations. The original and amended data are both kept, with the date of the change, what was changed and who made it.</dd></div>
+<div><dt>Approach</dt><dd>A correction is appended as a new record that names the record it corrects; the original is kept as sealed.</dd></div>
+<div><dt>Today</dt><dd>On these pages and in the console demo. The correction carries the result’s capture time, not the time it was made, which sits beside the seal.</dd></div>
+<div><dt>Not covered</dt><dd>Who made the change. The reason and the correction time are not sealed; sealing them is part of <a href="roadmap.html#metadata">sample and method metadata in the seal</a> <span class="tag">Upcoming</span></dd></div>
+</dl></article>
+<article class="cl" aria-labelledby="c-4-3"><h3 id="c-4-3"><span class="no">4.3</span>Validation of the information system</h3><dl>
+<div><dt>Expectation</dt><dd>The laboratory information management system is validated for functionality before it is introduced, and after changes.</dd></div>
+<div><dt>Approach</dt><dd>None; Immutable QC would sit beside a validated system, not replace it.</dd></div>
+<div><dt>Today</dt><dd>None.</dd></div>
+<div><dt>Not covered</dt><dd>Validation.</dd></div>
+</dl></article>
+<article class="cl" aria-labelledby="c-4-4"><h3 id="c-4-4"><span class="no">4.4</span>Protection and integrity of data</h3><dl>
+<div><dt>Expectation</dt><dd>The system is protected from unauthorized access, safeguarded against tampering and loss, and maintained so that the integrity of data and information is ensured.</dd></div>
+<div><dt>Approach</dt><dd>Tamper-evidence. A change after sealing shows in the record’s checks and, once anchoring becomes available, against an anchored fingerprint.</dd></div>
+<div><dt>Today</dt><dd>Tamper-evident record history on demo data.</dd></div>
+<div><dt>Not covered</dt><dd>Access control; protection against loss. Tamper-evidence does not prevent changes.</dd></div>
+</dl></article>
+</div>
+</section>
+<section class="sec" id="alcoa" aria-labelledby="s5-h">
+<h2 id="s5-h"><span class="no">5</span>ALCOA+</h2>
+<div class="body">
+<p>The data-integrity principles as described in, for example, the MHRA GXP data integrity guidance (2018) and PIC/S PI 041-1. A fingerprint shows that a record has not changed since it was sealed; it cannot show that the result was right when it was captured.</p>
+</div>
+<div class="clauses clauses--alcoa">
+<article class="cl" aria-labelledby="c-5-1"><h3 id="c-5-1"><span class="no">5.1</span>Attributable</h3><dl>
+<div><dt>Approach</dt><dd>A signature ties the record to the key that signed it.</dd></div>
+<div><dt>Today</dt><dd>In the alpha app one server key signs each imported row, which identifies the system, not a person. These pages and the console use demo keys.</dd></div>
+<div><dt>Not covered</dt><dd>User accounts. <a href="roadmap.html#signatures">Per-analyst signatures</a> <span class="tag">Upcoming</span></dd></div>
+</dl></article>
+<article class="cl" aria-labelledby="c-5-2"><h3 id="c-5-2"><span class="no">5.2</span>Legible</h3><dl>
+<div><dt>Approach</dt><dd>Records are plain fields; every fingerprint can be recomputed with standard tools.</dd></div>
+<div><dt>Today</dt><dd>The payload and the recompute recipe are printed for every record.</dd></div>
+<div><dt>Not covered</dt><dd>A documented export format for reading records years later.</dd></div>
+</dl></article>
+<article class="cl" aria-labelledby="c-5-3"><h3 id="c-5-3"><span class="no">5.3</span>Contemporaneous</h3><dl>
+<div><dt>Approach</dt><dd>The capture time is sealed; a correction carries the time it was made, beside the seal.</dd></div>
+<div><dt>Today</dt><dd>In the alpha app the capture time is an injection time typed at import, or the server’s clock at import. It is not read from the CSV export.</dd></div>
+<div><dt>Not covered</dt><dd>Capture at the instrument, and a trusted clock.</dd></div>
+</dl></article>
+<article class="cl" aria-labelledby="c-5-4"><h3 id="c-5-4"><span class="no">5.4</span>Original</h3><dl>
+<div><dt>Approach</dt><dd>Values parsed from the export are sealed on import.</dd></div>
+<div><dt>Today</dt><dd>In the alpha app, the peak area per peak.</dd></div>
+<div><dt>Not covered</dt><dd>The CSV file itself is not stored or fingerprinted.</dd></div>
+</dl></article>
+<article class="cl" aria-labelledby="c-5-5"><h3 id="c-5-5"><span class="no">5.5</span>Accurate</h3><dl>
+<div><dt>Approach</dt><dd>A fingerprint shows whether a value changed after it was sealed.</dd></div>
+<div><dt>Today</dt><dd>That check, on demo data.</dd></div>
+<div><dt>Not covered</dt><dd>Whether the value was right at capture; that stays with your method, system suitability and review.</dd></div>
+</dl></article>
+<article class="cl" aria-labelledby="c-5-6"><h3 id="c-5-6"><span class="no">5.6</span>Complete</h3><dl>
+<div><dt>Approach</dt><dd>Records are linked in order, so a removed or inserted record breaks a link. If every later link is rewritten, which needs no key, only a fingerprint anchored beforehand shows it (anchoring is upcoming; simulated on these pages).</dd></div>
+<div><dt>Today</dt><dd>On these pages and in the console demo.</dd></div>
+<div><dt>Not covered</dt><dd>Only the peak area of each result is sealed, with instrument, unit and capture time. <a href="roadmap.html#metadata">Sample and method metadata in the seal</a> <span class="tag">Upcoming</span></dd></div>
+</dl></article>
+<article class="cl" aria-labelledby="c-5-7"><h3 id="c-5-7"><span class="no">5.7</span>Consistent</h3><dl>
+<div><dt>Approach</dt><dd>Corrections are appended in time order with a reason; the original stays.</dd></div>
+<div><dt>Today</dt><dd>On these pages and in the console demo.</dd></div>
+<div><dt>Not covered</dt><dd>Corrections in the alpha app.</dd></div>
+</dl></article>
+<article class="cl" aria-labelledby="c-5-8"><h3 id="c-5-8"><span class="no">5.8</span>Enduring</h3><dl>
+<div><dt>Approach</dt><dd>Anchoring batch fingerprints outside the lab, an upcoming feature.</dd></div>
+<div><dt>Today</dt><dd>A simulated anchor on these pages and in the console; nothing is written to a network.</dd></div>
+<div><dt>Not covered</dt><dd>Keeping the records. <a href="roadmap.html#anchoring">Anchoring on a public test network</a> <span class="tag">Upcoming</span> <a href="roadmap.html#filecoin">Filecoin integration</a> <span class="tag">Upcoming</span></dd></div>
+</dl></article>
+<article class="cl" aria-labelledby="c-5-9"><h3 id="c-5-9"><span class="no">5.9</span>Available</h3><dl>
+<div><dt>Approach</dt><dd>Anyone holding the records can recompute and compare the fingerprints.</dd></div>
+<div><dt>Today</dt><dd>The recipe and the browser check.</dd></div>
+<div><dt>Not covered</dt><dd><a href="roadmap.html#registry">A shared registry</a> anyone could check <span class="tag">Upcoming</span></dd></div>
+</dl></article>
+</div>
+</section>
+<section class="sec" id="gmp" aria-labelledby="s6-h">
+<h2 id="s6-h"><span class="no">6</span>GMP records</h2>
+<div class="clauses">
+<article class="cl" aria-labelledby="c-6-1"><h3 id="c-6-1"><span class="no">6.1</span>Computer systems (21 CFR Part 211)</h3><dl>
+<div><dt>Expectation</dt><dd>Controls ensure that changes to records are made only by authorized personnel; input and output are checked for accuracy; a backup of the data is kept.</dd></div>
+<div><dt>Approach</dt><dd>A change after sealing becomes evident. It is not prevented.</dd></div>
+<div><dt>Today</dt><dd>The check, on demo data.</dd></div>
+<div><dt>Not covered</dt><dd>Authorization, input checks and backup.</dd></div>
+</dl></article>
+<article class="cl" aria-labelledby="c-6-2"><h3 id="c-6-2"><span class="no">6.2</span>Laboratory records (21 CFR Part 211)</h3><dl>
+<div><dt>Expectation</dt><dd>Laboratory records include complete data from all tests.</dd></div>
+<div><dt>Approach</dt><dd>Every injection becomes a linked record. A removed one breaks a link; if every later link is rewritten, only an anchored fingerprint shows it (anchoring is upcoming).</dd></div>
+<div><dt>Today</dt><dd>The demo sequence of 5 system-suitability and 3 sample injections, checked against a simulated anchor. The alpha app links each imported peak area.</dd></div>
+<div><dt>Not covered</dt><dd>Sealing the complete data: the source file, sample, method and integration events. <a href="roadmap.html#verification">Server-side verification in the app</a> <span class="tag">Upcoming</span></dd></div>
+</dl></article>
+<article class="cl" aria-labelledby="c-6-3"><h3 id="c-6-3"><span class="no">6.3</span>Alterations to entries (EU GMP)</h3><dl>
+<div><dt>Expectation</dt><dd>An alteration is signed and dated, leaves the original readable and, where appropriate, records the reason.</dd></div>
+<div><dt>Approach</dt><dd>A correction is a new record with a reason and a time; the original stays readable.</dd></div>
+<div><dt>Today</dt><dd>On these pages and in the console demo.</dd></div>
+<div><dt>Not covered</dt><dd>A signature by the person making the alteration.</dd></div>
+</dl></article>
+</div>
+</section>
+<section class="sec" id="tni" aria-labelledby="s7-h">
+<h2 id="s7-h"><span class="no">7</span>Environmental labs (TNI)</h2>
+<div class="body">
+<p>The TNI Standard (2016) for environmental laboratories. The expectations are given in plain words, without section numbers; find each one in the edition your accreditation body uses.</p>
+</div>
+<div class="clauses">
+<article class="cl" aria-labelledby="c-7-1"><h3 id="c-7-1"><span class="no">7.1</span>Control of records</h3><dl>
+<div><dt>Expectation</dt><dd>Records are legible, identifiable and retrievable, and changes to them can be traced to the original, with the date and the person.</dd></div>
+<div><dt>Approach</dt><dd>Corrections appended with a reason; the original stays and keeps passing.</dd></div>
+<div><dt>Today</dt><dd>On these pages and in the console demo.</dd></div>
+<div><dt>Not covered</dt><dd>The person; retention.</dd></div>
+</dl></article>
+<article class="cl" aria-labelledby="c-7-2"><h3 id="c-7-2"><span class="no">7.2</span>Handling of samples</h3><dl>
+<div><dt>Expectation</dt><dd>Sample receipt, chain of custody and holding times are documented.</dd></div>
+<div><dt>Approach</dt><dd>None.</dd></div>
+<div><dt>Today</dt><dd>Outside the alpha: no sample records are sealed.</dd></div>
+<div><dt>Not covered</dt><dd>Chain of custody and holding times.</dd></div>
+</dl></article>
+<article class="cl" aria-labelledby="c-7-3"><h3 id="c-7-3"><span class="no">7.3</span>Quality control for chemical testing</h3><dl>
+<div><dt>Expectation</dt><dd>Quality-control samples, such as method blanks and laboratory control samples, are run and recorded with each batch.</dd></div>
+<div><dt>Approach</dt><dd>QC results could be sealed like any other result.</dd></div>
+<div><dt>Today</dt><dd>The alpha seals peak areas only; QC sample types are not modeled.</dd></div>
+<div><dt>Not covered</dt><dd>QC sample types and batch links.</dd></div>
+</dl></article>
+</div>
+</section>

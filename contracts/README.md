@@ -1,3 +1,5 @@
+> Note: the alpha console’s publishing UI is paused while immutableqc.com is redesigned; this contract stays in the repository for the Filecoin roadmap.
+
 # RootRegistry
 
 Minimal attestation contract for Immutable QC. Each batch of sealed QC records is hashed into a Merkle root in the browser; `attest()` records that root on the Filecoin EVM with the publisher, epoch, timestamp, and the ledger sequence range it covers. A root can only be attested once.
@@ -36,9 +38,7 @@ The dashboard has no bundler and no web3 library. `dashboard/registry-abi.js` ha
 
 ## Deploy
 
-The console deploys from the connected wallet: Settings → Registry contract → Deploy RootRegistry. It sends the bytecode from `registry-artifact.js`, waits for the receipt, and stores the address in the browser. Paste an address instead to reuse an existing deployment.
-
-Once a shared deployment exists, put its address in `NETWORKS.calibration.registry` (and later `NETWORKS.mainnet.registry`) in `dashboard/console.js` so every visitor reads the same registry.
+The console no longer deploys or publishes (see the note above). The bytecode and ABI are in `out/RootRegistry.json` after `npm run build`. No shared deployment exists yet; once one does, its address can be published in one place for the site and the console to read.
 
 ## Verify on Blockscout
 
