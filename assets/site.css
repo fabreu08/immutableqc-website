@@ -497,6 +497,20 @@ body{background:#fff}
 .plate *{color:#000!important}
 }
 @page{margin:16mm 14mm 18mm;@bottom-left{content:"Immutable QC · Draft 3 · informational draft, not a controlled document";font:8pt/1.3 'IBM Plex Mono',monospace;color:#4A5560}@bottom-right{content:"page " counter(page) " of " counter(pages);font:8pt/1.3 'IBM Plex Mono',monospace;color:#4A5560}}
+@page doc-iqc-ov-01{@bottom-left{content:"IQC-OV-01 · Draft 3 · informational draft, not a controlled document"}}
+body[data-doc="IQC-OV-01"]{page:doc-iqc-ov-01}
+@page doc-iqc-hs-01{@bottom-left{content:"IQC-HS-01 · Draft 3 · informational draft, not a controlled document"}}
+body[data-doc="IQC-HS-01"]{page:doc-iqc-hs-01}
+@page doc-iqc-ck-01{@bottom-left{content:"IQC-CK-01 · Draft 3 · informational draft, not a controlled document"}}
+body[data-doc="IQC-CK-01"]{page:doc-iqc-ck-01}
+@page doc-iqc-rm-01{@bottom-left{content:"IQC-RM-01 · Draft 3 · informational draft, not a controlled document"}}
+body[data-doc="IQC-RM-01"]{page:doc-iqc-rm-01}
+@page doc-iqc-rd-01{@bottom-left{content:"IQC-RD-01 · Draft 3 · informational draft, not a controlled document"}}
+body[data-doc="IQC-RD-01"]{page:doc-iqc-rd-01}
+@page doc-iqc-ab-01{@bottom-left{content:"IQC-AB-01 · Draft 3 · informational draft, not a controlled document"}}
+body[data-doc="IQC-AB-01"]{page:doc-iqc-ab-01}
+@page doc-iqc-nf{@bottom-left{content:"IQC-NF · Draft 3 · informational draft, not a controlled document"}}
+body[data-doc="IQC-NF"]{page:doc-iqc-nf}
 .v-fig{margin-top:16px}
 .hero .first{margin-top:14px}
 .hero .first>*+*{margin-top:0}

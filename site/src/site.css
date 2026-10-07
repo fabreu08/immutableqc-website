@@ -553,6 +553,8 @@ code.p{display:block;padding:10px 12px;background:var(--paper-2);border:1px soli
   .plate *{color:#000!important}
 }
 @page{margin:16mm 14mm 18mm;@bottom-left{content:"Immutable QC · __REVISION__ · informational draft, not a controlled document";font:8pt/1.3 'IBM Plex Mono',monospace;color:#4A5560}@bottom-right{content:"page " counter(page) " of " counter(pages);font:8pt/1.3 'IBM Plex Mono',monospace;color:#4A5560}}
+/* each document prints its own id on every page: one named page per document, written by site/build.mjs */
+__DOC_PAGES__
 .v-fig{margin-top:16px}
 .hero .first{margin-top:14px}
 .hero .first>*+*{margin-top:0}

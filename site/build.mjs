@@ -345,7 +345,12 @@ const out = {} // every output file, path -> Buffer
 const put = (p, data) => { out[p] = Buffer.isBuffer(data) ? data : Buffer.from(data) }
 // the printed page's running footer carries the revision (site/src/site.css, @page): stamped here from site.json
 ok('css: the print footer has its revision placeholder', rd('src/site.css').includes('__REVISION__'))
-const css = rd('src/site.css').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\n\s*\n/g, '\n').replace(/^\s+/gm, '').trim().replaceAll('__REVISION__', site.revision) + '\n'
+ok('css: the print footer has its per-document placeholder', rd('src/site.css').includes('__DOC_PAGES__'))
+// printed, every page of a document names it: a named page per document id, with the id, revision and use line in its footer
+const docPage = (doc) => `doc-${doc.toLowerCase()}`
+const DOC_PAGES = site.pages.map((p) => `@page ${docPage(p.doc)}{@bottom-left{content:"${p.doc} · ${site.revision} · informational draft, not a controlled document"}}\nbody[data-doc="${p.doc}"]{page:${docPage(p.doc)}}`).join('\n')
+const css = rd('src/site.css').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\n\s*\n/g, '\n').replace(/^\s+/gm, '').trim().replaceAll('__REVISION__', site.revision).replace('__DOC_PAGES__', DOC_PAGES) + '\n'
+ok('css: every document has its named print page', site.pages.every((p) => css.includes(`@page ${docPage(p.doc)}{@bottom-left{content:"${p.doc} · ${site.revision} ·`)))
 const src = rd('src/iqc.js'), shaSrc = rd('src/sha256.js')
 // site/src/sha256.js stays byte-identical to joseqc.com's; its header describes joseqc's lazy chunk, so the bundle gets its own
 const SHA_HEAD = /^(\/\/[^\n]*\n)+/

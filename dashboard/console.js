@@ -233,6 +233,7 @@
     if (!o.link) w.push(o.n < n ? 'link ' + o.n + '→' + (o.n + 1) + ' broken' : 'stored link does not match')
     if (o.ok && rewritten(x)) w.push('relinked (simulated)')
     if (x.corrects) w.push('correction of #' + x.corrects)
+    else if (x.reason) w.push('correction of a deleted record')
     var by = supersededBy(o.n)
     if (by.length) w.push('corrected by #' + by.join(', #'))
     if (o.n > topAnchored()) w.push('not yet anchored')
@@ -315,7 +316,7 @@
     var h = '<a class="back" href="#records-list">Back to the record history</a>' +
       '<h4 class="det-h" id="det-h" tabindex="-1">Record ' + n + ' <span class="det-s" data-s="' + (o.ok ? 'ok' : 'bad') + '">' + esc(rowWords(o)) + '</span></h4>'
     if (x.ctx && x.ctx.inj) h += '<p class="ctx">Injection ' + x.ctx.inj + ' · ' + esc(x.ctx.kind === 'SST' ? 'system suitability' : 'sample') + ' · ' + esc(x.ctx.sample) + ' · ' + esc(x.ctx.desc) + ' · retention time ' + x.ctx.rt + ' min · ' + SEQ_ID + ' <span class="nb">(context, not sealed in the alpha)</span></p>'
-    else if (x.corrects) h += '<p class="ctx">Correction of record ' + x.corrects + ' · reason: “' + esc(x.reason) + '” · made ' + esc(x.at) + ' in this browser <span class="nb">(beside the seal, not sealed)</span></p>'
+    else if (x.reason) h += '<p class="ctx">' + (x.corrects ? 'Correction of record ' + x.corrects : 'Correction of a record since deleted') + ' · reason: “' + esc(x.reason) + '” · made ' + esc(x.at) + ' in this browser <span class="nb">(beside the seal, not sealed)</span></p>'
     else h += '<p class="ctx">Added in this browser at ' + esc(x.f.capturedAt) + ' <span class="nb">(no sample or method metadata: sealing those is upcoming)</span></p>'
     h += '<dl class="kv"><dt>Instrument</dt><dd>' + esc(x.f.instrumentId) + '</dd><dt>Measurement type</dt><dd>' + esc(x.f.sensorType) + '</dd>' +
       '<dt>Value</dt><dd' + (ed ? ' class="ed"' : '') + '>' + esc(x.f.value) + (ed ? ' <span class="was">was ' + esc(x.sealed.value) + ' before the simulated change</span>' : '') + '</dd>' +
@@ -333,12 +334,18 @@
         '<span class="k">stored previous (' + (n === 1 ? '64 zeros' : 'h' + (n - 1)) + ')</span>' + hx(x.prev) + '<span class="k">recomputed h' + n + '</span>' + hx(o.hp, o.link ? '' : 'bad') + '<span class="k">stored h' + n + '</span>' + hx(x.h) +
         (next ? '<span class="k">record ' + (n + 1) + '’s stored previous</span>' + hx(next.x.prev) : '') +
         (pv && !pv.link ? '<span class="k">the link into this record is broken: record ' + pv.n + ' changed, so it no longer gives the previous link stored here</span>' : '')) +
-      (as ? ck('Anchor', as.ok ? 'ok' : 'bad', as.ok ? 'matches' : 'no match', 'Anchored fingerprint for ' + range(1, as.a.N) + ' (simulated, no network call)' + hx(as.a.h) + '<span class="k">full replay from 64 zeros, record ' + as.a.N + '</span>' + hx(rows[as.a.N - 1].full, as.ok ? '' : 'bad'))
+      (as ? ck('Anchor', as.ok ? 'ok' : 'bad', as.ok ? 'matches' : 'no match', 'Anchored fingerprint for ' + range(1, as.a.N) + ' (simulated, no network call)' + hx(as.a.h) + replayAt(as.a.N, as.ok))
         : ck('Anchor', 'na', 'not yet anchored', 'Record ' + n + ' came after the last anchor (' + range(1, top) + '). Until it is anchored, a rewrite of it would not show. See Anchor.')) +
       '</dl>'
     h += recipe(o)
     h += fixForm(o, by) + simulate(o)
     return h
+  }
+  // the full replay from 64 zeros at record N, or what stands in its place when the history no longer reaches record N
+  function replayAt (N, good) {
+    var r = res.rows[N - 1]
+    if (!r) return '<span class="k">the history now ends at record ' + res.rows.length + ', so a replay from 64 zeros never reaches record ' + N + '</span>'
+    return '<span class="k">full replay from 64 zeros, record ' + N + '</span>' + hx(r.full, good ? '' : 'bad')
   }
   function ck (name, s, word, d) { return '<div data-s="' + s + '"><dt>' + name + '</dt><dd class="res">' + ic(s) + '<span>' + word + '</span></dd><dd class="d">' + d + '</dd></div>' }
   // the shell commands for one record; only 64-hex values go into the link command, quoted, so a stored previous link
@@ -379,6 +386,7 @@
       '<p class="help">These change the history in this tab the way a direct edit to a database would, so you can see what the checks catch.</p>' +
       '<div class="act"><button class="btn btn-x" id="b-edit" type="button" data-act="edit">Change record ' + o.n + '’s stored value</button><p>Changes one digit in place, without sealing again.</p></div>' +
       '<div class="act"><button class="btn btn-x" id="b-rewrite" type="button" data-act="rewrite"' + dis(!broken) + '>Re-seal, re-sign and relink</button><p>' + (broken ? 'Recomputes each changed record’s fingerprint, signs it again with this browser’s key and rewrites every later link. This browser holds the key, so the signatures pass again; only an anchor taken earlier still disagrees.' : 'Available after a simulated edit.') + '</p></div>' +
+      '<div class="act"><button class="btn btn-x" id="b-delete" type="button" data-act="delete"' + dis(recs.length < 2) + '>Delete record ' + o.n + ' and relink the rest</button><p>Removes the record, renumbers the later ones and rewrites their links. Each signature covers only its own record’s fingerprint, so no key is needed and every link and signature passes again. Only an anchor taken earlier shows the gap.</p></div>' +
       simResult() +
       '<div class="act"><button class="btn" id="b-reset" type="button" data-act="reset">Reset the demo lab</button><p>Seals the eight-record sequence again with a new demo key, and clears every change.</p></div></div>'
   }
@@ -422,7 +430,7 @@
     res.an.slice().reverse().forEach(function (o) {
       var a = o.a
       h += '<li data-s="' + (o.ok ? 'ok' : 'bad') + '"><p class="anc-h"><span>Anchored fingerprint (simulated, no network call) · ' + esc(range(1, a.N)) + '</span><span class="res">' + ic(o.ok ? 'ok' : 'bad') + '<span>' + (o.ok ? 'matches the replay' : 'does not match the replay') + '</span></span></p>' +
-        hx(a.h) + '<p class="say">' + (a.seeded ? 'Set when the demo lab starts: the same value as the anchored fingerprint on the site’s Check a record page.' : 'Anchored at ' + esc(a.at) + ' (this browser’s clock).') + (o.ok ? '' : ' A full replay from 64 zeros gives ' + short(rows[a.N - 1].full) + ' at record ' + a.N + '.') + '</p></li>'
+        hx(a.h) + '<p class="say">' + (a.seeded ? 'Set when the demo lab starts: the same value as the anchored fingerprint on the site’s Check a record page.' : 'Anchored at ' + esc(a.at) + ' (this browser’s clock).') + (o.ok ? '' : rows[a.N - 1] ? ' A full replay from 64 zeros gives ' + short(rows[a.N - 1].full) + ' at record ' + a.N + '.' : ' The history now ends at record ' + N + ', so a replay never reaches record ' + a.N + '.') + '</p></li>'
     })
     return h + '</ol>'
   }
@@ -460,6 +468,17 @@
     $('[data-key-kept]', m).textContent = key ? (key.kept ? 'in this browser’s storage for this site, so later visits reuse it until you reset the demo lab' : 'this tab only: browser storage is unavailable, so a new key is made on each visit') : 'none'
   }
   function say (text) { $('[data-out]').textContent = text }
+  // after a simulated change, its result (under the buttons) is brought into view, however the record above it changed:
+  // with the button that made it when both fit, else the result alone. One jump, no smooth scrolling.
+  function reveal () {
+    var r = $('.sim-r')
+    if (!r) return
+    var a = D.activeElement, rb = r.getBoundingClientRect(), vh = W.innerHeight || D.documentElement.clientHeight
+    var top = a && a.id && plate.contains(a) ? Math.min(a.getBoundingClientRect().top, rb.top) : rb.top
+    if (top >= 0 && rb.bottom <= vh) return
+    if (rb.bottom - top <= vh - 16) W.scrollBy(0, rb.bottom > vh ? rb.bottom - vh + 8 : top - 8)
+    else r.scrollIntoView({ block: 'nearest' })
+  }
 
   // ---------------------------------------------------------------- actions
   async function run (fn) {
@@ -510,6 +529,7 @@
     simNote = { n: x.n, what: 'Stored value changed' }
     await check()
     draw()
+    reveal()
     say('Simulated edit: record ' + x.n + '’s stored value changed from ' + v + ' to ' + nv + ' without sealing again. ' + account())
   }
   async function simRewrite () {
@@ -526,7 +546,29 @@
     simNote = { n: changed[0] || i0 + 1, what: 'Re-sealed, re-signed and relinked' }
     await check()
     draw()
+    reveal()
     say('Simulated rewrite: ' + (changed.length ? (changed.length === 1 ? 'record ' + changed[0] : 'records ' + changed.join(', ')) + ' sealed again' + (key ? ' and re-signed with this browser’s key' : ' (not signed: signatures cannot be made here)') + ', and ' : '') + 'every link from record ' + (i0 + 1) + ' on rewritten. ' + account())
+  }
+  // a direct deletion in the store: the record goes, the later ones are renumbered and relinked. Nothing is signed again,
+  // because each signature covers only its own record's fingerprint, so this needs no key.
+  async function simDelete () {
+    var k = sel, N0 = recs.length
+    if (N0 < 2) return
+    recs.splice(k - 1, 1)
+    for (var i = k - 1; i < recs.length; i++) {
+      var x = recs[i]
+      x.n = i + 1
+      x.prev = i ? recs[i - 1].h : ZERO
+      x.h = await sha(x.prev + x.r + (i + 1))
+    }
+    recs.forEach(function (y) { if (y.corrects === k) y.corrects = 0; else if (y.corrects > k) y.corrects-- })
+    sim = 'delete'
+    sel = Math.min(k, recs.length)
+    simNote = { n: sel, what: 'Record ' + k + ' deleted' + (k < N0 ? ', the rest relinked' : '') }
+    await check()
+    draw()
+    reveal()
+    say('Simulated deletion: record ' + k + ' removed' + (k < N0 ? ', records ' + (k + 1) + ' to ' + N0 + ' renumbered and every link from record ' + k + ' on rewritten' : '') + ', with no key. ' + account())
   }
   async function reset () {
     // a new demo key: the old pair is deleted from this browser, so bundles exported before and after do not share a key ID
@@ -575,7 +617,7 @@
       records: recs.map(function (x) {
         var r = { n: x.n, fields: x.f, fingerprint: x.r, previous: x.prev, link: x.h, signature: x.sig || null }
         if (x.ctx) r.context = x.ctx
-        if (x.corrects) { r.corrects = x.corrects; r.reason = x.reason; r.madeAt = x.at; r.besideTheSeal = 'corrects, reason and madeAt are not sealed' }
+        if (x.reason) { r.corrects = x.corrects || null; r.reason = x.reason; r.madeAt = x.at; r.besideTheSeal = 'corrects, reason and madeAt are not sealed' }
         return r
       }),
       anchors: anchors.map(function (a) { return { records: '1 to ' + a.N, fingerprint: a.h, status: 'simulated, no network call', at: a.seeded ? 'set when the demo lab starts' : a.at } })
@@ -632,6 +674,7 @@
       if (act === 'check') return recheck()
       if (act === 'edit') return simEdit()
       if (act === 'rewrite') return simRewrite()
+      if (act === 'delete') return simDelete()
       if (act === 'reset') return reset()
       if (act === 'anchor') return anchorNow()
       if (act === 'sim-add') { var I = inst(t.getAttribute('data-i')); return addResult(I.id, suggest(I.id, recs.length + 1)) }

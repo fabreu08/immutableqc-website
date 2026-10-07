@@ -80,6 +80,8 @@ const STATES = {
     method: async (p) => { await p.click('.tabs a[href="#method"]'); await p.waitForSelector('#method.on') },
     hexreason: async (p) => { await p.click('#rec-6'); await p.fill('#fix-val', '1508911'); await p.fill('#fix-why', HEX_REASON); await p.click('#b-fix'); await p.waitForFunction(() => /9 of 9/.test(document.querySelector('[data-sum-st]').textContent)) },
     simulated: async (p) => { await p.click('#rec-6'); await p.click('#b-edit'); await p.waitForSelector('.sim-r') },
+    // a deleted record, the rest relinked with no key: every record passes, and only the anchor taken earlier disagrees
+    deleted: async (p) => { await p.click('#rec-6'); await p.click('#b-delete'); await p.waitForFunction(() => { const t = document.querySelector('[data-sum-st]').textContent; return /7 of 7 records pass/.test(t) && /simulated anchor does not match/.test(t) && !!document.querySelector('.sim-r') }) },
   },
 }
 const runsFor = (pg) => [[pg, null], ...Object.keys(STATES[pg] || {}).map((s) => [pg, s])]

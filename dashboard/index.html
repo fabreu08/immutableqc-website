@@ -13,9 +13,9 @@
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
 <link rel="preload" href="../fonts/archivo-c-115-620.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="../fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="console.css?v=f2cbf5c3">
+<link rel="stylesheet" href="console.css?v=00a65020">
 <script>(function(d){var c=d.documentElement.classList;c.add('js');addEventListener('error',function(e){var t=e.target;if(t&&t.tagName==='SCRIPT')c.remove('js')},true)})(document)</script>
-<script src="console.js?v=74193529" defer></script>
+<script src="console.js?v=1a117d8f" defer></script>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><symbol id="i-mark" viewBox="0 0 32 32"><circle cx="16" cy="16" r="16" style="fill:var(--plate-0)"/><circle cx="16" cy="16" r="9.5" style="fill:none;stroke:var(--ok);stroke-width:3"/><circle cx="16" cy="16" r="3.75" style="fill:var(--ok)"/></symbol><symbol id="i-ok" viewBox="0 0 16 16"><path d="M2.5 8.5l3.5 3.5 7.5-8" fill="none" stroke="currentColor" stroke-width="2"/></symbol><symbol id="i-x" viewBox="0 0 16 16"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9" fill="none" stroke="currentColor" stroke-width="2"/></symbol><symbol id="i-dash" viewBox="0 0 16 16"><path d="M3.5 8h9" fill="none" stroke="currentColor" stroke-width="2"/></symbol></svg>
@@ -33,7 +33,7 @@
 <h1>Alpha console <span class="h1-tag">(demo)</span></h1>
 <p class="status">Independent project · Open alpha · Synthetic demo data · No customers yet · Runs only in your browser</p>
 <div class="intro-g">
-<p class="lead">A demo lab that runs in this page. Add a result or correct one with a reason, and every fingerprint, link and signature is checked again. Then simulate an edit or a rewrite and see what still shows it.</p>
+<p class="lead">A demo lab that runs in this page. Add a result or correct one with a reason, and every fingerprint, link and signature is checked again. Then simulate an edit, a rewrite or a deletion and see what still shows it.</p>
 <p class="disc"><span class="k">Demo only</span> Everything here is synthetic, and the page makes no network calls. Records stay in this tab; the demo key that signs them is kept in this browser, so later visits reuse it until you reset the demo lab. It identifies the browser, not a person. Anchoring is simulated. Not validated. No electronic signatures yet. Please do not enter real results.</p>
 </div>
 </div>
@@ -86,7 +86,7 @@
 <p>It shows which browser signed, not who. Demo signatures: in the alpha, one server key signs imported rows; per-analyst signatures are upcoming.</p></li>
 <li><h4>Checks</h4><p>After every change, your browser recomputes each record’s fingerprint from its fields and checks its signature over that fingerprint. It recomputes each record’s link from the previous link the record stores, and compares it with the link the record stores, which the next record carries. A changed value fails its own fingerprint, signature and link, so only the link into the next record breaks; later records still pass their own checks. The anchor check replays the whole history from 64 zeros and compares the link at the anchored record with the anchored fingerprint. These are the rules of the site’s Check a record page.</p></li>
 <li><h4>Corrections</h4><p>A correction is a new record with the corrected value and the original capture time. The original stays as sealed. The reason, the “correction of #k” reference and the time the correction was made sit beside the seal, not inside it, because the payload has five fields; the site’s pages do the same. The reason needs at least three words. The alpha app has no corrections yet.</p></li>
-<li><h4>What a pass shows</h4><p>A pass shows the record is unchanged since it was sealed in this tab. It does not show that the result was right, who entered it, or that the instrument was in calibration; that stays with your method, system suitability and second-person review.</p></li>
+<li><h4>What a pass shows</h4><p>A pass shows the record is unchanged since it was sealed in this tab. It does not show that the result was right, who entered it, or that the instrument was in calibration; that stays with your method, system suitability and second-person review. Nor does it show that no record was removed: each signature covers only its own record’s fingerprint, so deleting a record and relinking the rest needs no key, and only an anchor taken earlier shows it.</p></li>
 </ol>
 <p class="tools" data-jsonly hidden><button class="btn" id="b-export" type="button" data-act="export">Export demo bundle (JSON)</button><button class="btn" id="b-reset-m" type="button" data-act="reset">Reset the demo lab</button></p>
 </div>

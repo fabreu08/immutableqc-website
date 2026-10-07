@@ -66,6 +66,8 @@ button,input,select{font:inherit;color:inherit}
 .intro{padding-top:22px}
 h1{font:620 clamp(1.875rem,1.5rem + 1.6vw,2.625rem)/1.08 var(--display);letter-spacing:-.01em}
 .h1-tag{font-size:.6em;color:var(--ink-2)}
+/* on narrow screens the tag always takes its own line, so the heading wraps the same with a fallback face as with Archivo */
+@media (max-width:419px){.h1-tag{display:block}}
 .status{margin-top:12px;padding:7px 0 8px;border-top:2px solid var(--ink);border-bottom:1px solid var(--ink);font:400 .8125rem/1.45 var(--mono);color:var(--ink)}
 .lead{max-width:46rem;font-size:1.0625rem}
 .disc{max-width:46rem;border-left:2px solid var(--ink);padding:2px 0 2px 14px;font-size:.9375rem;line-height:1.55;color:var(--ink)}
