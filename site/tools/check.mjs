@@ -4,12 +4,16 @@
 // allowlist in site/tools/deploy.mjs, assembled into a temporary folder (--repo serves the whole repo root instead).
 //   node site/tools/check.mjs              links (every href/src after JS, the 404 at nested paths), overflow 320–1920,
 //                                          tap targets, smallest text, axe at 375 and 1280, frames at rest (3 s traces),
-//                                          reduced motion and hidden tab, no-JS text, first-load budgets
+//                                          reduced motion and hidden tab, the Overview story (stage steps, fast scroll,
+//                                          keyboard, phone figures, axe and overflow per state, URL bar, print), no-JS
+//                                          text, first-load budgets
 //   node site/tools/check.mjs --perf       also CLS / TBT / LCP at 320×568, 390×844 and 412×915 with DevTools' Slow 4G
-//                                          (562.5 ms, 1.44 Mbps) and CPU 4× (median of --runs=3), every layout shift
+//                                          (562.5 ms, 1.44 Mbps) and CPU 4× (median of --runs=3, and of at least 5
+//                                          for the Overview's gate at 390×844), every layout shift
 //                                          counted (no input is sent); the same at 320×568 with the Arial-, Liberation-
 //                                          and Courier-based fallback faces unmatched (as on Android); and the URL-bar
-//                                          resize test (390×664 ↔ 390×745); reported only
+//                                          resize test (390×664 ↔ 390×745); reported, except the Overview at 390×844,
+//                                          which fails over CLS 0.02, TBT 200 ms or Draft 4's LCP + 100 ms
 //   --only=index.html,check.html           a subset of pages       --json=path   write every result as JSON
 //   --repo                                 serve the repo root as it is on disk, not the deploy allowlist
 // In CI: npm ci in site/, then npx playwright install --with-deps chromium. Locally the preinstalled Chromium is used.
@@ -29,6 +33,9 @@ const WIDTHS = [320, 360, 375, 390, 412, 480, 600, 768, 1024, 1280, 1440, 1920]
 const STATUS = 'Independent project · Open alpha · Synthetic demo data · No customers yet'
 const CONSOLE_STATUS = 'Independent project · Open alpha · Synthetic demo data · No customers yet · Runs only in your browser'
 const BUDGET = { site: { requests: 8, total: 160 * 1024, js: 22 * 1024, fonts: 100 * 1024 }, console: { requests: 10, total: 160 * 1024, fonts: 100 * 1024 } }
+// the Overview's own budget since the story (Draft 5), against Draft 4 as measured here (main 4e793fb): LCP 1592 ms at
+// 390×844 with Slow 4G and CPU 4× (median of 3), 13685 bytes of JS as served
+const OVERVIEW = { total: 130 * 1024, js0: 13685, lcp0: 1592, cls: 0.02, tbt: 200 }
 const isConsole = (pg) => pg.startsWith('dashboard')
 const fails = [], R = { overflow: [], taps: {}, minFont: {}, axe: [], rest: [], motion: [], nojs: [], budgets: [], perf: [], urlbar: [] }
 const fail = (msg) => { fails.push(msg); console.log('  FAIL', msg) }
@@ -117,9 +124,9 @@ const tapProbe = () => {
   }
   return out
 }
-const minFontProbe = () => {
+const minFontProbe = (sel) => {
   let min = 99, where = ''
-  const tw = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
+  const tw = document.createTreeWalker((sel && document.querySelector(sel)) || document.body, NodeFilter.SHOW_TEXT)
   for (let n; (n = tw.nextNode());) {
     if (!n.textContent.trim()) continue
     const el = n.parentElement
@@ -128,7 +135,9 @@ const minFontProbe = () => {
     let a = el, hid = false
     while (a) { if (getComputedStyle(a).display === 'none') { hid = true; break } a = a.parentElement }
     if (hid) continue
-    const fs = parseFloat(getComputedStyle(el).fontSize)
+    // computed font-size ignores CSS zoom: the size as rendered is that times every zoom around it
+    let fs = parseFloat(getComputedStyle(el).fontSize)
+    for (let z = el.closest('[style*="zoom"]'); z; z = z.parentElement && z.parentElement.closest('[style*="zoom"]')) fs *= parseFloat(getComputedStyle(z).zoom) || 1
     if (fs < min) { min = fs; where = `${el.tagName.toLowerCase()}.${el.className} "${n.textContent.trim().slice(0, 24)}"` }
   }
   return { min, where }
@@ -144,7 +153,26 @@ async function traceIdle(cdp, ms) {
   const n = (name) => ev.filter((e) => e.name === name && e.ph !== 'E').length
   return { drawFrame: n('DrawFrame'), paint: n('Paint'), raf: n('FireAnimationFrame'), timers: n('TimerFire') }
 }
-const COUNT_ANIM = () => { window.__anim = 0; const a = Element.prototype.animate; Element.prototype.animate = function (...x) { window.__anim++; return a.apply(this, x) } }
+const COUNT_ANIM = () => {
+  window.__anim = 0; window.__fig = {}; window.__bursts = []; window.__vis = {}
+  const a = Element.prototype.animate
+  let cur = null
+  // also counted per Overview story figure ("1" to "7", or "stage"), so a figure's own play can be told apart; the
+  // animations one change of state starts together form one burst (its figure, its state, how many, when the last ends);
+  // for a static figure, how many of its animated parts were inside the viewport when its play started
+  Element.prototype.animate = function (...x) {
+    window.__anim++
+    const sc = this.closest && this.closest('[data-sc]')
+    if (sc) {
+      const f = sc.closest('[data-fig]'), k = f ? f.dataset.fig : 'stage', o = x[1] || {}
+      window.__fig[k] = (window.__fig[k] || 0) + 1
+      if (!cur || cur.k !== k) { cur = { k, s: sc.dataset.s, n: 0, end: 0 }; if (f && !window.__vis[k]) cur.vis = window.__vis[k] = [0, 0]; window.__bursts.push(cur); queueMicrotask(() => { cur = null }) }
+      cur.n++; cur.end = Math.max(cur.end, (o.delay || 0) + (o.duration || 0))
+      if (cur.vis) { const r = this.getBoundingClientRect(); if (r.width || r.height) { cur.vis[1]++; if (r.top >= 0 && r.bottom <= innerHeight) cur.vis[0]++ } }
+    }
+    return a.apply(this, x)
+  }
+}
 const text = (p, sel) => p.evaluate((s) => (document.querySelector(s) || document.body).innerText.replace(/\s+/g, ' ').trim(), sel)
 
 // ---------------------------------------------------------------------------------------------- 0. links
@@ -290,12 +318,365 @@ for (const [w, h] of [[390, 844], [1440, 900]]) {
     const before = await q.evaluate(() => ({ n: window.__anim, sealed: document.querySelectorAll('.hist tr.ok').length }))
     await q.evaluate(() => document.querySelector('.hist').scrollIntoView({ block: 'center' })); await q.waitForTimeout(2500)
     const after = await q.evaluate(() => ({ n: window.__anim, sealed: document.querySelectorAll('.hist tr.ok').length, running: document.getAnimations().length }))
-    R.motion.push({ mode: 'Fig. 2 seal-in', pg: 'index.html', before, after })
-    if (after.sealed !== 8 || after.running) fail(`Fig. 2 seal-in: ${JSON.stringify({ before, after })}`)
+    R.motion.push({ mode: 'Fig. 3 seal-in', pg: 'index.html', before, after })
+    if (after.sealed !== 8 || after.running) fail(`Fig. 3 seal-in: ${JSON.stringify({ before, after })}`)
     await c3.close()
   }
 }
 console.log(`rest: ${R.rest.length} idle windows, ${R.rest.filter((r) => r.drawFrame || r.anims).length} with frames`)
+
+// ---------------------------------------------------------------------------------------------- 3b. the Overview story
+// Section 2 of the Overview: seven steps, one static figure each; on wide screens one sticky stage. Checked: the stage
+// plays each step in under a second and then holds (0 frames), a fast scroll is at most two morphs and never queues,
+// phones play each figure once, with most of it in view, reduced motion and a hidden tab animate nothing, the keyboard
+// reaches and plays the steps, nothing sticky covers a phone, every figure has a name and a caption in the
+// accessibility tree (the stage is hidden from it), axe and overflow in several states, the stage fits at its smallest
+// sizes, a window resized in height renews it, and a URL bar (phone or tablet) never moves the layout or the step.
+const ST_TITLES = ['Captured', 'Fingerprinted', 'Signed', 'Linked', 'A change shows', 'A correction is appended', 'What comes next']
+// scroll the step's heading into the band at mid-viewport in a few small moves, as a reader would
+const toBand = async (p, k, moves = 6) => {
+  const y = await p.evaluate((k) => { const h = document.querySelector(`#st-${k} h3`).getBoundingClientRect(); return scrollY + h.top + h.height / 2 - innerHeight * 0.49 }, k)
+  const y0 = await p.evaluate(() => scrollY)
+  for (let i = 1; i <= moves; i++) { await p.evaluate((v) => scrollTo(0, v), y0 + ((y - y0) * i) / moves); await p.waitForTimeout(30) }
+}
+const stageNow = (p) => p.evaluate(() => ({ s: document.querySelector('[data-stage] [data-sc]').dataset.s, cur: (document.querySelector('.step-a[aria-current="step"]') || {}).textContent || '', n: window.__anim || 0, b: (window.__bursts || []).length, running: document.getAnimations().filter((a) => a.playState === 'running').length }))
+// each story figure as the accessibility tree has it (Chrome's own, through DevTools): role, name, ignored
+const figTree = async (cdp) => {
+  const { root } = await cdp.send('DOM.getDocument', { depth: 0 })
+  const out = []
+  for (const [sel, stage] of [['#story figure.sf:not(.sf--stage)', false], ['#story figure.sf--stage', true]]) {
+    const { nodeIds } = await cdp.send('DOM.querySelectorAll', { nodeId: root.nodeId, selector: sel })
+    for (const id of nodeIds) { const { nodes } = await cdp.send('Accessibility.getPartialAXTree', { nodeId: id, fetchRelatives: false }); const n = nodes[0] || {}; out.push({ stage, role: n.role && n.role.value, name: ((n.name && n.name.value) || '').slice(0, 40), ignored: !!n.ignored }) }
+  }
+  return out
+}
+const figTreeOk = (t) => t.filter((x) => !x.stage).length === 7 && t.filter((x) => !x.stage).every((x, i) => !x.ignored && x.role === 'figure' && x.name.startsWith(`Fig. 2.${i + 1} · `)) && t.filter((x) => x.stage).every((x) => x.ignored)
+if (PAGES.includes('index.html')) {
+  const S = (R.story = { desk: [], fast: [], keys: [], phone: [], reduced: [], hidden: null, sticky: [], axe: [], overflow: [], urlbar: [], names: [], fit: [], resize: [], estimates: [], cost: null })
+  const title = (k) => ST_TITLES[k - 1]
+  // 1. wide screens: every step plays in under a second, then nothing moves
+  for (const [w, h] of [[1440, 900], [1280, 800]]) {
+    const ctx = await ctxFor(w, h), p = await ctx.newPage(), cdp = await ctx.newCDPSession(p)
+    await p.addInitScript(COUNT_ANIM)
+    await p.goto(BASE + 'index.html', { waitUntil: 'networkidle' }); await p.evaluate(() => document.fonts.ready)
+    const wide = await p.evaluate(() => document.documentElement.classList.contains('stage') && getComputedStyle(document.querySelector('.step-stage')).position === 'sticky' && [...document.querySelectorAll('.step .sf .sc')].every((f) => getComputedStyle(f).display === 'none'))
+    if (!wide) fail(`story at ${w}×${h}: the sticky stage is not shown (or the step plates are not hidden)`)
+    // the stage is aria-hidden; each step's figure stays in the tree, named by its caption
+    const names = await figTree(cdp)
+    S.names.push({ w, h, names })
+    if (!figTreeOk(names)) fail(`story at ${w}×${h}: figures in the accessibility tree: ${JSON.stringify(names)}`)
+    for (let k = 1; k <= 7; k++) {
+      const before = await stageNow(p)
+      await toBand(p, k); await p.waitForTimeout(1600)
+      const a = await stageNow(p), t = await traceIdle(cdp, 1200), b = await stageNow(p)
+      const bursts = await p.evaluate((n) => window.__bursts.slice(n).filter((x) => x.k === 'stage'), before.b)
+      const r = { w, h, k, state: a.s, current: a.cur.trim(), played: a.n - before.n, span: Math.max(0, ...bursts.map((x) => x.end)), ...t, running: b.running }
+      S.desk.push(r)
+      if (a.s !== String(k) || !r.current.startsWith(title(k))) fail(`story at ${w}×${h}, step ${k}: stage in state ${a.s}, current step "${r.current}"`)
+      if (!r.played) fail(`story at ${w}×${h}, step ${k}: no animation played`)
+      if (r.span > 1000) fail(`story at ${w}×${h}, step ${k}: the step plays for ${r.span} ms (at most 1000)`)
+      if (t.drawFrame || t.raf || b.running) fail(`story at ${w}×${h}, step ${k}: frames at rest: DrawFrame ${t.drawFrame}, rAF ${t.raf}, running ${b.running}`)
+    }
+    // a fast scroll through every step, up and then down: at most two morphs (the first step, then one crossfade to
+    // where it ends), never a queue, and the stage ends on the step in the band
+    for (const dir of ['up', 'down']) {
+      const ks = dir === 'up' ? [7, 6, 5, 4, 3, 2, 1] : [1, 2, 3, 4, 5, 6, 7]
+      let most = 0
+      const b0 = (await stageNow(p)).b
+      for (const k of ks) { await toBand(p, k, 1); await p.waitForTimeout(25); most = Math.max(most, (await stageNow(p)).running) }
+      await p.waitForTimeout(1600)
+      const a = await stageNow(p), t = await traceIdle(cdp, 1200), end = ks[ks.length - 1]
+      const morphs = await p.evaluate((n) => window.__bursts.slice(n).filter((x) => x.k === 'stage').length, b0)
+      S.fast.push({ w, h, dir, state: a.s, mostRunning: most, morphs, ...t })
+      if (a.s !== String(end)) fail(`story at ${w}×${h}, fast scroll ${dir}: stage ends in state ${a.s}, not ${end}`)
+      if (morphs > 2) fail(`story at ${w}×${h}, fast scroll ${dir}: ${morphs} stage morphs (at most 2: a fast scroll is one crossfade)`)
+      if (t.drawFrame || t.raf || a.running) fail(`story at ${w}×${h}, fast scroll ${dir}: frames at rest: DrawFrame ${t.drawFrame}, rAF ${t.raf}, running ${a.running}`)
+      // never more running at once than the largest single step change plus the rail: one morph at a time, no queue
+      const one = Math.max(...S.desk.filter((x) => x.w === w).map((x) => x.played)) + 14
+      if (most > one) fail(`story at ${w}×${h}, fast scroll ${dir}: ${most} animations running at once, more than one step change (${one}): a queue`)
+    }
+    // the keyboard: every step heading is reachable with Tab, and Enter makes it current and plays it, and only it (the
+    // stage never flips back to an earlier step on the way)
+    if (w === 1440) {
+      await p.evaluate(() => scrollTo(0, 0)); await p.waitForTimeout(300)
+      await p.focus('#st-1 .step-a')
+      for (let k = 2; k <= 7; k++) {
+        let found = false
+        // focusing a heading may already scroll its step into the band; Enter then plays it if focus did not
+        const before = await stageNow(p)
+        for (let i = 0; i < 12 && !found; i++) { await p.keyboard.press('Tab'); found = await p.evaluate((k) => document.activeElement && document.activeElement.matches(`#st-${k} .step-a`), k) }
+        if (!found) { fail(`story keyboard: Tab does not reach step ${k}`); continue }
+        const mid = await stageNow(p)
+        await p.keyboard.press('Enter'); await p.waitForTimeout(1500)
+        const a = await stageNow(p)
+        const states = await p.evaluate((n) => window.__bursts.slice(n).filter((x) => x.k === 'stage').map((x) => x.s), mid.b)
+        const vis = await p.evaluate(() => { const r = document.activeElement.getBoundingClientRect(), s = document.querySelector('.step-stage').getBoundingClientRect(); return { inView: r.top >= 0 && r.bottom <= innerHeight, underStage: r.right > s.left && r.left < s.right && r.bottom > s.top && r.top < s.bottom, ring: getComputedStyle(document.activeElement).outlineStyle } })
+        S.keys.push({ k, state: a.s, current: a.cur.trim(), played: a.n - before.n, states, ...vis })
+        if (a.s !== String(k) || !a.cur.trim().startsWith(title(k)) || a.n === before.n) fail(`story keyboard: Enter on step ${k} gives state ${a.s}, current "${a.cur.trim()}", ${a.n - before.n} animations`)
+        if (states.some((s) => s !== String(k))) fail(`story keyboard: Enter on step ${k} passed through states ${states.join(',')}`)
+        if (!vis.inView || vis.underStage) fail(`story keyboard: the focused step ${k} heading is ${vis.inView ? 'under the stage' : 'out of view'}`)
+      }
+    }
+    // axe and overflow with the stage in several states
+    if (w === 1440) for (const k of [1, 3, 5, 6, 7]) {
+      await toBand(p, k); await p.waitForTimeout(1500)
+      const o = await p.evaluate(overflowProbe)
+      S.overflow.push({ w, k, ...o })
+      if (o.over || o.offenders.length) fail(`story overflow at ${w}, step ${k}: ${o.offenders.join(' | ')}`)
+    }
+    await ctx.close()
+  }
+  {
+    // axe needs its script inline, so this context bypasses the CSP
+    const ctx = await ctxFor(1440, 900, { bypassCSP: true }), p = await ctx.newPage()
+    await p.goto(BASE + 'index.html', { waitUntil: 'networkidle' }); await p.addScriptTag({ content: AXE })
+    for (const k of [1, 2, 4, 5, 6, 7]) {
+      await toBand(p, k); await p.waitForTimeout(1500)
+      const r = await p.evaluate(async () => (await axe.run(document.querySelector('#story'), { resultTypes: ['violations'] })).violations.map((v) => ({ id: v.id, n: v.nodes.length, t: v.nodes.slice(0, 2).map((n) => n.target.join(' ')) })))
+      S.axe.push({ w: 1440, k, violations: r })
+      for (const v of r) fail(`story axe at 1440, step ${k}: ${v.id} ×${v.n} ${v.t.join(' ; ')}`)
+    }
+    await ctx.close()
+  }
+  // the stage at its smallest sizes: shown, at full size (no zoom), whole in the window while it is pinned, its text at
+  // least 12 px as rendered
+  for (const [w, h] of [[1180, 600], [1440, 600], [960, 700], [1024, 700]]) {
+    const ctx = await ctxFor(w, h), p = await ctx.newPage()
+    await p.goto(BASE + 'index.html', { waitUntil: 'networkidle' }); await p.evaluate(() => document.fonts.ready)
+    await toBand(p, 5); await p.waitForTimeout(1300)
+    const r = await p.evaluate(() => { const st = document.querySelector('[data-stage]'), b = st.getBoundingClientRect(); return { stage: document.documentElement.classList.contains('stage'), top: Math.round(b.top), bottom: Math.round(b.bottom), zoom: getComputedStyle(st.querySelector('[data-sc]')).zoom } })
+    const m = await p.evaluate(minFontProbe, '[data-stage]')
+    S.fit.push({ w, h, ...r, minFont: m })
+    if (!r.stage || r.top < 0 || r.bottom > h || (r.zoom && r.zoom !== '1')) fail(`story stage at ${w}×${h}: ${JSON.stringify(r)}`)
+    if (m.min < 12) fail(`story stage at ${w}×${h}: text under 12 px: ${m.min}px ${m.where}`)
+    await ctx.close()
+  }
+  // what a step change costs the main thread on a slow machine (CPU 4×): each observer or timer callback that starts a
+  // morph reads only the parts it changes, so the median stays under 50 ms (a long task, and a delay to any input then)
+  {
+    const ctx = await ctxFor(1280, 800), p = await ctx.newPage(), cdp = await ctx.newCDPSession(p)
+    await p.addInitScript(() => {
+      window.__cost = []
+      const time = (f) => function (...a) { const t = performance.now(); const r = f.apply(this, a); const d = performance.now() - t; if (d > 1) window.__cost.push(+d.toFixed(1)); return r }
+      const IO = window.IntersectionObserver, st = window.setTimeout
+      window.IntersectionObserver = class extends IO { constructor(cb, o) { super(time(cb), o) } }
+      window.setTimeout = (f, ms, ...a) => st(time(() => f(...a)), ms)
+    })
+    await p.goto(BASE + 'index.html', { waitUntil: 'networkidle' }); await p.evaluate(() => document.fonts.ready)
+    await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 })
+    for (const k of [1, 2, 3, 4, 5, 6, 7, 6, 5]) { await toBand(p, k, 3); await p.waitForTimeout(1600) }
+    const c = await p.evaluate(() => window.__cost.sort((a, b) => a - b))
+    const med = c.length ? c[c.length >> 1] : 0
+    S.cost = { callbacks: c, median: med, max: c.length ? c[c.length - 1] : 0 }
+    if (c.length < 9 || med >= 50) fail(`story at 1280×800, CPU 4×: a step change costs ${med} ms (median of ${c.length}; at most 50)`)
+    await ctx.close()
+  }
+  // a desktop window made shorter: --svh follows, and the pinned stage stays whole in the window
+  {
+    const ctx = await ctxFor(1440, 900), p = await ctx.newPage()
+    await p.goto(BASE + 'index.html', { waitUntil: 'networkidle' }); await p.evaluate(() => document.fonts.ready)
+    await toBand(p, 5); await p.waitForTimeout(1300)
+    await p.setViewportSize({ width: 1440, height: 640 }); await p.waitForTimeout(400)
+    await toBand(p, 5); await p.waitForTimeout(1300)
+    const r = await p.evaluate(() => { const b = document.querySelector('[data-stage]').getBoundingClientRect(); return { svh: document.documentElement.style.getPropertyValue('--svh'), stage: document.documentElement.classList.contains('stage'), top: Math.round(b.top), bottom: Math.round(b.bottom), h: innerHeight, s: document.querySelector('[data-stage] [data-sc]').dataset.s } })
+    S.resize.push(r)
+    if (r.svh !== '640px' || !r.stage || r.top < 0 || r.bottom > r.h || r.s !== '5') fail(`story, desktop resized to 1440×640: ${JSON.stringify(r)}`)
+    await ctx.close()
+  }
+  // overflow at every width in a few states: the stage on each step from 960 up, the played figures below
+  for (const w of WIDTHS) {
+    const ctx = await ctxFor(w, 900), p = await ctx.newPage()
+    await p.goto(BASE + 'index.html', { waitUntil: 'networkidle' }); await p.evaluate(() => document.fonts.ready)
+    for (const k of [2, 5, 6, 7]) {
+      await (w >= 960 ? toBand(p, k) : p.evaluate((k) => document.querySelector(`#st-${k} .sf`).scrollIntoView({ block: 'center' }), k)); await p.waitForTimeout(1300)
+      const o = await p.evaluate(overflowProbe)
+      S.overflow.push({ w, k, ...o })
+      if (o.over || o.offenders.length) fail(`story overflow at ${w}, step ${k}: scrollWidth ${o.sw} > ${o.vw} ${o.offenders.join(' | ')}`)
+    }
+    await ctx.close()
+  }
+  // the narrowest phone: every figure's text stays inside its plate's content box, in both of its states
+  {
+    const ctx = await ctxFor(320, 700), p = await ctx.newPage()
+    await p.goto(BASE + 'index.html', { waitUntil: 'networkidle' }); await p.evaluate(() => document.fonts.ready)
+    const out = await p.evaluate(() => {
+      const bad = []
+      for (const sc of document.querySelectorAll('.step .sf .sc')) {
+        sc.style.contentVisibility = 'visible'
+        const s0 = sc.dataset.s
+        for (const s of [sc.dataset.from, s0]) {
+          sc.dataset.s = s
+          const cs = getComputedStyle(sc), b = sc.getBoundingClientRect(), l = b.left + parseFloat(cs.paddingLeft) + parseFloat(cs.borderLeftWidth) - 1.5, r = b.right - parseFloat(cs.paddingRight) - parseFloat(cs.borderRightWidth) + 1.5
+          for (const el of sc.querySelectorAll('*')) { const e = el.getBoundingClientRect(); if (e.width && getComputedStyle(el).visibility !== 'hidden' && (e.left < l || e.right > r) && !el.closest('svg')) bad.push(`fig ${sc.closest('[data-fig]').dataset.fig} state ${s}: ${el.tagName.toLowerCase()}.${el.getAttribute('class') || ''} ${Math.round(e.left)}–${Math.round(e.right)} outside ${Math.round(l)}–${Math.round(r)}`) }
+          // labels in one row may not overlap each other
+          const row = [...sc.querySelectorAll('.ch-top > *')].filter((x) => getComputedStyle(x).visibility !== 'hidden').map((x) => [x, x.getBoundingClientRect()])
+          for (const [x, a] of row) for (const [y, c] of row) if (x !== y && a.left < c.right && c.left < a.right && a.top < c.bottom && c.top < a.bottom) bad.push(`fig ${sc.closest('[data-fig]').dataset.fig} state ${s}: "${x.textContent.trim()}" overlaps "${y.textContent.trim()}"`)
+        }
+        sc.dataset.s = s0
+      }
+      return [...new Set(bad)]
+    })
+    S.overflow.push({ w: 320, inside: out })
+    for (const x of out.slice(0, 8)) fail(`story at 320: ${x}`)
+    await ctx.close()
+  }
+  // 2. phones: no stage, nothing sticky; each figure waits, plays once when it comes into view (with most of its
+  // animated parts inside the window, scrolled into view as a reader scrolls), then holds
+  for (const [w, h] of [[320, 568], [390, 844], [390, 664]]) {
+    const ctx = await ctxFor(w, h), p = await ctx.newPage(), cdp = await ctx.newCDPSession(p)
+    await p.addInitScript(COUNT_ANIM)
+    await p.goto(BASE + 'index.html', { waitUntil: 'networkidle' }); await p.evaluate(() => document.fonts.ready)
+    const sticky = await p.evaluate(() => [...document.querySelectorAll('#story *')].filter((e) => /sticky|fixed/.test(getComputedStyle(e).position) && e.getClientRects().length).map((e) => { const r = e.getBoundingClientRect(); return { el: e.className, cover: +(r.height / innerHeight).toFixed(2) } }))
+    S.sticky.push({ w, h, sticky })
+    for (const x of sticky) if (x.cover > 0.3) fail(`story at ${w}: a sticky element covers ${Math.round(x.cover * 100)}% of the viewport`)
+    const stageShown = await p.evaluate(() => getComputedStyle(document.querySelector('.step-stage')).display !== 'none')
+    if (stageShown) fail(`story at ${w}: the stage shows on a phone`)
+    // named by their captions even before they are first rendered (content-visibility skips the plates off screen)
+    if (h === 844) {
+      const names = await figTree(cdp)
+      S.names.push({ w, h, names })
+      if (!figTreeOk(names)) fail(`story at ${w}×${h}: figures in the accessibility tree before they are rendered: ${JSON.stringify(names)}`)
+    }
+    const waiting = await p.evaluate(() => [...document.querySelectorAll('.step .sf [data-sc]')].map((sc) => sc.dataset.s === sc.dataset.from))
+    for (let k = 1; k <= 7; k++) {
+      // scroll down 40 px at a time from where the figure's top meets the bottom of the window until it plays (by the
+      // time its bottom reaches the top of the window at the latest)
+      const [top, fh] = await p.evaluate((k) => { const r = document.querySelector(`#st-${k} .sf [data-sc]`).getBoundingClientRect(); return [r.top + scrollY, r.height] }, k)
+      let y = Math.max(0, top - h), at = null
+      while (y <= top + fh) {
+        await p.evaluate((v) => scrollTo(0, v), y); await p.waitForTimeout(40)
+        if (await p.evaluate((k) => !!(window.__vis || {})[String(k)], k)) { at = await p.evaluate((k) => Math.round(document.querySelector(`#st-${k} .sf [data-sc]`).getBoundingClientRect().top), k); break }
+        y += 40
+      }
+      if (at === null) { await p.evaluate((v) => scrollTo(0, v), top - 24); await p.waitForTimeout(200) }
+      await p.waitForTimeout(1500)
+      const a = await p.evaluate((k) => ({ s: document.querySelector(`#st-${k} [data-sc]`).dataset.s, played: window.__fig[String(k)] || 0, vis: window.__vis[String(k)] || null, running: document.getAnimations().filter((x) => x.playState === 'running').length }), k)
+      const t = await traceIdle(cdp, 1000)
+      S.phone.push({ w, h, k, waited: waiting[k - 1], playedAtTop: at, state: a.s, played: a.played, inView: a.vis, ...t, running: a.running })
+      if (a.s !== String(k)) fail(`story at ${w}×${h}, figure ${k}: in state ${a.s} after it came into view`)
+      if (waiting[k - 1] && !a.played) fail(`story at ${w}×${h}, figure ${k}: it waited but did not play`)
+      if (waiting[k - 1] && a.vis && a.vis[0] < 0.8 * a.vis[1]) fail(`story at ${w}×${h}, figure ${k}: only ${a.vis[0]} of its ${a.vis[1]} animated parts were in view when it played`)
+      if (t.drawFrame || t.raf || a.running) fail(`story at ${w}×${h}, figure ${k}: frames at rest: DrawFrame ${t.drawFrame}, rAF ${t.raf}, running ${a.running}`)
+    }
+    if (!waiting.slice(1).every(Boolean)) fail(`story at ${w}: figures below the fold should wait in the state before theirs (${waiting.join(',')})`)
+    // the smallest text in the figures, rendered (off screen they are skipped by the page-wide probe)
+    if (w === 320) {
+      await p.evaluate(() => document.querySelectorAll('.step .sf .sc').forEach((sc) => { sc.style.contentVisibility = 'visible' }))
+      const m = await p.evaluate(minFontProbe)
+      S.phone.push({ w, minFont: m })
+      if (m.min < 12) fail(`story at 320: text under 12 px in a figure: ${m.min}px ${m.where}`)
+    }
+    // once: back up and down again, nothing plays
+    const n0 = (await stageNow(p)).n
+    for (let k = 7; k >= 1; k--) { await p.evaluate((k) => document.querySelector(`#st-${k} .sf`).scrollIntoView({ block: 'center' }), k); await p.waitForTimeout(120) }
+    for (let k = 1; k <= 7; k++) { await p.evaluate((k) => document.querySelector(`#st-${k} .sf`).scrollIntoView({ block: 'center' }), k); await p.waitForTimeout(120) }
+    const again = (await stageNow(p)).n - n0
+    S.phone.push({ w, h, replay: again })
+    if (again) fail(`story at ${w}: ${again} animations on a second pass (each figure plays once)`)
+    if (await p.evaluate(() => window.__fig.stage)) fail(`story at ${w}: the hidden stage animated`)
+    await ctx.close()
+  }
+  // each figure's height before it is first rendered (contain-intrinsic-size, one estimate per band of widths) is within
+  // 25% of its rendered height, at the widths a phone or tablet shows the figures
+  for (const w of [320, 390, 412, 600, 768]) {
+    const ctx = await ctxFor(w, 800), p = await ctx.newPage()
+    await p.goto(BASE + 'index.html', { waitUntil: 'networkidle' }); await p.evaluate(() => document.fonts.ready)
+    const est = await p.evaluate(() => [...document.querySelectorAll('.step .sf .sc')].map((sc) => { const e = parseFloat(getComputedStyle(sc).containIntrinsicHeight.replace(/^auto\s*/, '')); sc.style.contentVisibility = 'visible'; const cs = getComputedStyle(sc), box = ['paddingTop', 'paddingBottom', 'borderTopWidth', 'borderBottomWidth'].reduce((a, k) => a + parseFloat(cs[k]), 0); return [e, Math.round(sc.getBoundingClientRect().height - box)] }))
+    S.estimates.push({ w, est })
+    for (const [i, [e, hh]] of est.entries()) if (!(Math.abs(e - hh) <= 0.25 * hh)) fail(`story at ${w}, figure ${i + 1}: estimated height ${e} px is more than 25% off its rendered ${hh} px (site/build.mjs STP.est)`)
+    await ctx.close()
+  }
+  {
+    // axe at 320 on every figure as rendered (forced: off screen the plates are not rendered and axe would read nothing)
+    const ctx = await ctxFor(320, 568, { bypassCSP: true }), p = await ctx.newPage()
+    await p.goto(BASE + 'index.html', { waitUntil: 'networkidle' }); await p.addScriptTag({ content: AXE })
+    await p.evaluate(() => document.querySelectorAll('.step .sf .sc').forEach((sc) => { sc.style.contentVisibility = 'visible' }))
+    const r = await p.evaluate(async () => (await axe.run(document.querySelector('#story'), { resultTypes: ['violations'] })).violations.map((v) => ({ id: v.id, n: v.nodes.length, t: v.nodes.slice(0, 2).map((n) => n.target.join(' ')) })))
+    S.axe.push({ w: 320, violations: r })
+    for (const v of r) fail(`story axe at 320: ${v.id} ×${v.n} ${v.t.join(' ; ')}`)
+    await ctx.close()
+  }
+  // 3. reduced motion (desktop and phone) and a hidden tab: no animation at all, every state still reached
+  for (const [w, h] of [[1440, 900], [390, 844]]) {
+    const ctx = await ctxFor(w, h, { reduced: true }), p = await ctx.newPage()
+    await p.addInitScript(COUNT_ANIM)
+    await p.goto(BASE + 'index.html', { waitUntil: 'networkidle' })
+    const states = []
+    for (let k = 1; k <= 7; k++) {
+      if (w >= 960) { await toBand(p, k); await p.waitForTimeout(400); states.push((await stageNow(p)).s) } else { await p.evaluate((k) => document.querySelector(`#st-${k} .sf`).scrollIntoView({ block: 'center' }), k); await p.waitForTimeout(200); states.push(await p.evaluate((k) => document.querySelector(`#st-${k} [data-sc]`).dataset.s, k)) }
+    }
+    const n = await p.evaluate(() => window.__anim)
+    S.reduced.push({ w, animations: n, states: states.join('') })
+    if (n || states.join('') !== '1234567') fail(`story, reduced motion at ${w}: ${n} animations, states ${states.join('')}`)
+    await ctx.close()
+  }
+  {
+    const ctx = await ctxFor(1440, 900), p = await ctx.newPage()
+    await p.addInitScript(() => { Object.defineProperty(Document.prototype, 'hidden', { get: () => true }); Object.defineProperty(Document.prototype, 'visibilityState', { get: () => 'hidden' }) })
+    await p.addInitScript(COUNT_ANIM)
+    await p.goto(BASE + 'index.html', { waitUntil: 'networkidle' })
+    const states = []
+    for (let k = 1; k <= 7; k++) { await toBand(p, k); await p.waitForTimeout(400); states.push((await stageNow(p)).s) }
+    const n = await p.evaluate(() => window.__anim)
+    S.hidden = { animations: n, states: states.join('') }
+    if (n || states.join('') !== '1234567') fail(`story, hidden tab: ${n} animations, states ${states.join('')}`)
+    await ctx.close()
+  }
+  // 4. the URL bar: on a phone, scrolled into the story, a height-only resize moves nothing and leaves --svh as it was
+  for (const [h1, h2] of [[664, 745], [745, 664]]) {
+    const ctx = await ctxFor(390, h1), p = await ctx.newPage()
+    await p.addInitScript(() => { window.__sh = 0; try { new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__sh++ }).observe({ type: 'layout-shift', buffered: true }) } catch {} })
+    await p.goto(BASE + 'index.html', { waitUntil: 'networkidle' })
+    await p.evaluate(() => document.querySelector('#st-4 .sf').scrollIntoView({ block: 'start' })); await p.waitForTimeout(1500)
+    const snap = () => p.evaluate(() => ({ y: Math.round(scrollY), doc: document.documentElement.scrollHeight, fig: +(document.querySelector('#st-5 .sf').getBoundingClientRect().top + scrollY).toFixed(2), svh: document.documentElement.style.getPropertyValue('--svh'), stage: document.documentElement.classList.contains('stage'), sh: window.__sh }))
+    const a = await snap()
+    await p.setViewportSize({ width: 390, height: h2 }); await p.waitForTimeout(500)
+    const z = await snap()
+    // a taller viewport may bring an off-screen figure near enough to be rendered for the first time; it then takes its
+    // exact height in place of its estimate (a fraction of a pixel), so positions are compared to half a pixel
+    const stable = a.y === z.y && a.doc === z.doc && Math.abs(a.fig - z.fig) < 0.5 && a.svh === z.svh && a.stage === z.stage && a.sh === z.sh
+    S.urlbar.push({ w: 390, from: h1, to: h2, a, z, stable })
+    if (!stable) fail(`story URL bar 390×${h1}→${h2}: ${JSON.stringify(a)} → ${JSON.stringify(z)}`)
+    await ctx.close()
+  }
+  // ... and on a touch tablet with the stage: at every scroll position through the story, the URL bar changes neither the
+  // step nor the stage's state (the band is fixed in px from the top), nor --svh
+  for (const [w, h1, h2] of [[1024, 768, 700], [1024, 700, 768], [1180, 820, 740], [1180, 740, 820]]) {
+    const ctx = await browser.newContext({ viewport: { width: w, height: h1 }, hasTouch: true }), p = await ctx.newPage()
+    await p.goto(BASE + 'index.html', { waitUntil: 'networkidle' }); await p.evaluate(() => document.fonts.ready)
+    const [y0, y1] = await p.evaluate(() => { const r = document.querySelector('.step-list').getBoundingClientRect(); return [Math.round(r.top + scrollY - innerHeight / 2), Math.round(r.bottom + scrollY - innerHeight / 2)] })
+    const snap = () => p.evaluate(() => ({ s: document.querySelector('[data-stage] [data-sc]').dataset.s, cur: (document.querySelector('.step-a[aria-current="step"]') || {}).textContent || '', svh: document.documentElement.style.getPropertyValue('--svh'), stage: document.documentElement.classList.contains('stage') }))
+    let flips = 0, n = 0
+    for (let y = y0; y <= y1; y += 140) {
+      await p.setViewportSize({ width: w, height: h1 }); await p.evaluate((v) => scrollTo(0, v), y); await p.waitForTimeout(450)
+      const a = await snap()
+      await p.setViewportSize({ width: w, height: h2 }); await p.waitForTimeout(450)
+      const z = await snap()
+      n++
+      // the one change allowed: a stage still waiting empty (state 0) for the story to scroll in plays the current step
+      // when the taller window shows more of it, as a scroll would
+      const entrance = a.s === '0' && a.cur === z.cur && z.s === String(ST_TITLES.findIndex((t) => a.cur.trim().startsWith(t)) + 1)
+      if ((a.s !== z.s && !entrance) || a.cur !== z.cur || a.svh !== z.svh || a.stage !== z.stage) { flips++; S.urlbar.push({ w, from: h1, to: h2, y, a, z }) }
+    }
+    S.urlbar.push({ w, from: h1, to: h2, positions: n, flips })
+    if (flips) fail(`story URL bar ${w}×${h1}→${h2} (touch): ${flips} of ${n} scroll positions changed the step or the stage`)
+    await ctx.close()
+  }
+  // 5. printed from a wide window (html.stage stays set): the stage gives way to the seven static figures, each in its
+  // own state with its plate and its caption shown, and every value in full
+  {
+    const ctx = await ctxFor(1440, 900), p = await ctx.newPage()
+    await p.goto(BASE + 'index.html', { waitUntil: 'networkidle' })
+    await toBand(p, 5); await p.waitForTimeout(1300)
+    await p.evaluate(() => dispatchEvent(new Event('beforeprint')))
+    await p.emulateMedia({ media: 'print' })
+    const r = await p.evaluate(() => ({ stage: document.documentElement.classList.contains('stage'), shown: getComputedStyle(document.querySelector('.step-stage')).display, figs: [...document.querySelectorAll('#story .step .sf')].map((f) => { const sc = f.querySelector('.sc'), c = f.querySelector('.figcap'); return sc.dataset.s === f.dataset.fig && getComputedStyle(sc).display !== 'none' && sc.getBoundingClientRect().height > 100 && c.getBoundingClientRect().width > 100 }), vals: [...document.querySelectorAll('#story details.vals')].every((d) => d.open) }))
+    S.print = r
+    if (!r.stage || r.shown !== 'none' || r.figs.length !== 7 || !r.figs.every(Boolean) || !r.vals) fail(`story printed at 1440×900 with the stage: ${JSON.stringify(r)}`)
+    await ctx.close()
+  }
+  console.log(`story: ${S.desk.length} stage steps, ${S.fast.length} fast scrolls, ${S.keys.length} keyboard steps, ${S.phone.length} phone figures, axe ${S.axe.length} states, overflow ${S.overflow.length} runs, ${S.fit.length} smallest stages, ${S.estimates.length} estimate widths`)
+}
 
 // ---------------------------------------------------------------------------------------------- 4. no-JS text
 {
@@ -318,6 +699,14 @@ console.log(`rest: ${R.rest.length} idle windows, ${R.rest.filter((r) => r.drawF
     R.nojs.push({ pg, words: wa.size, coverage: +cover.toFixed(3), missing: missing.slice(0, 40) })
     if (cover < 0.95) fail(`no-JS: ${pg} shows only ${(cover * 100).toFixed(1)}% of its words without JavaScript (missing ${missing.slice(0, 12).join(' ')})`)
     if (!b.includes(STATUS)) fail(`no-JS: ${pg} lacks the status line`)
+    if (pg === 'index.html') {
+      // the story without JavaScript: every step's text and its static figure, shown, in that step's state
+      const st = await pf.evaluate(() => [...document.querySelectorAll('#story [data-step]')].map((li) => { const f = li.querySelector('.sf'), sc = f && f.querySelector('[data-sc]'); return { k: li.dataset.step, text: li.querySelector('.step-t').innerText.trim().length, fig: !!f && getComputedStyle(f).display !== 'none' && f.getBoundingClientRect().height > 100, s: sc && sc.dataset.s, cap: f ? f.querySelector('figcaption').innerText : '' } }))
+      const stage = await pf.evaluate(() => getComputedStyle(document.querySelector('.step-stage')).display)
+      R.nojs.push({ pg: 'index.html #story', steps: st, stage })
+      if (st.length !== 7 || !st.every((x, i) => x.text > 60 && x.fig && x.s === String(i + 1) && x.cap.startsWith(`Fig. 2.${i + 1}`))) fail(`no-JS: the story's steps and static figures: ${JSON.stringify(st)}`)
+      if (stage !== 'none') fail('no-JS: the story stage shows without JavaScript')
+    }
   }
   await on.close(); await off.close()
 }
@@ -375,6 +764,10 @@ for (const pg of PAGES) {
   if (r.by.font > B.fonts) fail(`budget: ${pg} fonts ${kb(r.by.font)} KB > ${kb(B.fonts)} KB`)
   if (B.js && r.by.js > B.js) fail(`budget: ${pg} JS ${kb(r.by.js)} KB > ${kb(B.js)} KB`)
   if (r.third) fail(`budget: ${pg} makes ${r.third} third-party requests`)
+  // the Overview with its story (Draft 5): at most 130 KB, and at most 8 KB more eager JS than Draft 4 (13685 bytes as
+  // served, main 4e793fb)
+  if (pg === 'index.html' && r.total > OVERVIEW.total) fail(`budget: index.html ${kb(r.total)} KB > ${kb(OVERVIEW.total)} KB`)
+  if (pg === 'index.html' && r.by.js - OVERVIEW.js0 > 8 * 1024) fail(`budget: index.html eager JS grew by ${kb(r.by.js - OVERVIEW.js0)} KB (> 8 KB)`)
 }
 
 // ---------------------------------------------------------------------------------------------- 6. --perf: CLS / TBT / LCP, late fonts, URL bar
@@ -382,11 +775,17 @@ if (ARGS.perf) {
   const med = (a) => [...a].sort((x, y) => x - y)[(a.length - 1) >> 1]
   const RUNS = +(ARGS.runs || 3)
   for (const [w, h, android] of [[320, 568], [390, 844], [412, 915], [320, 568, true]]) for (const pg of PAGES) {
-    const runs = []
-    for (let i = 0; i < RUNS; i++) runs.push(await firstLoad(pg, { slow: true, w, h, android }))
+    // the Overview's own gate at 390×844 takes the median of at least 5 runs, so one slow run cannot decide it
+    const runs = [], gate = pg === 'index.html' && w === 390 && !android
+    for (let i = 0; i < (gate ? Math.max(RUNS, 5) : RUNS); i++) runs.push(await firstLoad(pg, { slow: true, w, h, android }))
     const r = { pg, size: `${w}×${h}`, fonts: android ? 'no Arial/Liberation/Courier' : 'shipped', lcp: med(runs.map((x) => x.lcp)), tbt: med(runs.map((x) => x.tbt)), cls: Math.max(...runs.map((x) => x.cls)), fcp: med(runs.map((x) => x.fcp)), runs: runs.map((x) => [x.lcp, x.tbt, x.cls]) }
     R.perf.push(r)
     console.log(`  slow ${r.size}${android ? ' android-fonts' : ''} ${pg.padEnd(16)} LCP ${r.lcp} ms · FCP ${r.fcp} ms · TBT ${r.tbt} ms · CLS max ${r.cls}`)
+    if (pg === 'index.html' && w === 390 && !android) {
+      if (r.cls > OVERVIEW.cls) fail(`perf: index.html at 390×844 CLS ${r.cls} > ${OVERVIEW.cls}`)
+      if (r.tbt >= OVERVIEW.tbt) fail(`perf: index.html at 390×844 TBT ${r.tbt} ms >= ${OVERVIEW.tbt} ms`)
+      if (r.lcp > OVERVIEW.lcp0 + 100) fail(`perf: index.html at 390×844 LCP ${r.lcp} ms, more than 100 ms over Draft 4's ${OVERVIEW.lcp0} ms`)
+    }
   }
   for (const pg of PAGES) for (const [h1, h2] of [[664, 745], [745, 664]]) {
     const ctx = await ctxFor(390, h1), p = await ctx.newPage()

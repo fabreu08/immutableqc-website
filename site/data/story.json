@@ -1,0 +1,10 @@
+{
+ "_note": "Record 9 of the Overview story: a correction of record 6, signed over r_9 (ECDSA P-256, SHA-256, IEEE P1363 hex, low-S form) with a one-time demo key, as Check a record signs a correction. Written by site/build.mjs --sign-story; the private key was never written and was discarded.",
+ "n": 9,
+ "corrects": 6,
+ "value": "1508911",
+ "reason": "Peak reintegrated in the CDS after review; result imported again",
+ "r": "3cafb26418ae173c328561dcc93084e7deec8bf90d91256182d563b673a554b2",
+ "pub": "040d586f9eeccc0c9e711002279871b277cca37e8bf05d52610d0415e044dcbfc8e9bb9c57500c81dd5dec6b1276a414a899f9e0a962eab91a9854841f07dbf817",
+ "sig": "cb757702b66cf3984809b7c1c1dfb71f4731a5bf6526a4b43893aa95e89c207574cddb19cc97b97d2c40b1a82a33a85d249af2c721a58e26c5e053003ac985b3"
+}

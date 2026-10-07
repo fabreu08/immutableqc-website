@@ -40,7 +40,8 @@ function sha256(str) {
 // replays the record history with this code. The page gets a classic deferred script (the build wraps this file and
 // the pure-JS SHA-256 in one function scope, minus the export keywords), so it also runs from file:// and in sandboxed
 // previews, where module scripts need CORS.
-//   1. Overview, Fig. 1: three checks on one record  2. Overview, Fig. 2: the record history, sealed in once
+//   1. Overview, Fig. 1: three checks on one record  1b. Overview, section 2: the story (Figs. 2.1 to 2.7)
+//   2. Overview, Fig. 3: the record history, sealed in once
 //   3. Check a record: the verifier. The Contents menu lives in the inline script in <head> (site/build.mjs, prepaint), so
 //   it works before this deferred script runs, and even if it never loads.
 // Every hash is recomputed here from values on the page (WebCrypto; ./sha256.js only where crypto.subtle is missing).
@@ -205,7 +206,6 @@ function agentLine(o, { AN, anchorOk, by }, say) {
 const D = globalThis.document
 // in the shipped bundle, sha256() is the pure-JS fallback defined just above this code
 const PURE = typeof sha256 === 'function' ? sha256 : null
-if (D) boot()
 
 function boot() {
   const root = D.documentElement
@@ -214,6 +214,8 @@ function boot() {
   if (mq.addEventListener) mq.addEventListener('change', setMotion)
   const p = D.querySelector('[data-plate]')
   if (p) plate(p)
+  const st = D.querySelector('[data-story]')
+  if (st && 'IntersectionObserver' in globalThis) story(st)
   const h = D.querySelector('[data-history]')
   if (h) history(h).catch(() => {})
   const v = D.querySelector('[data-verifier]')
@@ -279,7 +281,270 @@ function plate(fig) {
   } else run()
 }
 
-// ------------------------------------- 2. Overview, Fig. 2: the record history, checked here and sealed in once, in view
+// ---------------------------------------- 1b. Overview, section 2: how a result becomes a sealed record (Fig. 2.1 to 2.7)
+// Every state of a figure is CSS on its [data-s]; this code only moves between states. Each step carries a static
+// figure in its final state. On wide screens (html.stage, set before paint) one sticky stage beside the steps shows the
+// active step instead: an IntersectionObserver on the step blocks against a thin band at mid-viewport (fixed in px from
+// --svh) picks it, and the stage morphs to it with finite WAAPI, then holds. A morph tweens only the parts whose state
+// lists differ between the two states (and what they color), in the order the build gives: what leaves goes first, then
+// what arrives, each after its own delay, so a step plays in under a second. A change of more than one step, or a fast
+// scroll (a new step within 300 ms of the last), is one short crossfade from the state on screen once the band has held
+// still for 140 ms; a new step finishes the running morph first, so nothing ever queues. On phones each figure waits in
+// the state before its own and plays once, when it is all in view (or, if taller than the window, fills it). Nothing
+// starts off screen, in a hidden tab or under reduced motion (states swap at once), and a running morph finishes at once
+// when its figure leaves the screen or the tab hides. No scroll listener, no timer loop: observers, one-shot timeouts,
+// and a resize check that ignores a touch screen's URL bar.
+const EASE = 'cubic-bezier(.2,.7,.2,1)'
+const MORPH = ['opacity', 'transform', 'color', 'backgroundColor', 'borderColor', 'strokeDashoffset', 'fill', 'stroke', 'clipPath']
+// ms: what leaves; the pause before anything arrives where something leaves; what arrives; what returns to how it was
+// before a failing state; a value flying in; any part on the way back up; a jump of more than one step
+const T = { out: 140, clear: 120, in: 420, ret: 240, fly: 520, back: 300, jump: 300 }
+const STATE = ['on', 'dim', 'draw', 'grow', 'wipe', 'bad']
+const inS = (el, a, s) => { const v = el.getAttribute(`data-${a}`); return v !== null && ` ${v} `.includes(` ${s} `) }
+function story(sec) {
+  const root = D.documentElement
+  const stage = sec.querySelector('[data-stage] [data-sc]')
+  const items = [...sec.querySelectorAll('[data-step]')]
+  const figs = items.map((li) => li.querySelector('[data-sc]'))
+  const runs = new Map(), band = new Set(), pend = new Set()
+  let active = 1, lock = 0, clicks = 0, unlockT = 0, settleT = 0, lastBand = -1e9, lastW = innerWidth, lastH = innerHeight
+  let svh = parseFloat(root.style.getPropertyValue('--svh')) || innerHeight
+  const wide = () => root.classList.contains('stage')
+  const fits = (w, h) => w >= 960 && h >= (w >= 1180 ? 600 : 700)
+  const coarse = () => { try { return matchMedia('(pointer: coarse)').matches } catch { return false } }
+  const stop = (sc) => { const a = runs.get(sc); if (a) { runs.delete(sc); a.forEach((x) => x.finish()) } }
+  const stopAll = () => { [...runs.keys()].forEach(stop); pend.forEach((sc) => cut(sc)) }
+  const kOf = (sc) => (sc === stage ? active : figs.indexOf(sc) + 1)
+  const cut = (sc) => { pend.delete(sc); stop(sc); sc.dataset.s = String(kOf(sc)) }
+  // on screen right now: read from the layout when a step changes, so it never waits on an observer's next callback
+  const shown = (sc) => { const r = sc.getBoundingClientRect(); return r.width > 0 && r.bottom > 0 && r.top < innerHeight }
+  const snap = (els) => els.map((el) => { const cs = getComputedStyle(el); return [MORPH.map((p) => cs[p]), cs.visibility] })
+  // the parts a change of state touches: those whose state lists differ between the two states, and everything inside one
+  // that is dimmed or failing in only one of them (its colors come from that part). Nothing else is read or tweened.
+  function touched(sc, from, to) {
+    const out = new Set()
+    for (const el of sc.querySelectorAll('[data-on],[data-dim],[data-draw],[data-grow],[data-wipe],[data-bad]')) {
+      const ch = STATE.filter((a) => inS(el, a, from) !== inS(el, a, to))
+      if (!ch.length) continue
+      out.add(el)
+      if (ch.includes('dim') || ch.includes('bad')) for (const d of el.querySelectorAll('*')) out.add(d)
+    }
+    return [...out]
+  }
+  // a part's delay on entering state `to`: its own data-d="2:300 5:60", else the nearest part around it that names one
+  const dly = (el, to, sc) => { for (let a = el; a && a !== sc; a = a.parentElement) { const m = a.dataset.d && new RegExp(`(?:^|\\s)${to}:(\\d+)`).exec(a.dataset.d); if (m) return +m[1] } return 0 }
+  // a part leaves at the delay it names for the next state; else a layer leaving a shared slot (.sw) leaves when the
+  // layer taking its place arrives
+  const outDly = (el, to, sc) => {
+    if (el.dataset.d && new RegExp(`(?:^|\\s)${to}:`).test(el.dataset.d)) return dly(el, to, sc)
+    const p = el.parentElement, s = p && p.classList.contains('sw') && [...p.children].find((c) => inS(c, 'on', to))
+    return dly(s || el, to, sc)
+  }
+  // returning: back from failing, or shown again as it was before the state it leaves (the change undone in step 6)
+  const back = (el, from, to, sc) => {
+    for (let a = el; a && a !== sc; a = a.parentElement) if (inS(a, 'bad', from) && !inS(a, 'bad', to)) return true
+    return inS(el, 'on', to) && !inS(el, 'on', from) && el.dataset.on.split(' ').some((x) => +x < from)
+  }
+  // tween every element whose computed style changes when change() runs; returns the animations
+  function tween(els, change, from, to, sc) {
+    const fwd = to > from, a = snap(els)
+    change()
+    const b = snap(els), plan = []
+    let leaving = false
+    els.forEach((el, i) => {
+      const [va, sa] = a[i], [vb, sb] = b[i]
+      if (sa === 'hidden' && sb === 'hidden') return
+      const k0 = {}, k1 = {}
+      let n = 0
+      MORPH.forEach((p, j) => { if (va[j] !== vb[j]) { k0[p] = va[j]; k1[p] = vb[j]; n++ } })
+      if (!n) return
+      if (sa !== sb) k0.visibility = k1.visibility = 'visible'
+      const out = +vb[0] < 0.01 && +va[0] > 0.01
+      leaving = leaving || out
+      plan.push([el, k0, k1, out, sa])
+    })
+    // what leaves goes quickly (at its slot's delay); what arrives waits until it has cleared, so two texts never overlap
+    const clear = leaving ? T.clear : 0
+    return plan.map(([el, k0, k1, out, sa]) => {
+      if (out) return el.animate([k0, k1], { duration: T.out, delay: fwd && sc ? outDly(el, to, sc) : 0, easing: EASE, fill: 'backwards' })
+      if (!fwd) return el.animate([k0, k1], { duration: T.back, delay: clear, easing: EASE, fill: 'backwards' })
+      const o = { duration: sc && back(el, from, to, sc) ? T.ret : T.in, delay: clear + (sc ? dly(el, to, sc) : 0), easing: EASE, fill: 'backwards' }
+      // a value that appears in its own step flies in from where it came from (the peak area, a card field): it shows
+      // there first, holds a moment, then travels, easing out
+      const fly = sa === 'hidden' && sc && el.dataset.fly && new RegExp(`(?:^|\\s)${to}:(\\S+)`).exec(el.dataset.fly)
+      const src = fly && sc.querySelector(`[data-fly-at="${fly[1]}"]`)
+      if (src) {
+        const r0 = src.getBoundingClientRect(), r1 = el.getBoundingClientRect()
+        const t = `translate(${Math.round(r0.left - r1.left)}px,${Math.round(r0.top - r1.top)}px)`
+        return el.animate([{ transform: t, opacity: 0, visibility: 'visible' }, { transform: t, opacity: 1, visibility: 'visible', offset: 0.18, easing: EASE }, { transform: 'none', opacity: 1, visibility: 'visible' }], { ...o, duration: T.fly, easing: 'linear' })
+      }
+      return el.animate([k0, k1], o)
+    })
+  }
+  const track = (sc, anims) => {
+    runs.set(sc, anims)
+    Promise.all(anims.map((x) => x.finished)).then(() => { if (runs.get(sc) === anims) runs.delete(sc) }, () => {})
+  }
+  // move one figure to state `to`: tweened if it is one step on screen (or from the state a static figure waits in), a
+  // crossfade for a jump, at once otherwise
+  function morph(sc, to, now) {
+    stop(sc)
+    const from = +sc.dataset.s
+    if (from === to) return
+    if (now || !moving() || !shown(sc) || !sc.animate) { sc.dataset.s = String(to); return }
+    if (Math.abs(to - from) > 1 && sc.dataset.from !== String(from)) {
+      sc.dataset.s = String(to)
+      return track(sc, [sc.querySelector('.sc-b').animate([{ opacity: 0.15 }, { opacity: 1 }], { duration: T.jump, easing: EASE })])
+    }
+    track(sc, tween(touched(sc, from, to), () => { sc.dataset.s = String(to) }, from, to, sc))
+  }
+  // ---- wide screens: the active step
+  const mark = (k) => items.forEach((li, i) => {
+    const n = i + 1, a = li.querySelector('.step-a')
+    li.classList.toggle('on', n === k); li.classList.toggle('done', n < k)
+    if (n === k) a.setAttribute('aria-current', 'step'); else a.removeAttribute('aria-current')
+  })
+  function go(k) {
+    clearTimeout(settleT)
+    pend.delete(stage)
+    if (k === active && stage.dataset.s === String(k)) return
+    const was = active
+    active = k
+    stop(sec)
+    // the rail fills to the active step's number
+    if (moving() && shown(stage)) track(sec, tween([...sec.querySelectorAll('.step-fill,.step .no')], () => mark(k), was, k))
+    else mark(k)
+    morph(stage, k)
+  }
+  // the step in the band, at once; or, within 300 ms of the last change (a fast scroll), once the band has held still
+  // for 140 ms, so a fling ends in one crossfade from the state on screen instead of a run of half-played steps
+  const fromBand = () => {
+    if (lock || !wide()) return
+    const t = performance.now(), quick = t - lastBand < 300
+    lastBand = t
+    clearTimeout(settleT)
+    if (!band.size) return
+    if (quick) settleT = setTimeout(() => { if (!lock && band.size && wide()) go(Math.max(...band)) }, 140)
+    else go(Math.max(...band))
+  }
+  // a step heading scrolls its text into the band and plays that step; the band is ignored until the scroll has arrived
+  sec.addEventListener('click', (e) => {
+    const a = e.target.closest && e.target.closest('.step-a')
+    if (!a || !wide()) return
+    e.preventDefault()
+    const li = a.closest('[data-step]'), r = li.querySelector('h3').getBoundingClientRect(), me = ++clicks
+    const target = Math.round(Math.max(0, Math.min(scrollY + r.top + r.height / 2 - svh * 0.49, root.scrollHeight - innerHeight)))
+    lock = 1
+    go(+li.dataset.step)
+    scrollTo({ top: target, behavior: moving() ? 'smooth' : 'auto' })
+    const done = (force) => {
+      if (!lock || me !== clicks) return
+      // a scrollend left over from an earlier scroll does not count: wait for this one to arrive (or the timeout)
+      if (force !== true && Math.abs(scrollY - target) >= 2) { addEventListener('scrollend', done, { once: true }); return }
+      lock = 0; clearTimeout(unlockT); removeEventListener('scrollend', done); fromBand()
+    }
+    addEventListener('scrollend', done, { once: true })
+    clearTimeout(unlockT); unlockT = setTimeout(() => done(true), 1200)
+  })
+  // ---- every figure: on screen or not, and the one play on first view (phones; the stage when the story scrolls in)
+  // A phone's figure plays at the first scroll position where all the parts it animates are inside the window (or, for
+  // a figure whose animated parts span more than the window, 85% of them, or as many as fit). It is measured once, when
+  // the figure first comes into view, and marked by an empty element that far down the figure: the figure plays when
+  // the mark reaches the bottom of the window. Observers only: no scroll listener.
+  const aimed = new Map()
+  const mio = new IntersectionObserver((es) => {
+    for (const e of es) { const sc = aimed.get(e.target); if (e.isIntersecting && sc && pend.has(sc)) { mio.unobserve(e.target); pend.delete(sc); morph(sc, kOf(sc)) } }
+  })
+  function aim(sc) {
+    const H = innerHeight, f = sc.closest('figure'), y0 = f.getBoundingClientRect().top
+    const ps = touched(sc, +sc.dataset.s, kOf(sc)).map((el) => el.getBoundingClientRect()).filter((r) => r.height || r.width).map((r) => [r.top - y0, r.bottom - y0])
+    if (!ps.length) { pend.delete(sc); return morph(sc, kOf(sc)) }
+    const top = Math.min(...ps.map((x) => x[0])), end = Math.max(...ps.map((x) => x[1]))
+    let w0 = end - H
+    if (end - top > H) {
+      const at = ps.flatMap(([t, b]) => [b - H, t]).sort((x, y) => x - y), n = (c) => ps.filter(([t, b]) => t >= c - 0.5 && b <= c + H + 0.5).length
+      const need = Math.min(Math.max(...at.map(n)), Math.ceil(0.85 * ps.length))
+      w0 = at.find((c) => n(c) >= need)
+    }
+    const m = D.createElement('i')
+    m.className = 'sf-aim'; m.setAttribute('aria-hidden', 'true'); m.style.top = `${Math.round(w0 + H)}px`
+    f.appendChild(m); aimed.set(m, sc).set(sc, m); mio.observe(m)
+  }
+  const vio = new IntersectionObserver((es) => {
+    for (const e of es) {
+      const sc = e.target
+      if (!e.isIntersecting) { stop(sc); if (pend.has(sc) && e.boundingClientRect.bottom < 0) cut(sc); continue }
+      if (!pend.has(sc)) continue
+      // the stage plays step 1 once most of it shows
+      if (sc === stage) { if (e.intersectionRatio >= 0.6) { pend.delete(sc); morph(sc, kOf(sc)) } }
+      else if (!aimed.has(sc)) aim(sc)
+    }
+  }, { threshold: [0, 0.6] })
+  // a figure below the fold waits in the state before its own (Fig. 2.6: the one it names), so its step plays when it
+  // arrives; the stage waits empty, in state 0, and plays step 1 as the story scrolls in
+  function prime() {
+    if (!moving()) return
+    const h = innerHeight
+    if (wide()) { if (stage.getBoundingClientRect().top > h * 0.5) { stage.dataset.s = '0'; pend.add(stage) } }
+    else figs.forEach((sc, i) => { if (sc.getBoundingClientRect().top > h) { sc.dataset.s = sc.dataset.from || String(i); pend.add(sc) } })
+  }
+  // the stage at its full size, centered in the small viewport height; one that does not fit gives way to the figures
+  const box = stage.closest('.step-grid')
+  function fit() {
+    if (!wide()) return
+    const h0 = stage.offsetHeight
+    if (h0 > svh - 32) return mode(false)
+    box.style.setProperty('--sth', `${h0}px`)
+  }
+  // switch between the stage and the static figures: every figure goes straight to its own step
+  function mode(on) {
+    root.classList.toggle('stage', on)
+    stopAll(); stop(sec)
+    figs.forEach((sc) => cut(sc))
+    stage.dataset.s = String(active)
+    mark(on ? active : 0)
+    if (on) fit()
+  }
+  // the band: a thin line just above the middle of the small viewport height, fixed in px from the top, so a URL bar
+  // that changes the window's height never moves it
+  let sio = null
+  function watch() {
+    if (sio) sio.disconnect()
+    band.clear()
+    sio = new IntersectionObserver((es) => {
+      for (const e of es) { const k = +e.target.dataset.step; if (e.isIntersecting) band.add(k); else band.delete(k) }
+      fromBand()
+    }, { rootMargin: `-${Math.round(svh * 0.48)}px 0px ${-Math.max(0, innerHeight - Math.round(svh * 0.5))}px 0px` })
+    items.forEach((li) => sio.observe(li))
+  }
+  fit()
+  prime()
+  if (wide()) mark(1)
+  figs.concat(stage).forEach((sc) => vio.observe(sc))
+  watch()
+  D.addEventListener('visibilitychange', () => { if (D.hidden) stopAll() })
+  // printed, every figure shows its own step and every value in full
+  addEventListener('beforeprint', () => { stopAll(); figs.forEach((sc) => cut(sc)); sec.querySelectorAll('details.vals').forEach((d) => { d.open = true }) })
+  const mq = matchMedia('(prefers-reduced-motion: reduce)')
+  if (mq.addEventListener) mq.addEventListener('change', () => { if (mq.matches) stopAll() })
+  // a resize: a touch screen's URL bar (the height alone, by under 160 px) moves nothing, and the band is rebuilt at the
+  // same place; any other resize renews --svh and picks the stage or the static figures again
+  addEventListener('resize', () => {
+    const w = innerWidth, h = innerHeight
+    if (w === lastW && h === lastH) return
+    const urlbar = w === lastW && coarse() && Math.abs(h - svh) < 160
+    lastH = h
+    if (urlbar) return watch()
+    lastW = w; svh = h
+    root.style.setProperty('--svh', `${h}px`)
+    const was = wide(), now = fits(w, h)
+    if (was !== now) mode(now); else fit()
+    watch()
+  })
+  sec.dataset.ready = '1'
+}
+
+// ------------------------------------- 2. Overview, Fig. 3: the record history, checked here and sealed in once, in view
 // Read-only. The rows are prerendered "checked at build" with neutral open rings. This browser replays the history from
 // the values shown in the table (instrument from the header, peak area and capture time from each row) with the rule
 // above. The first time a quarter of the rows are on screen, each row's ring draws and its dot fills in turn (WAAPI,
@@ -648,5 +913,8 @@ async function verifier(root) {
   await update(null, true, true)
   globalThis.__iqc = { get last() { return last }, get recs() { return recs } }
 }
+
+// boot last, once every const above is initialized (the story wires itself up synchronously)
+if (D) boot()
 
 })()

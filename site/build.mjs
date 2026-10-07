@@ -332,13 +332,128 @@ const sayer = (W) => (k, o = {}) => (k in W ? W[k] : `<<missing ${k}>>`).replace
     hasNot('words, no WebCrypto: and never as signed', sn, 'signed with')
   }
 }
-// Fig. 2 uses statusLine() with its own template words: same sentences
+// Fig. 3 (the record history) uses statusLine() with its own template words: same sentences
 {
   const sayH = sayer(tplWords('partials/plate-history.html', 'iqc-hist-words'))
   const r = await IQC.replay(E, clone(), async () => true)
-  eq('Fig. 2 words: sealed status', IQC.statusLine(r, { AN, signing: true, anchorOk: true }, sayH), `Checked in your browser: ${N} of ${N} records pass · simulated anchor matches`)
-  eq('Fig. 2 words: status where signatures cannot be checked', IQC.statusLine(r.map((o) => ({ ...o, sig: null })), { AN, signing: false, anchorOk: true }, sayH), `Checked in your browser: ${N} of ${N} records pass the fingerprint and link checks · simulated anchor matches · signatures not checked here`)
+  eq('Fig. 3 words: sealed status', IQC.statusLine(r, { AN, signing: true, anchorOk: true }, sayH), `Checked in your browser: ${N} of ${N} records pass · simulated anchor matches`)
+  eq('Fig. 3 words: status where signatures cannot be checked', IQC.statusLine(r.map((o) => ({ ...o, sig: null })), { AN, signing: false, anchorOk: true }, sayH), `Checked in your browser: ${N} of ${N} records pass the fingerprint and link checks · simulated anchor matches · signatures not checked here`)
 }
+
+// ------------------------------------------------------------------------------------------------ 3c. the Overview story
+// Overview section 2 walks one real record, record 6 of the signed sequence, through seven steps. Every value in every
+// state is computed here and asserted. Step 5 is Check a record's own edit of record 6 (+100 counts, as in section 3b),
+// made in place; step 6 makes the same change the right way, as a correction: record 9 carries the new value with a
+// reason that fits the trace of step 1 (the CDS integrated 1508811 first; a reintegration after review gave the new
+// value, imported again, as Check a record's help says a reintegration should go). It is signed as Check a record signs
+// a correction: with a one-time demo key, here made at build and discarded.
+const STORYF = join(HERE, 'data/story.json')
+if (ARG.has('--sign-story') && CHECK) { console.error('--check never writes: run it without --sign-story'); process.exit(2) }
+const STORY = (() => {
+  const k = SN, R6 = recs[k - 1], R5 = recs[k - 2], R7 = recs[k], R8 = recs[N - 1]
+  const value = String(+R6.f.value + 100), reason = 'Peak reintegrated in the CDS after review; result imported again'
+  const fx = { ...R6.f, value }, px = payload(fx), rx = H(px), hx = H(R6.prev + rx + String(k))
+  const r9 = H(px), h9 = H(anchor + r9 + String(N + 1))
+  return { k, R5, R6, R7, R8, value, reason, fx, px, rx, hx, r9, h9, digit: [...R6.f.value].findIndex((c, i) => c !== value[i]) }
+})()
+{
+  const { k, R6, value, reason, r9 } = STORY
+  let st = existsSync(STORYF) ? JSON.parse(readFileSync(STORYF, 'utf8')) : null
+  const good = (s) => !!s && s.n === N + 1 && s.corrects === k && s.value === value && s.reason === reason && s.r === r9 && /^04[0-9a-f]{128}$/.test(s.pub) && IQC.sigForm(s.sig) && sigOk(pubFromHex(s.pub), s.sig, r9)
+  if (!good(st) && !ARG.has('--sign-story')) {
+    console.error('site/data/story.json no longer covers record 9 of the Overview story. Sign it on purpose with: node site/build.mjs --sign-story')
+    process.exit(1)
+  }
+  if (ARG.has('--sign-story')) {
+    // a one-time demo key, as Check a record makes for a correction; its private half is never written
+    const { privateKey, publicKey } = generateKeyPairSync('ec', { namedCurve: 'P-256' })
+    const jwk = publicKey.export({ format: 'jwk' })
+    const pub = '04' + Buffer.from(jwk.x, 'base64url').toString('hex').padStart(64, '0') + Buffer.from(jwk.y, 'base64url').toString('hex').padStart(64, '0')
+    st = { _note: 'Record 9 of the Overview story: a correction of record 6, signed over r_9 (ECDSA P-256, SHA-256, IEEE P1363 hex, low-S form) with a one-time demo key, as Check a record signs a correction. Written by site/build.mjs --sign-story; the private key was never written and was discarded.', n: N + 1, corrects: k, value, reason, r: r9, pub, sig: IQC.lowS(sign('sha256', Buffer.from(r9, 'hex'), { key: privateKey, dsaEncoding: 'ieee-p1363' }).toString('hex')) }
+    writeFileSync(STORYF, JSON.stringify(st, null, 1) + '\n')
+    console.log(`story.json written with a one-time demo key ${pub.slice(0, 10)}… (private key discarded)`)
+  }
+  STORY.pub9 = st.pub; STORY.sig9 = st.sig
+  STORY.key9 = createHash('sha256').update(pubFromHex(st.pub).export({ type: 'spki', format: 'der' })).digest('hex').slice(0, 32).toUpperCase()
+  ok('story.json: no private key material', !/"d"\s*:|BEGIN [A-Z ]*PRIVATE KEY|pkcs8/.test(readFileSync(STORYF, 'utf8')))
+}
+{
+  const { k, R5, R6, R7, R8, value, fx, px, rx, hx, r9, h9, pub9, sig9, key9 } = STORY
+  // step 1, captured: injection 06 on HPLC-02, RT 4.82 min, its peak area the record's value
+  eq('story: the record is the showcase record 6', k, 6)
+  eq('story: record 6 is injection 06 on HPLC-02, RT 4.82 min', `${R6.ctx.inj} ${R6.f.instrumentId} ${R6.ctx.rt}`, '06 HPLC-02 4.82')
+  eq('story: record 6 value', R6.f.value, '1508811')
+  // step 2, fingerprinted
+  eq('story: record 6 payload', R6.p, 'HPLC-02|hplc|1508811|counts|2026-09-14T08:47:50Z')
+  eq('story: record 6 payload bytes', Buffer.byteLength(R6.p), 48)
+  ok('story: r6 is SHA-256 of the payload (node:crypto and the pure-JS fallback)', R6.r === H(R6.p) && pure(R6.p) === R6.r && /^[0-9a-f]{64}$/.test(R6.r))
+  // step 3, signed
+  ok('story: record 6 signature verifies with the demo key', sigOk(pubKey, R6.sig, R6.r) && IQC.sigForm(R6.sig))
+  // step 4, linked
+  ok('story: h6 = SHA-256(h5 + r6 + "6"), and record 7 carries h6', R6.prev === R5.h && R6.h === H(R5.h + R6.r + '6') && R7.prev === R6.h)
+  // step 5, a change shows
+  eq('story: the changed value is Check a record’s +100 edit', value, '1508911')
+  eq('story: one digit changes', [...R6.f.value].filter((c, i) => c !== value[i]).length, 1)
+  ok('story: the changed payload is 48 bytes and gives a different fingerprint', Buffer.byteLength(px) === 48 && px === R6.p.replace(R6.f.value, value) && rx !== R6.r && rx === pure(px))
+  ok('story: record 6’s signature does not cover the changed fingerprint', !sigOk(pubKey, R6.sig, rx))
+  ok('story: the recomputed link of record 6 differs from the h6 record 7 carries', hx !== R6.h && hx === H(R5.h + rx + '6') && R7.prev === R6.h)
+  {
+    const alt = clone(); alt[k - 1].f = { ...fx }
+    const rows = await IQC.replay(E, alt, async (x, rp) => rp === recs[x.n - 1].r)
+    ok('story, change: record 6 fails fingerprint, signature and its link', !rows[k - 1].fp && rows[k - 1].sig === false && !rows[k - 1].link && rows[k - 1].rp === rx && rows[k - 1].hp === hx)
+    ok('story, change: every other record passes its own checks (7 and 8 included)', rows.every((o) => o.n === k || o.ok))
+    STORY.fhx = rows[N - 1].fh
+    ok('story, change: the replayed head no longer matches the anchored fingerprint', STORY.fhx !== anchor && /^[0-9a-f]{64}$/.test(STORY.fhx))
+  }
+  // step 6, a correction is appended: record 9, same five fields as the change, linked from h8, signed with a one-time key
+  ok('story: record 9 is the corrected record’s fields, fingerprinted', r9 === H(payload(fx)) && r9 === rx)
+  ok('story: h9 = SHA-256(h8 + r9 + "9")', h9 === H(R8.h + r9 + '9') && R8.h === anchor)
+  ok('story: record 9’s signature verifies with its one-time key, in low-S form', sigOk(pubFromHex(pub9), sig9, r9) && IQC.lowS(sig9) === sig9)
+  ok('story: the one-time key is not the demo key that signed records 1 to 8', pub9 !== PUB && key9 !== keyId && !sigOk(pubFromHex(pub9), R6.sig, R6.r))
+  {
+    const k9 = await webcrypto.subtle.importKey('raw', Buffer.from(pub9, 'hex'), { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify'])
+    ok('story: record 9’s signature verifies with WebCrypto', await webcrypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, k9, Buffer.from(sig9, 'hex'), Buffer.from(r9, 'hex')))
+    const c = clone()
+    c.push({ n: N + 1, f: { ...fx }, r: r9, prev: anchor, h: h9, sig: sig9, corrects: k })
+    const rows = await IQC.replay(E, c, async (x, rp) => (x.n <= N ? rp === recs[x.n - 1].r : webcrypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, k9, Buffer.from(x.sig, 'hex'), Buffer.from(rp, 'hex'))))
+    ok('story, correction: all nine records pass; records 1 to 8 still match the anchor; the head is h9', rows.every((o) => o.ok && o.sig === true) && rows[N - 1].fh === anchor && rows[N].fh === h9)
+  }
+}
+// the rule of step 5, in Check a record's own words (site/partials/verifier.html), never retyped here
+const RULE = (rd('partials/verifier.html').match(/, so (a changed value fails that record’s fingerprint and signature and breaks only the link into the next record)\./) || [])[1]
+ok('story: Check a record states the rule the story quotes', !!RULE)
+// the simulated chromatogram of step 1: drawn from data. One Gaussian peak at the record's retention time, on a slowly
+// drifting baseline, sampled every 15 s, and every second within the integration window. Its area above a drop line between the ends of the
+// integration window (apex ± 4.5 sigma) is the record's value, in counts (µV·s): the trace is illustrative, the area is not.
+const CHROM = (() => {
+  const rt = +STORY.R6.ctx.rt, sig = 4.6 / 60, t0 = 3.6, t1 = 6.4, a = rt - 4.5 * sig, b = rt + 4.5 * sig
+  const drift = (t) => 2600 * (t - t0) + 900 * Math.sin(1.7 * t)
+  const shape = (t) => Math.exp(-0.5 * ((t - rt) / sig) ** 2)
+  const ts = []
+  for (let t = t0; t < a - 1e-9; t += 0.25) ts.push(+t.toFixed(4))
+  for (let s = Math.ceil(a * 60); s <= Math.floor(b * 60); s++) ts.push(s / 60)
+  for (let t = Math.ceil(b * 4) / 4; t <= t1 + 1e-9; t += 0.25) ts.push(+t.toFixed(4))
+  const win = ts.filter((t) => t >= a && t <= b)
+  const ta = win[0], tb = win[win.length - 1], line = (t) => drift(ta) + ((drift(tb) - drift(ta)) * (t - ta)) / (tb - ta)
+  // trapezoid area in µV·s of shape alone, and of the baseline's own excess over the drop line
+  const trap = (f) => win.slice(1).reduce((s, t, i) => s + ((f(t) + f(win[i])) / 2) * (t - win[i]) * 60, 0)
+  const A1 = trap(shape), A0 = trap((t) => drift(t) - line(t))
+  const Hpk = (+STORY.R6.f.value - A0) / A1
+  const y = (t) => drift(t) + Hpk * shape(t)
+  const area = trap((t) => y(t) - line(t))
+  const ymax = Hpk * 1.08, W = 300, HH = 100
+  const X = (t) => +(((t - t0) / (t1 - t0)) * W).toFixed(2), Y = (v) => +(HH - 4 - (v / ymax) * (HH - 8)).toFixed(2)
+  const pts = ts.map((t) => `${X(t)},${Y(y(t))}`)
+  const trace = `M${pts.join('L')}`
+  const fill = `M${X(ta)},${Y(line(ta))}L${win.map((t) => `${X(t)},${Y(y(t))}`).join('L')}L${X(tb)},${Y(line(tb))}Z`
+  const drop = `M${X(ta)},${Y(line(ta))}L${X(tb)},${Y(line(tb))}`
+  const apex = ts.reduce((m, t) => (y(t) > y(m) ? t : m), ts[0])
+  const pct = (t) => +(((t - t0) / (t1 - t0)) * 100).toFixed(2)
+  return { rt, sig, t0, t1, area, Hpk, apex, trace, fill, drop, pct, ticks: [4, 5, 6], W, HH }
+})()
+ok(`story, chromatogram: the shaded area is the record’s value (${CHROM.area.toFixed(3)} µV·s)`, Math.abs(CHROM.area - +STORY.R6.f.value) < 0.01)
+ok(`story, chromatogram: the apex is at the record’s retention time (${CHROM.apex.toFixed(3)} min)`, Math.abs(CHROM.apex - CHROM.rt) < 0.5 / 60)
+ok('story, chromatogram: the window holds the whole peak and its ticks', CHROM.ticks.every((t) => t > CHROM.t0 && t < CHROM.t1) && CHROM.rt - 4.5 * (4.6 / 60) > CHROM.t0 && CHROM.rt + 4.5 * (4.6 / 60) < CHROM.t1)
 
 // ------------------------------------------------------------------------------------------------ 4. assets
 const out = {} // every output file, path -> Buffer
@@ -349,7 +464,13 @@ ok('css: the print footer has its per-document placeholder', rd('src/site.css').
 // printed, every page of a document names it: a named page per document id, with the id, revision and use line in its footer
 const docPage = (doc) => `doc-${doc.toLowerCase()}`
 const DOC_PAGES = site.pages.map((p) => `@page ${docPage(p.doc)}{@bottom-left{content:"${p.doc} · ${site.revision} · informational draft, not a controlled document"}}\nbody[data-doc="${p.doc}"]{page:${docPage(p.doc)}}`).join('\n')
-const css = rd('src/site.css').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\n\s*\n/g, '\n').replace(/^\s+/gm, '').trim().replaceAll('__REVISION__', site.revision).replace('__DOC_PAGES__', DOC_PAGES) + '\n'
+// the story's states (Overview section 2): per state, which parts show, are dimmed, drawn, grown, wiped in or failing
+const STORY_STATES = [
+  ['on', '{opacity:1;visibility:visible}'], ['draw', '{stroke-dashoffset:0}'], ['grow', '{transform:none}'], ['wipe', '{clip-path:inset(0)}'],
+  ['dim', '{--fg:var(--p-fg2);--okc:var(--p-fg2);--okt:var(--p-fg2)}'], ['bad', '{--fg:var(--fail);--fg2:var(--fail);--okc:var(--fail);--okt:var(--fail);color:var(--fail)}'],
+].map(([a, r]) => Array.from({ length: 8 }, (_, i) => `.sc[data-s="${i}"] [data-${a}~="${i}"]`).join(',') + r).join('\n')
+ok('css: the story states placeholder is there', rd('src/site.css').includes('__STORY_STATES__'))
+const css = rd('src/site.css').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\n\s*\n/g, '\n').replace(/^\s+/gm, '').trim().replaceAll('__REVISION__', site.revision).replace('__DOC_PAGES__', DOC_PAGES).replace('__STORY_STATES__', STORY_STATES) + '\n'
 ok('css: every document has its named print page', site.pages.every((p) => css.includes(`@page ${docPage(p.doc)}{@bottom-left{content:"${p.doc} · ${site.revision} ·`)))
 const src = rd('src/iqc.js'), shaSrc = rd('src/sha256.js')
 // site/src/sha256.js stays byte-identical to joseqc.com's; its header describes joseqc's lazy chunk, so the bundle gets its own
@@ -395,11 +516,17 @@ ok('js: no network requests at all', !/fetch\(|XMLHttpRequest|WebSocket|sendBeac
 // ------------------------------------------------------------------------------------------------ 5. render
 const g = IQC.groups
 const S = recs[SN - 1], Sp = recs[SN - 2]
-// The one inline script (allowed by its hash in the CSP below). Before first paint it sets .js and .motion. It also
+// The one inline script (allowed by its hash in the CSP below). Before first paint it sets .js and .motion, the --svh
+// token and .stage (the Overview story's wide layout). It also
 // runs the Contents menu (narrow screens) by delegation, so the menu works before the deferred site script runs, and
 // even if that script never loads; and on the 404 page, whose <base href="/"> would send "#main" home, the skip link.
 const prepaint = [
   "(function(d){var c=d.documentElement.classList;c.add('js');try{if(!matchMedia('(prefers-reduced-motion: reduce)').matches)c.add('motion')}catch(e){}",
+  // --svh: the viewport height at load, in px (a token, not a viewport unit; iqc.js renews it when the window is resized,
+  // but never for a touch screen's URL bar, so that never moves it). html.stage: wide and tall enough for the Overview's
+  // sticky stage at its full size (it is about 560 px tall from 1180 px wide and about 660 px below that; it never shrinks,
+  // so its smallest text stays 12 px).
+  "var r=d.documentElement,h=innerHeight;r.style.setProperty('--svh',h+'px');if(innerWidth>=960&&h>=(innerWidth>=1180?600:700)&&'IntersectionObserver'in window)c.add('stage');",
   "var q=function(s){return d.querySelector(s)},b=function(){return q('.menu-btn')},n=function(){return q('.nav')},o=function(){var x=b();return!!x&&x.getAttribute('aria-expanded')==='true'},",
   "s=function(v){var x=b(),y=n();if(x&&y){x.setAttribute('aria-expanded',String(v));y.classList.toggle('open',v)}};",
   "d.addEventListener('click',function(e){var t=e.target,x=b(),y=n();if(!t||!t.closest)return;",
@@ -434,16 +561,191 @@ ok('document control: revision history has a row for the current revision, dated
 const rc = IQC.recipe({ n: S.n, f: S.f, pp: S.prev, rp: S.r, hp: S.h, r: S.r, h: S.h, last: S.n === N })
 const seqJSON = JSON.stringify({ seq: SEQ.sequence, pub: PUB, keyId, anchor, anchorN: AN, select: SEL, records: recs.map((x) => ({ n: x.n, f: x.f, r: x.r, prev: x.prev, h: x.h, sig: x.sig, ctx: x.ctx })) }).replace(/</g, '\\u003c')
 const sstLine = `System suitability: ${sst.length} replicate injections of the reference standard, peak-area RSD ${rsd.toFixed(2)}% (computed at build). Sample peak areas are ${smp.map((v) => v.toFixed(1)).join('%, ')}% of the standard mean. Synthetic and illustrative: acceptance criteria come from your method, these area ratios are not an assay calculation, and blanks and bracketing standards are left out for brevity.`
-// Fig. 2: the record history, the same sequence and signed data as everywhere else on the site
+// Fig. 3: the record history, the same sequence and signed data as everywhere else on the site
 const NODE = '<svg class="nd" viewBox="0 0 20 20" aria-hidden="true"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/><path class="xx" d="M7.7 7.7l4.6 4.6m0-4.6l-4.6 4.6"/></svg>'
 const ST = (w) => `<span class="st"><svg class="i" aria-hidden="true"><use href="#i-open"/></svg><span class="w">${w}</span></span>`
 const histRows = recs.map((x) => `<tr role="row" data-n="${x.n}"><td role="cell" class="c-sp">${NODE}</td><th scope="row" role="rowheader" class="c-n">${x.n}</th><td role="cell" class="c-smp">${x.ctx.sample}<span class="kd"> · ${x.ctx.kind === 'SST' ? 'system suitability' : 'sample'}, ${x.ctx.prep}</span></td><td role="cell" class="c-rt">${x.ctx.rt}</td><td role="cell" class="c-at"><time datetime="${x.f.capturedAt}">${x.f.capturedAt.slice(11, 19)}</time></td><td role="cell" class="c-pa" data-v>${x.f.value}</td><td role="cell" class="c-fp"><code>${x.r.slice(0, 8)}</code><span class="sr-only" data-fpw>fingerprint checked at build</span></td><td role="cell" class="c-ln" data-m="link" data-s="build">${ST('intact')}</td><td role="cell" class="c-sg" data-m="sig" data-s="build">${ST('valid')}</td></tr>`).join('\n')
 const day = SEQ.records[0].capturedAt.slice(0, 10)
-ok('Fig. 2: the whole run is on one day', SEQ.records.every((x) => x.capturedAt.startsWith(day)))
+ok('Fig. 3: the whole run is on one day', SEQ.records.every((x) => x.capturedAt.startsWith(day)))
 const runLine = `${day}, ${SEQ.records[0].capturedAt.slice(11, 16)} to ${SEQ.records[N - 1].capturedAt.slice(11, 16)} UTC`
 const samples = SEQ.records.filter((x) => x.kind === 'Sample').map((x) => x.sample)
 const histCaption = `${N} injections, one record each: ${sst.length} system-suitability injections of the reference standard (${SEQ.records[0].sample}), then ${samples.length} preparations of Product 200 mg tablets (${samples[0]} to ${samples[samples.length - 1]}).`
-ok('Fig. 2: the caption counts come from the data', SEQ.assay.includes('Product 200 mg tablets'))
+ok('Fig. 3: the caption counts come from the data', SEQ.assay.includes('Product 200 mg tablets'))
+
+// Overview section 2, the story: one scene, drawn eight times. Each step carries its own static figure in that step's
+// final state (the view without JavaScript, with reduced motion and on phones), holding only the parts that step needs;
+// wide screens show one sticky stage with every part instead. A part says in which states it shows (data-on), is dimmed
+// (data-dim), drawn (data-draw), grown (data-grow), wiped in (data-wipe) or failing (data-bad); site.css turns those into
+// styles per [data-s], and iqc.js only moves between them. data-d is a part's delay in ms on entering a state ("2:300"),
+// which the parts inside it share unless they name their own; data-fly is the part a value flies in from.
+// Each step plays in under a second (iqc.js adds 120 ms for what leaves to clear and 420 ms to arrive, or 520 to fly in,
+// so no delay here goes past 460): first the cause, then what it causes (step 2: the fields fly into the payload, which
+// is then hashed, its fingerprint resolving left to right).
+const STP = { titles: ['Captured', 'Fingerprinted', 'Signed', 'Linked', 'A change shows', 'A correction is appended', 'What comes next'] }
+STP.parts = { 1: ['src', 'card'], 2: ['card', 'fp'], 3: ['card', 'fp', 'sig'], 4: ['ch'], 5: ['card', 'fp', 'sig', 'ch'], 6: ['k6', 'cor', 'ch'], 7: ['net', 'ag', 'ch'] }
+// On a phone a figure waits in the state before its own and plays into it once it is in view. Fig. 2.6 waits in the
+// intact chain of step 4 instead: the change of step 5 was only supposed, so its play appends record 9 and never shows
+// a broken chain being mended.
+STP.from = [0, 1, 2, 3, 4, 4, 6]
+// Off screen, a step's figure is not rendered until it comes near (content-visibility: auto), which keeps the story out of
+// the Overview's first paint; until then its plate holds an estimated content height (inside its padding), one for
+// each band of widths: up to 359, 360 to 479, 480 to 699 and from 700 px (site.css picks one). Each is measured across
+// its band and set between the band's lowest and highest heights, so it is off by the same share either way, except
+// 360 to 479, which is exact at 390 px (to the layout's 1/64 px), the commonest phone width, so a figure rendered there
+// for the first time moves nothing;
+// site/tools/check.mjs fails if one is more than 25% off at 320, 390, 412, 600 or 768. The browser keeps the real height
+// once it has rendered it.
+STP.est = [[401, 390.578, 287, 225], [392, 382.219, 339, 339], [486, 427.109, 394, 394], [240, 216.266, 190, 181], [713, 667.344, 561, 551], [607, 549.984, 478, 431], [541, 531.422, 452, 435]]
+STP.ci = (n) => STP.est[n - 1].map((v, i) => `--c${i + 1}:${v}px`).join(';')
+const storyHTML = (() => {
+  const { k, R5, R6, value, reason, rx, hx, r9, h9, sig9, key9, digit } = STORY
+  // S: the states this figure can show (a static figure: its own and the one it waits in; the stage: all). A part, or a
+  // variant of one, that shows in none of them is left out of that figure.
+  let S = null
+  const shows = (on) => !on || on.split(' ').some((x) => S.has(+x))
+  const at = (o) => Object.entries(o).filter(([, v]) => v !== undefined && v !== null && v !== '').map(([a, v]) => ` data-${a}="${v}"`).join('')
+  const el = (tag, cls, o, inner) => (shows(o.on) ? `<${tag}${cls ? ` class="${cls}"` : ''}${at(o)}>${inner}</${tag}>` : '')
+  const s8 = (h) => `<span class="h8" title="${h}">${h.slice(0, 8)}…</span>`
+  const s16 = (h) => `<span title="${h}">${h.slice(0, 16)}…${h.slice(-16)}</span>`
+  const chg = (v) => `${esc(v.slice(0, digit))}<b>${esc(v[digit])}</b>${esc(v.slice(digit + 1))}`
+  const groups8 = (h, o, d0, step) => el('span', 'g4', o, h.match(/.{8}/g).map((g, i) => `<span class="g"${at({ on: o.on, d: `${o.on.split(' ')[0]}:${d0 + i * step}` })}>${g}</span>`).join(''))
+  // the seal: a ring drawn once the record is signed, a dot filled once it is linked (both: sealed), a cross while it fails
+  const seal = (o = {}) => `<svg class="sn${o.cls ? ` ${o.cls}` : ''}" viewBox="0 0 20 20" aria-hidden="true" focusable="false"${at({ bad: o.bad, d: o.d })}><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"${at({ draw: o.draw, d: o.dd })}/><circle class="dt" cx="10" cy="10" r="2.75"${at({ on: o.dot, d: o.dtd })}/>${o.x && shows(o.x) ? `<path class="xx" d="M7.2 7.2l5.6 5.6m0-5.6l-5.6 5.6"${at({ on: o.x })}/>` : ''}</svg>`
+  const F = { instrumentId: 'Instrument', sensorType: 'Measurement', value: 'Peak area', unit: 'Unit', capturedAt: 'Captured (UTC)' }
+  const C = CHROM
+  const part = {
+    src: () => `<div class="sc-src"${at({ on: '0 1 2 3 4 5 6', dim: '2 3 4 5 6' })}>
+<p class="chr-h"><span class="lab">Injection ${R6.ctx.inj}</span><span class="say sw">${el('span', '', { on: '0 1 2 3 4 5' }, 'illustrative trace')}${el('span', '', { on: '6' }, `illustrative · sealed in #${k}`)}</span></p>
+<div class="chr">
+<svg class="chr-g" viewBox="0 0 ${C.W} ${C.HH}" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path class="chr-pk" d="${C.fill}"${at({ on: '1 2 3 4 5 6', d: '1:160' })}/><path class="chr-dl" d="${C.drop}"${at({ on: '1 2 3 4 5 6', d: '1:160' })}/><path class="chr-tr" pathLength="1" d="${C.trace}"${at({ draw: '1 2 3 4 5 6' })}/></svg>
+<span class="chr-rt" style="left:${C.pct(C.rt)}%"${at({ on: '1 2 3 4 5 6', d: '1:140' })}>${R6.ctx.rt} min</span>
+<span class="chr-ar" style="left:${C.pct(C.rt + 3.4 * C.sig)}%"${at({ on: '1 2 3 4 5 6', d: '1:220', 'fly-at': 'area' })}>Area <b>${R6.f.value}</b> counts</span>
+</div>
+<p class="chr-x" aria-hidden="true">${C.ticks.map((t) => `<span style="left:${C.pct(t)}%">${t}</span>`).join('')}<span class="u">min</span></p>
+</div>`,
+    // record 6: five fields; signed in step 3, sealed once linked in step 4; its value changed in place in step 5 only
+    card: () => `<div class="sc-card"${at({ on: '1 2 3 4 5 6 7', dim: '7' })}>${el('span', 'fr', { on: '4 6 7', d: '4:240 5:340' }, '')}${el('span', 'fr fr--x', { on: '5', d: '5:340' }, '')}
+<div class="cd-h"><p class="lab">Record ${k} <span class="sub sw">${el('span', '', { on: '1 2' }, '· five fields')}${el('span', '', { on: '3', d: '3:300' }, '· signed')}${el('span', '', { on: '4 7', d: '4:240' }, '· sealed')}${el('span', '', { on: '5' }, '· changed after sealing')}${el('span', '', { on: '6' }, '· stays as sealed')}</span></p>${seal({ cls: 'sn--seal', draw: '3 4 5 6 7', dd: '3:300', dot: '4 6 7', dtd: '4:240', x: '5', bad: '5', d: '5:340' })}</div>
+<dl class="cd">${IQC.FIELDS.map((f) => `<div><dt>${F[f]}</dt><dd${f === 'value' ? '' : at({ 'fly-at': f })}>${f === 'value' ? `<span class="sw" data-fly-at="value">${el('span', '', { on: '1 2 3 4 6 7', fly: '1:area', d: '1:280' }, R6.f.value)}${el('span', 'vx', { on: '5', bad: '5' }, chg(value))}</span>` : f === 'capturedAt' ? tsHTML(R6.f[f]) : esc(R6.f[f])}</dd></div>`).join('')}</dl>
+</div>`,
+    // Fig. 2.6 on a phone has no card for record 6: one sealed line says it stays as it was
+    k6: () => `<div class="sc-k6"${at({ on: '6' })}>${seal()}<p class="lab">Record ${k} <span class="sub">· stays as sealed · peak area ${R6.f.value}</span></p></div>`,
+    fp: (sig) => `<div class="sc-fp"${at({ on: sig ? '2 3 4 5' : '2', dim: sig ? '4' : '' })}>
+<p class="lab"${at({ on: sig ? '2 3 4 5' : '2', d: '2:300' })}>Payload <span class="sub">· five fields · ${Buffer.byteLength(R6.p)} bytes</span></p>
+<p class="pay">${IQC.FIELDS.map((f, i) => `${i ? `<span class="br"${at({ on: '2 3 4 5', d: '2:440' })}>|</span>` : ''}<span class="tk"${at({ on: '2 3 4 5', fly: `2:${f}`, d: `2:${i * 20}` })}>${f === 'value' ? `<span class="sw">${el('span', '', { on: '2 3 4' }, R6.f.value)}${el('span', 'vx', { on: '5', bad: '5', d: '5:30' }, chg(value))}</span>` : esc(R6.f[f])}</span>`).join('')}</p>
+<div class="fpr">
+<p class="fpl"><span class="arr"${at({ on: '2 3 4 5', d: '2:360' })}>${ICON('down')}<span>SHA-256</span></span><span class="lab sw">${el('span', '', { on: '2 3 4', d: '2:370' }, `Fingerprint <var>r</var><sub>${k}</sub>`)}${el('span', '', { on: '5', bad: '5', d: '5:60' }, 'Fingerprint, recomputed')}</span>${el('span', 'fps', { on: '5', d: '5:250' }, `≠ stored <var>r</var><sub>${k}</sub> ${s8(R6.r)}`)}</p>
+<p class="fpw sw">${groups8(R6.r, { on: '2 3 4' }, 370, 12)}${groups8(rx, { on: '5', bad: '5' }, 80, 20)}</p>
+</div>${sig ? `
+<div class="sig"${at({ on: '3 4 5' })}>
+<p class="fpl"><span class="arr">${ICON('down')}<span>ECDSA P-256</span></span><span class="lab">Signature <span class="sub">· over r<sub>${k}</sub> · demo key ${keyId.slice(0, 8)}…</span></span></p>
+<p class="sg"><span class="hx-s"${at({ on: '3 4 5', d: '3:100' })}>${s16(R6.sig)}</span><span class="res sw">${el('span', 'ok', { on: '3 4', d: '3:250' }, `${ICON('ok')}<span>valid</span>`)}${el('span', 'bad', { on: '5', d: '5:300' }, `${ICON('x')}<span>fails</span>`)}</span></p>
+</div>` : ''}
+</div>`,
+    // record 9: the same change, made the right way. Its reason and "corrects #6" sit beside the seal, not in it
+    cor: () => `<div class="sc-cor"${at({ on: '6', d: '6:360' })}>
+<div class="cor-c"><span class="fr"${at({ on: '6', d: '6:420' })}></span>
+<div class="cd-h"><p class="lab">Record ${N + 1} <span class="sub">· other fields as in #${k} · one-time demo key ${key9.slice(0, 8)}…</span></p>${seal({ cls: 'sn--seal', draw: '6', dd: '6:420', dot: '6', dtd: '6:460' })}</div>
+<dl class="cd cd--9">
+<div><dt>Peak area</dt><dd>${value}</dd></div>
+<div><dt>Fingerprint r<sub>${N + 1}</sub></dt><dd>${s8(r9)}</dd></div>
+<div><dt>Link h<sub>${N + 1}</sub></dt><dd>${s8(h9)}</dd></div>
+<div><dt>Signature</dt><dd><span class="hx-s">${s16(sig9)}</span> <span class="ok">${ICON('ok')}valid</span></dd></div>
+</dl>
+</div>
+<p class="cd-n">Beside the seal: corrects #${k} · reason “${esc(reason)}”</p>
+</div>`,
+    net: () => `<div class="sc-net up"${at({ on: '7' })}>
+<p class="lab">Public network <span class="tag">Upcoming</span></p>
+<p class="net-h"${at({ on: '7', d: '7:200' })}><span class="sub">h<sub>${N}</sub></span> ${s8(anchor)}</p>
+<p class="say">Only this fingerprint would go on the network, never the values.</p>
+</div>`,
+    ag: () => `<div class="sc-ag up"${at({ on: '7' })}>
+<p class="lab">AI agent <span class="tag">Upcoming</span></p>
+<ol class="agc">${['Fingerprint', 'Signature', 'Link', 'Anchor'].map((w, i) => `<li${at({ on: '7', d: `7:${200 + i * 40}` })}>${ICON('open')}<span>${w}</span></li>`).join('')}</ol>
+<p class="say">It would check all four before it uses a result.</p>
+</div>`,
+    ch: (stage) => {
+      const nodes = Array.from({ length: N + 1 }, (_, i) => {
+        const n = i + 1
+        // dimmed until the record's own link matters (record 6 lights up when it is signed); 7 and 8 join in step 4
+        const o = n < k ? { dim: '0 1 2 3' } : n === k ? { dim: '0 1 2', d: '3:340' } : n <= N ? { on: '4 5 6 7', d: `4:${200 + (n - k - 1) * 60}` } : { on: '6 7', d: '6:360' }
+        const nd = n === k ? seal({ draw: '3 4 5 6 7', dd: '3:340', dot: '4 6 7', dtd: '4:240', x: '5', bad: '5', d: '5:380' }) : n === N + 1 ? seal({ draw: '6 7', dd: '6:400', dot: '6 7', dtd: '6:440' }) : seal()
+        // the link into record k+1 turns red and dashed in place while record k is changed (step 5)
+        const ln = n === 1 ? '' : `<span class="ln"${at({ on: n === k + 1 ? '4 6 7' : '', grow: n === N + 1 ? '6 7' : '4 5 6 7', d: n === N + 1 ? '6:360' : n > k ? `4:${200 + (n - k - 1) * 60}${n === k + 1 ? ' 5:380' : ''}` : `4:${(n - 2) * 40}` })}></span>${n === k + 1 ? el('span', 'lnx', { on: '5', d: '5:340' }, '') : ''}`
+        return el('li', `cn${n === k ? ' cn--k' : ''}${n === N + 1 ? ' cn--9' : ''}`, o, `${ln}${nd}<span class="nn">${n}</span>`)
+      }).join('')
+      return `<div class="sc-ch">
+<div class="ch">
+<div class="ch-top"><p class="lab"${at({ dim: '0 1 2 3' })}>Sequence ${SEQ.sequence}</p>${el('span', 'hl hl--a', { on: '4 5', d: '4:120' }, `h<sub>${k - 1}</sub>`)}${el('span', 'hl hl--b', { on: '4 5', d: '4:240 5:400', bad: '5' }, `h<sub>${k}</sub>${el('span', 'ne', { on: '5' }, ' ≠')}`)}${el('span', 'arc', { on: '6', wipe: '6', d: '6:440' }, `<span>corrects #${k}</span>`)}</div>
+<ol class="ch-n" aria-label="${stage ? `Records of ${SEQ.sequence}` : `Records 1 to ${S.has(6) || S.has(7) ? N + 1 : N}`}">${nodes}</ol>
+<div class="ch-b" aria-hidden="true">${el('span', 'ch-br', { on: '4 5 6 7', d: '4:320' }, '')}${el('span', 'ch-br9', { on: '6 7', d: '6:440' }, '')}</div>
+<p class="ch-t sw">${el('span', '', { on: '4', d: '4:340' }, `simulated anchor: h<sub>${N}</sub> ${s8(anchor)}`)}${el('span', 'bad', { on: '5', d: '5:450 6:0' }, `replayed head ${s8(STORY.fhx)} ≠ simulated anchor ${s8(anchor)}`)}${el('span', '', { on: '6', d: '6:460' }, `simulated anchor matches records 1 to ${N} · record ${N + 1} not yet anchored`)}${el('span', '', { on: '7', d: '7:100' }, `h<sub>${N}</sub> ${s8(anchor)}, the head of records 1 to ${N}`)}</p>
+</div>
+<div class="ch-i sw">${el('p', '', { on: '4', d: '4:380' }, `h<sub>${k}</sub> = SHA-256(h<sub>${k - 1}</sub> ${s8(R5.h)} + r<sub>${k}</sub> ${s8(R6.r)} + “${k}”) = ${s8(R6.h)}`)}${el('p', 'bad', { on: '5', d: '5:420 6:0' }, `link ${k}→${k + 1} broken: recomputed h<sub>${k}</sub> ${s8(hx)} ≠ ${s8(R6.h)} · records ${k + 1} and ${N} pass`)}${el('p', '', { on: '6', d: '6:460' }, `h<sub>${N + 1}</sub> = SHA-256(h<sub>${N}</sub> + r<sub>${N + 1}</sub> + “${N + 1}”) = ${s8(h9)} · all ${N + 1} records pass`)}${el('p', '', { on: '7', d: '7:140' }, `Record ${N + 1} would go in the next batch.`)}</div>
+</div>`
+    },
+  }
+  // a static figure holds its step's parts; the payload block carries the signature from step 3 on. It is named by its
+  // caption, which sits outside the plate, so it is named even before the plate is first rendered
+  const fig = (n) => {
+    S = new Set([STP.from[n - 1], n])
+    const ps = STP.parts[n]
+    const body = ps.filter((p) => p !== 'sig').map((p) => (p === 'fp' ? part.fp(ps.includes('sig')) : part[p]())).join('\n')
+    return `<figure class="fig sf" data-fig="${n}" aria-labelledby="sf${n}-c">
+<div class="plate sc" data-sc data-s="${n}" data-from="${STP.from[n - 1]}" style="${STP.ci(n)}">
+<div class="plate-h"><p class="fig-no">Fig. 2.${n}</p><p class="plate-t">${STP.titles[n - 1]}</p><p class="sim">Simulated · demo data</p></div>
+<div class="sc-b">
+${body}
+</div>
+</div>
+<figcaption class="figcap" id="sf${n}-c"><b>Fig. 2.${n}</b> · ${STP.caps[n - 1]}</figcaption>
+</figure>`
+  }
+  // the stage shows what the static figures and their captions already say (they stay in the accessibility tree on
+  // wide screens, with only their plates hidden), so it is hidden from assistive technology
+  const stage = () => {
+    S = new Set([0, 1, 2, 3, 4, 5, 6, 7])
+    return `<figure class="fig sf sf--stage" data-stage aria-hidden="true">
+<div class="plate sc sc--stage" data-sc data-s="1">
+<div class="plate-h"><p class="fig-no">Fig. 2.<span class="sw">${STP.titles.map((_, i) => `<span${at({ on: i ? String(i + 1) : '0 1' })}>${i + 1}</span>`).join('')}</span></p><p class="plate-t sw">${STP.titles.map((t, i) => `<span${at({ on: i ? String(i + 1) : '0 1' })}>${t}</span>`).join('')}</p><p class="sim">Simulated · demo data</p></div>
+<div class="sc-b">
+${['src', 'net', 'card', 'fp', 'cor', 'ag'].map((p) => (p === 'fp' ? part.fp(true) : part[p]())).join('\n')}
+${part.ch(true)}
+</div>
+</div>
+</figure>`
+  }
+  return { fig, stage }
+})()
+// the figure captions: the text equivalent of each static figure, every number from the data
+STP.caps = [
+  `Injection ${STORY.R6.ctx.inj} on ${STORY.R6.f.instrumentId}, an illustrative trace. The shaded peak at ${STORY.R6.ctx.rt} min has an area of ${STORY.R6.f.value} counts, the value of record ${STORY.k}; with four more fields it forms the record.`,
+  `The five fields joined by bars, ${Buffer.byteLength(STORY.R6.p)} bytes, and their SHA-256 fingerprint r<sub>${STORY.k}</sub>, shown in full.`,
+  `The fingerprint signed with the demo key ${keyId.slice(0, 8)}…: the signature is valid and the record’s ring is drawn; its dot fills once the record is linked.`,
+  `Records 1 to ${N}, each linked to the one before. Record ${STORY.k} takes in h<sub>${STORY.k - 1}</sub> and passes h<sub>${STORY.k}</sub> on to record ${STORY.k + 1}; signed and linked, it is sealed, and its dot fills.`,
+  `The peak area changed to ${STORY.value}: the recomputed fingerprint differs, the signature fails, link ${STORY.k}→${STORY.k + 1} breaks and the replayed head no longer matches the simulated anchor. Records ${STORY.k + 1} and ${N} pass their own checks.`,
+  `Record ${STORY.k} stays as sealed. Record ${N + 1} holds the new value with its own fingerprint, a link from h<sub>${N}</sub> and a signature with a one-time demo key; its reason and “corrects #${STORY.k}” sit beside the seal. All ${N + 1} records pass, and record ${N + 1} is not yet anchored.`,
+  `Upcoming: h<sub>${N}</sub>, the head of records 1 to ${N}, written to a public network, and an AI agent that checks fingerprint, signature, link and anchor. Nothing here touches a network.`,
+]
+// the values the figures of steps 5 and 6 shorten, in full, in the step text (and so on every view and in print)
+STP.vals = (rows) => `<details class="vals"><summary>Values in full</summary>
+<dl>${rows.map(([t, v]) => `<div><dt>${t}</dt><dd><code>${v}</code></dd></div>`).join('')}</dl>
+</details>`
+STP.vals5 = STP.vals([
+  [`Recomputed fingerprint of record ${STORY.k}`, STORY.rx],
+  [`Recomputed link h<sub>${STORY.k}</sub>`, STORY.hx],
+  [`Link h<sub>${STORY.k}</sub> that record ${STORY.k + 1} carries`, STORY.R6.h],
+  ['Replayed head', STORY.fhx],
+  [`Simulated anchor, h<sub>${N}</sub>`, anchor],
+])
+STP.vals6 = STP.vals([
+  [`Fingerprint r<sub>${N + 1}</sub> (the same five fields as the change, so the same fingerprint)`, STORY.r9],
+  [`Link h<sub>${N + 1}</sub>`, STORY.h9],
+  [`Signature of record ${N + 1}`, STORY.sig9],
+  ['One-time public key (uncompressed point)', STORY.pub9],
+  ['Its key id (first 16 bytes of SHA-256 of its SPKI)', STORY.key9],
+])
 
 const base = {
   revision: site.revision, updated: site.updated, status: esc(C.status), footerHTML, historyRows, nowItems,
@@ -464,6 +766,10 @@ const base = {
   histRows, runLine, histCaption: esc(histCaption),
   agentJSON: esc(IQC.agentJSON({ x: S, of: N, seq: SEQ.sequence, keyId, publicKey: PUB, anchor, anchorN: AN })), seqJSON,
   prepaint, cssv, jsv,
+  // Overview section 2, the story
+  ...Object.fromEntries(STP.titles.map((_, i) => [`storyFig${i + 1}`, storyHTML.fig(i + 1)])), storyStage: storyHTML.stage(),
+  st_value: STORY.value, st_n9: String(N + 1), st_reason: esc(STORY.reason), st_key9: STORY.key9.slice(0, 8), st_vals5: STP.vals5, st_vals6: STP.vals6, st_rule: RULE,
+  demoSig1: 'Demo signature. In the alpha, one server key signs imported rows; per-analyst signatures are upcoming.',
 }
 function render(tpl, ctx, depth = 0) {
   if (depth > 6) throw new Error('template: partials nested too deep')
@@ -584,7 +890,7 @@ const textOf = (html, glue) => (glue ? html.replace(/<template[\s\S]*?<\/templat
   .replace(/\s(?:aria-label|title|alt|placeholder|content)="([^"]*)"/g, ' $1 ')
   .replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&shy;/g, '').replace(/\s+/g, ' ')
 const count = (t, re) => (t.match(re) || []).length
-const known = new Set([ZERO, anchor, PUB, ...recs.flatMap((x) => [x.r, x.h, x.sig])])
+const known = new Set([ZERO, anchor, PUB, ...recs.flatMap((x) => [x.r, x.h, x.sig]), STORY.rx, STORY.hx, STORY.fhx, STORY.r9, STORY.h9, STORY.sig9, STORY.pub9])
 const jsText = jsStrings(js).join('\n')
 for (const re of BANNED) ok(`assets/iqc.js strings: no banned wording ${re}`, !re.test(scrub(jsText)))
 ok('assets/iqc.js strings: no "tokeniz", no "intelligence explosion", no "Filecoin Calibration"', !/tokeni[sz]|intelligence explosion|Filecoin Calibration/i.test(jsText))
@@ -853,9 +1159,73 @@ ok('index and check: demo-signature line present', T['index.html'].includes(C.de
 ok('index: says tamper-evident', /tamper-evident/.test(T['index.html']))
 ok('index: Fig. 1 shows the full fingerprint, previous link, link and signature head', ov.includes(g(S.r)) && ov.includes(g(S.prev)) && ov.includes(g(S.h)) && ov.includes(S.sig.slice(0, 16)))
 ok('index: Fig. 1 carries the signature and public key it checks', ov.includes(`data-sig="${S.sig}"`) && ov.includes(`data-pub="${PUB}"`))
-ok('index: Fig. 1 and Fig. 2 in order, then today, where it fits, what would go public, agents, the document set', (() => { const t = T['index.html']; const at = ['Fig. 1', 'Fig. 2', 'Today, upcoming and not claimed', 'Where it fits', 'What would go public', 'Agentic workflows', 'The document set'].map((s) => t.indexOf(s)); return at.every((v, i) => v > 0 && (i === 0 || v > at[i - 1])) })())
-ok('index: Fig. 2 rows are the same sequence (value, capture time, fingerprint per record)', (() => { const tb = ov.match(/<table class="hist"[\s\S]*?<\/table>/)[0]; return recs.every((x) => tb.includes(`<th scope="row" role="rowheader" class="c-n">${x.n}</th>`) && tb.includes(`<time datetime="${x.f.capturedAt}">`) && tb.includes(`data-v>${x.f.value}</td>`) && tb.includes(`<code>${x.r.slice(0, 8)}</code>`)) && count(tb, /<tr role="row" data-n=/g) === N })())
-ok('index: Fig. 2 links to Check a record, read-only', /data-history[\s\S]*?href="check\.html#verifier"/.test(ov) && !/<input|<button/.test(ov.match(/<figure class="fig fig--hist"[\s\S]*?<\/figure>/)[0]))
+ok('index: Fig. 1, the story (Fig. 2.1 to 2.7), Fig. 3 record history, then today, where it fits (Fig. 4), what would go public, agents, the document set', (() => { const t = T['index.html']; const at = ['Fig. 1', 'How a result becomes a sealed record', ...STP.titles.map((_, i) => `Fig. 2.${i + 1}`), 'Record history', 'Fig. 3', 'Today, upcoming and not claimed', 'Where it fits', 'Fig. 4', 'What would go public', 'Agentic workflows', 'The document set'].map((s) => t.indexOf(s)); return at.every((v, i) => v > 0 && (i === 0 || v > at[i - 1])) && !/Fig\. 5/.test(t) })())
+eq('index: sections numbered 1 to 8, the story second', [...ov.matchAll(/<h2 id="s(\d)-h"><span class="no">(\d)<\/span>/g)].map((m) => m[1] + m[2]).join(' '), '11 22 33 44 55 66 77 88')
+ok('index: the story is section 2, directly after Scope', /<h2 id="s1-h"><span class="no">1<\/span>Scope<\/h2>[\s\S]*?<\/section>\s*<\/div>\s*(?:<figure class="fig"[\s\S]*?<\/figure>\s*<\/div>\s*)?<section class="sec story" id="story" aria-labelledby="s2-h" data-story>\s*<h2 id="s2-h"><span class="no">2<\/span>How a result becomes a sealed record<\/h2>/.test(ov))
+{
+  // the story (Overview section 2): seven steps in order, each with its static figure in its own state; one stage
+  const sec2 = (ov.match(/<section class="sec story"[\s\S]*?<\/section>/) || [''])[0].replace(/<span class="nw">([^<]*)<\/span>/g, '$1'), st = (k) => (sec2.match(new RegExp(`<li class="step" id="st-${k}" data-step="${k}">[\\s\\S]*?</li>\\n(?=<li class="step"|</ol>)`)) || [''])[0]
+  const steps = [...sec2.matchAll(/<li class="step" id="st-(\d)" data-step="(\d)">[\s\S]*?<h3><span class="no">2\.(\d)<\/span><a class="step-a" href="#st-(\d)">([\s\S]*?)<\/a><\/h3>/g)]
+  eq('story: seven steps, numbered 2.1 to 2.7, in order', steps.map((m) => m.slice(1, 5).join('')).join(' '), STP.titles.map((_, i) => String(i + 1).repeat(4)).join(' '))
+  eq('story: the step titles, in order', steps.map((m) => m[5].replace(/<span class="tag">Upcoming<\/span>/, '').replace(/<[^>]+>/g, '').trim()).join(' | '), STP.titles.join(' | '))
+  ok('story: the last step is labelled Upcoming', /<a class="step-a" href="#st-7"><span>What comes next <span class="tag">Upcoming<\/span><\/span><\/a>/.test(sec2))
+  const sentences = (h) => textOf(h, true).trim().split(/(?<=[.!?])\s+(?=[A-Z“])/).length
+  for (let k = 1; k <= STP.titles.length; k++) {
+    const li = st(k), f = (li.match(/<figure class="fig sf" data-fig="(\d)"[\s\S]*?<\/figure>/) || ['', ''])
+    ok(`story, step ${k}: its slice holds exactly one step and one static figure`, count(li, /<li class="step"/g) === 1 && count(li, /<figure class="fig sf"/g) === 1)
+    ok(`story, step ${k}: its static figure (Fig. 2.${k}) follows its text, in state ${k}, waits in state ${STP.from[k - 1]}, with its parts, height estimates and a caption`, f[1] === String(k) && li.indexOf('<div class="step-t">') < li.indexOf('<figure') && f[0].includes(`<div class="plate sc" data-sc data-s="${k}" data-from="${STP.from[k - 1]}" style="${STP.ci(k)}">`) && f[0].includes(`<b>Fig. 2.${k}</b> · ${STP.caps[k - 1]}</figcaption>`) && STP.parts[k].every((p) => f[0].includes(`class="sc-${p}`) || (p === 'sig' && f[0].includes('<div class="sig"'))))
+    // named by its caption, outside the plate (an off-screen plate is not rendered, so a name inside it would be lost)
+    ok(`story, step ${k}: the figure is named by its caption, not by a title inside the plate`, f[0].startsWith(`<figure class="fig sf" data-fig="${k}" aria-labelledby="sf${k}-c">`) && f[0].includes(`</div>\n<figcaption class="figcap" id="sf${k}-c">`) && count(f[0], /aria-labelledby/g) === 1)
+    // 1 to 3 plain sentences: the lead, plus any note (step 3's demo-signature line, step 6's key)
+    const lead = (li.match(/<div class="step-t">\s*<p>([\s\S]*?)<\/p>/) || ['', ''])[1], notes = [...li.matchAll(/<p class="note">([\s\S]*?)<\/p>/g)].map((m) => m[1])
+    const n = sentences(lead) + notes.reduce((a, x) => a + sentences(x), 0)
+    ok(`story, step ${k}: 1 to 3 plain sentences, notes included (${n})`, n >= 1 && n <= 3 && notes.length <= 1)
+  }
+  const stg = (sec2.match(/<figure class="fig sf sf--stage"[\s\S]*?<\/figure>/) || [''])[0]
+  ok('story: one stage, starting at step 1, with every part, hidden from assistive technology (the static figures and their captions carry it)', count(sec2, /data-stage/g) === 1 && /<figure class="fig sf sf--stage" data-stage aria-hidden="true">\n<div class="plate sc sc--stage" data-sc data-s="1">/.test(sec2) && ['src', 'net', 'card', 'fp', 'cor', 'ag', 'ch'].every((p) => stg.includes(`class="sc-${p}`)) && !/<a |<button|tabindex/.test(stg))
+  ok('story: every state named in a data attribute is 0 to 7', [...sec2.matchAll(/data-(?:on|dim|draw|grow|wipe|bad|from)="([^"]*)"/g)].every((m) => /^[0-7]( [0-7])*$/.test(m[1])) && [...sec2.matchAll(/data-d="([^"]*)"/g)].every((m) => /^[0-7]:\d{1,4}( [0-7]:\d{1,4})*$/.test(m[1])) && [...sec2.matchAll(/data-fly="([^"]*)"/g)].every((m) => /^[0-7]:[\w]+$/.test(m[1]) && sec2.includes(`data-fly-at="${m[1].slice(2)}"`)))
+  // each step plays in under a second: iqc.js gives what leaves 140 ms, then 120 ms before anything arrives, 420 ms to
+  // arrive and 520 to fly in, so no delay passes 460 ms and no flying value's passes 320
+  ok('story: iqc.js plays a step on these durations', src.includes('const T = { out: 140, clear: 120, in: 420, ret: 240, fly: 520, back: 300, jump: 300 }'))
+  const ds = [...sec2.matchAll(/data-d="([^"]*)"/g)].flatMap((m) => m[1].split(' ').map((x) => +x.split(':')[1]))
+  ok(`story: every delay is at most 460 ms (${Math.max(...ds)})`, ds.length > 50 && Math.max(...ds) <= 460)
+  ok('story: every flying value leaves within 320 ms', [...sec2.matchAll(/<[^>]*data-fly="(\d):\w+"[^>]*>/g)].every((m) => { const d = /data-d="([^"]*)"/.exec(m[0]); const x = d && new RegExp(`(?:^| )${m[1]}:(\\d+)`).exec(d[1]); return !x || +x[1] <= 320 }))
+  // step 5 in order of cause and effect: the value, the payload, the recomputed fingerprint, its mismatch, the signature,
+  // the record's seal, the link into record 7, h6, the line under the chain and the replayed head
+  const d5 = (re) => { const m = re.exec(stg); return m ? +m[1] : NaN }
+  const order5 = [/<span class="vx" data-on="5" data-bad="5" data-d="5:(\d+)">/, /<span data-on="5" data-bad="5" data-d="5:(\d+)">Fingerprint, recomputed/, new RegExp(`<span class="g" data-on="5" data-d="5:(\\d+)">${STORY.rx.slice(0, 8)}`), /<span class="fps" data-on="5" data-d="5:(\d+)">/, /<span class="bad" data-on="5" data-d="5:(\d+)"><svg/, /<span class="fr fr--x" data-on="5" data-d="5:(\d+)">/, /<span class="lnx" data-on="5" data-d="5:(\d+)">/, /data-d="4:\d+ 5:(\d+)" data-bad="5">h<sub>6/, /<p class="bad" data-on="5" data-d="5:(\d+) 6:0">link/, /<span class="bad" data-on="5" data-d="5:(\d+) 6:0">replayed head/].map(d5)
+  ok(`story, step 5: the cause before what it causes (${order5.join(' ')})`, order5.every((v, i) => Number.isFinite(v) && (i === 0 || v >= order5[i - 1])))
+  // step 6 in two beats: what step 5 only supposed goes back at once; record 9 is appended after it, never at the same time
+  const d6 = [/<div class="sc-cor" data-on="6" data-d="6:(\d+)">/, /<li class="cn cn--9" data-on="6 7" data-d="6:(\d+)">/, /<span class="arc" data-on="6" data-wipe="6" data-d="6:(\d+)">/, /<span class="ch-br9" data-on="6 7" data-d="6:(\d+)">/].map(d5)
+  ok(`story, step 6: record 9 is appended after the change is undone (${d6.join(' ')})`, d6.every((v) => v >= 360) && !/data-bad="5"[^>]*data-d="[^"]*6:/.test(stg) && !/data-d="[^"]*6:[^"]*"[^>]*data-bad="5"/.test(stg))
+  // the record card says what is true in each state: five fields, signed, sealed once linked, changed, kept as sealed
+  ok('story: the record card’s label follows the state', ['<span data-on="1 2">· five fields</span>', '<span data-on="3" data-d="3:300">· signed</span>', '<span data-on="4 7" data-d="4:240">· sealed</span>', '<span data-on="5">· changed after sealing</span>', '<span data-on="6">· stays as sealed</span>'].every((w) => stg.includes(w)))
+  ok('story: the seal’s ring is drawn when the record is signed (3) and its dot fills when it is linked (4); kept drawn, failing, while it is changed (5)', count(stg, /data-bad="5" data-d="5:\d+"><circle class="rg" cx="10" cy="10" r="6.5"\/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1" data-draw="3 4 5 6 7" data-d="3:\d+"\/><circle class="dt" cx="10" cy="10" r="2.75" data-on="4 6 7" data-d="4:\d+"\/>/g) === 2)
+  // every number: each shortened hex is the start of the full value its title carries, which was computed above
+  const shorts = [...sec2.matchAll(/<span class="h8" title="([0-9a-f]{64})">([0-9a-f]{8})…<\/span>/g)]
+  ok(`story: every shortened hex is its title’s first 8 characters, and the title a computed value (${shorts.length})`, shorts.length > 20 && shorts.every((m) => m[1].startsWith(m[2]) && known.has(m[1])) && !/[0-9a-f]{8}…/.test(textOf(sec2.replace(/<span class="h8" title="[0-9a-f]{64}">[0-9a-f]{8}…<\/span>/g, ''), true).replace(/[0-9a-f]{16}…[0-9a-f]{16}/g, '').replace(/key id [0-9A-F]{8}…|key [0-9A-F]{8}…/g, '')))
+  const longs = [...sec2.matchAll(/(?<![0-9A-Za-z])[0-9a-f]{64,}(?![0-9A-Za-z])/g)].map((m) => m[0])
+  ok(`story: every hex value shown in full, or in a title, is a computed one (${longs.length})`, longs.length > 20 && longs.every((h) => known.has(h)))
+  const sig16 = [...sec2.matchAll(/<span title="([0-9a-f]{128})">([0-9a-f]{16})…([0-9a-f]{16})<\/span>/g)]
+  ok(`story: every shortened signature is its title’s ends, and the title a computed signature (${sig16.length})`, sig16.length >= 4 && sig16.every((m) => known.has(m[1]) && m[1].startsWith(m[2]) && m[1].endsWith(m[3])) && sig16.some((m) => m[1] === STORY.sig9))
+  const fps = [...sec2.matchAll(/<span class="g4"[^>]*>((?:<span class="g"[^>]*>[0-9a-f]{8}<\/span>){8})<\/span>/g)].map((m) => m[1].replace(/<[^>]+>/g, ''))
+  ok(`story: every fingerprint shown in full is r6 (steps 2, 3, 5) or the changed r6 (step 5), in full (${fps.length})`, fps.length === 6 && fps.filter((h) => h === STORY.R6.r).length === 4 && fps.filter((h) => h === STORY.rx).length === 2)
+  const has = (name, ...w) => ok(`story: ${name}`, w.every((x) => sec2.includes(x)))
+  has('step 1: injection 06, HPLC-02, RT 4.82 min, the area as the value, the trace said to be illustrative, the CDS spelled out', `Injection ${STORY.R6.ctx.inj} on ${STORY.R6.f.instrumentId}.`, `peak at ${STORY.R6.ctx.rt} min`, `Area <b>${STORY.R6.f.value}</b> counts`, 'illustrative trace', `${STORY.R6.ctx.rt} min</span>`, 'The chromatography data system (CDS) integrates')
+  has('step 2: the exact payload, 48 bytes, the one-character line', IQC.payloadHTML(STORY.R6.p), `one line of ${Buffer.byteLength(STORY.R6.p)} bytes`, `${Buffer.byteLength(STORY.R6.p)} bytes</span>`, 'One changed character gives a completely different fingerprint.', `Fingerprint <var>r</var><sub>${STORY.k}</sub>`)
+  has('step 3: the demo key id and the demo-signature line, the signing step drawn as a step', `key id ${keyId.slice(0, 8)}…`, `demo key ${keyId.slice(0, 8)}…`, '<p class="note">Demo signature. In the alpha, one server key signs imported rows; per-analyst signatures are upcoming.</p>', `<span title="${STORY.R6.sig}">${STORY.R6.sig.slice(0, 16)}…${STORY.R6.sig.slice(-16)}</span>`, '<span>ECDSA P-256</span></span><span class="lab">Signature')
+  has('step 4: h6 from h5, r6 and "6", carried by record 7', `h<sub>${STORY.k}</sub> = SHA-256(h<sub>${STORY.k - 1}</sub> <span class="h8" title="${STORY.R5.h}">${STORY.R5.h.slice(0, 8)}…</span> + r<sub>${STORY.k}</sub> <span class="h8" title="${STORY.R6.r}">${STORY.R6.r.slice(0, 8)}…</span> + “${STORY.k}”) = <span class="h8" title="${STORY.R6.h}">${STORY.R6.h.slice(0, 8)}…</span>`, `record ${STORY.k + 1} carries h<sub>${STORY.k}</sub> forward as its previous link`, `<span class="hl hl--b" data-on="4 5" data-d="4:`, `simulated anchor: h<sub>${N}</sub> <span class="h8" title="${anchor}">`)
+  has('step 5: the change, the rule in Check a record’s words, the broken link with both values, the replayed head against the simulated anchor, every value in full', `from ${STORY.R6.f.value} to ${STORY.value}`, `So ${RULE}.`, `link ${STORY.k}→${STORY.k + 1} broken: recomputed h<sub>${STORY.k}</sub> <span class="h8" title="${STORY.hx}">${STORY.hx.slice(0, 8)}…</span> ≠ <span class="h8" title="${STORY.R6.h}">`, `replayed head <span class="h8" title="${STORY.fhx}">${STORY.fhx.slice(0, 8)}…</span> ≠ simulated anchor <span class="h8" title="${anchor}">`, `≠ stored <var>r</var><sub>${STORY.k}</sub> <span class="h8" title="${STORY.R6.r}">`, `<code>${STORY.rx}</code>`, `<code>${STORY.hx}</code>`, `<code>${STORY.fhx}</code>`, `<code>${anchor}</code>`, '<summary>Values in full</summary>')
+  ok('story: the changed digit is the one marked', sec2.includes(`${STORY.value.slice(0, STORY.digit)}<b>${STORY.value[STORY.digit]}</b>${STORY.value.slice(STORY.digit + 1)}`) && STORY.value[STORY.digit] !== STORY.R6.f.value[STORY.digit])
+  has('step 6: record 9, its reason and corrects #6 beside the seal, its fingerprint, link from h8, signature and one-time key in full, record 6 kept, not yet anchored', `corrects #${STORY.k}`, esc(STORY.reason), `<span class="h8" title="${STORY.r9}">`, `<span class="h8" title="${STORY.h9}">`, `one-time demo key ${STORY.key9.slice(0, 8)}…`, `key id ${STORY.key9.slice(0, 8)}…`, 'as Check a record signs a correction with a one-time demo key made in your browser', `simulated anchor matches records 1 to ${N} · record ${N + 1} not yet anchored`, `h<sub>${N + 1}</sub>, is not yet anchored`, 'sit beside the seal, not inside it', `Beside the seal: corrects #${STORY.k} · reason “${esc(STORY.reason)}”`, `<code>${STORY.r9}</code>`, `<code>${STORY.h9}</code>`, `<code>${STORY.sig9}</code>`, `<code>${STORY.pub9}</code>`, `<code>${STORY.key9}</code>`, `Record ${STORY.k} <span class="sub">· stays as sealed · peak area ${STORY.R6.f.value}</span>`, `illustrative · sealed in #${STORY.k}`)
+  ok('story: record 9’s reason agrees with step 1 (a reintegration in the CDS, imported again), not with a change of source', /reintegrated in the CDS/.test(STORY.reason) && !/corrected to the CDS result/.test(sec2))
+  has('step 7: h8 to a public network, only a fingerprint, the agent’s four checks, all Upcoming, and the two links', `<span class="h8" title="${anchor}">`, 'Only this fingerprint would go on the network, never the values.', 'Public network <span class="tag">Upcoming</span>', 'AI agent <span class="tag">Upcoming</span>', 'href="check.html#verifier"', 'href="roadmap.html#planned"', '<span>Check it yourself</span>')
+  ok('story: nothing upcoming flies in as if it were computed (the network fingerprint fades in)', !/data-fly="7:/.test(sec2))
+  ok('story: the inline script and iqc.js use the same stage thresholds (960 px wide, and 600 px tall from 1180 px wide, else 700)', prepaint.includes('innerWidth>=960&&h>=(innerWidth>=1180?600:700)') && src.includes('w >= 960 && h >= (w >= 1180 ? 600 : 700)'))
+  ok('story: no animation in the CSS; motion is iqc.js’s finite WAAPI only', !/animation|transition/.test((css.match(/\.sc\{[\s\S]*?(?=\.flow\{)/) || [''])[0]))
+}
+ok('index: Fig. 3 rows are the same sequence (value, capture time, fingerprint per record)', (() => { const tb = ov.match(/<table class="hist"[\s\S]*?<\/table>/)[0]; return recs.every((x) => tb.includes(`<th scope="row" role="rowheader" class="c-n">${x.n}</th>`) && tb.includes(`<time datetime="${x.f.capturedAt}">`) && tb.includes(`data-v>${x.f.value}</td>`) && tb.includes(`<code>${x.r.slice(0, 8)}</code>`)) && count(tb, /<tr role="row" data-n=/g) === N })())
+ok('index: Fig. 3 links to Check a record, read-only', /data-history[\s\S]*?href="check\.html#verifier"/.test(ov) && !/<input|<button/.test(ov.match(/<figure class="fig fig--hist"[\s\S]*?<\/figure>/)[0]))
 ok('index: the founder’s line once, where the agent roadmap is introduced', count(T['index.html'], /intelligence explosion/g) === 1 && /<section class="sec sec--side" id="agents"[\s\S]*?<blockquote class="pull"><p>In an intelligence explosion, human review can’t keep up with every result; records have to verify themselves\.<\/p>/.test(ov))
 ok('index: where it fits names instrument, CDS, LIMS, QA review and the CSV export', ['Instrument', 'CDS', 'LIMS', 'QA review', 'CSV export'].every((w) => T['index.html'].includes(w)))
 ok('index and check: embedded data matches the computed chain', ['index.html', 'check.html'].every((f) => { const d = JSON.parse(pagesHTML[f].match(/<script type="application\/json" id="iqc-seq">([\s\S]*?)<\/script>/)[1]); return d.anchor === anchor && d.pub === PUB && d.records.every((x, i) => x.r === recs[i].r && x.h === recs[i].h && x.prev === recs[i].prev && x.sig === recs[i].sig) }))
@@ -896,7 +1266,8 @@ ok('sealed: corrections are appended with a reason', T['sealed.html'].includes('
 ok('regulatory: every framework, expectation by expectation, with approach, today and not covered', ['21 CFR Part 11', 'EU GMP Annex 11', 'ISO/IEC 17025:2017', 'ALCOA+', 'GMP records', 'TNI'].every((w) => T['regulatory.html'].includes(w)) && (() => { const cl = pagesHTML['regulatory.html'].match(/<article class="cl"[\s\S]*?<\/article>/g) || []; return cl.length >= 20 && cl.every((a) => /<dt>(Approach)<\/dt>/.test(a) && /<dt>Today<\/dt>/.test(a) && /<dt>Not covered<\/dt>/.test(a)) })())
 ok('regulatory: every Upcoming tag on the map follows one of the roadmap items, linked to it', (() => { const rg = pagesHTML['regulatory.html'].replace(/<p class="note">[\s\S]*?<\/p>/, ''); const tags = count(rg, /<span class="tag">Upcoming<\/span>/g); const linked = count(rg, /<a href="roadmap\.html#(?:agents|privacy|anchoring|filecoin|signatures|position|review|verification|metadata|registry)">[^<]+<\/a>[^<]{0,80}<span class="tag">Upcoming<\/span>/g); return tags > 0 && tags === linked })())
 ok('404: short, with links home', T['404.html'].includes('Page not found') && /href="index\.html"/.test(pagesHTML['404.html']))
-ok('pages: "Simulated · demo data" label on every plate', T['index.html'].split('Simulated · demo data').length === 3 && T['check.html'].includes('Simulated · demo data'))
+// Fig. 1, Fig. 3, the seven story figures and the stage
+ok('pages: "Simulated · demo data" label on every plate', T['index.html'].split('Simulated · demo data').length === 3 + STP.titles.length + 1 && count(ov, /<div class="plate[ "]/g) === 2 + STP.titles.length + 1 && T['check.html'].includes('Simulated · demo data'))
 ok('words: every key the scripts read exists in the page templates', (() => {
   const keys = (f) => new Set([...pagesHTML[f].matchAll(/data-k="([\w.]+)"/g)].map((m) => m[1]))
   const ck2 = keys('check.html'), ov2 = keys('index.html')
@@ -923,6 +1294,11 @@ for (const [file, html] of Object.entries(pagesHTML)) {
   ok(`budget: ${file} first load ${(total / 1024).toFixed(1)} KB gz <= 160 KB`, total <= 160 * 1024)
 }
 ok(`budget: eager JS ${(gz(Buffer.from(js)) / 1024).toFixed(1)} KB gz <= 22 KB`, gz(Buffer.from(js)) <= 22 * 1024)
+// the Overview story (Draft 5) may add at most 8 KB gz of eager JS to Draft 4's bundle (13464 bytes gz, main 4e793fb), and
+// keeps the Overview's first load at or under 130 KB gz
+ok(`budget: the story adds ${((gz(Buffer.from(js)) - 13464) / 1024).toFixed(1)} KB gz of eager JS (<= 8 KB)`, gz(Buffer.from(js)) - 13464 <= 8 * 1024)
+ok(`budget: index.html first load ${(sizes['index.html'].total / 1024).toFixed(1)} KB gz <= 130 KB`, sizes['index.html'].total <= 130 * 1024)
+ok('budget: the story’s figures are inline SVG and HTML only (no <img>, no <picture>, no external URL)', !/<(?:img|picture|iframe|video|canvas)\b/.test((ov.match(/<section class="sec story"[\s\S]*?<\/section>/) || [''])[0]) && !/https?:/.test((ov.match(/<section class="sec story"[\s\S]*?<\/section>/) || [''])[0]))
 ok(`budget: fonts ${(fontsUsed / 1024).toFixed(1)} KB <= 100 KB`, fontsUsed <= 100 * 1024)
 
 // ------------------------------------------------------------------------------------------------ 9. write, or compare with what is committed
