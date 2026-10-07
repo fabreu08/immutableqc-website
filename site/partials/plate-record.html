@@ -18,7 +18,7 @@
 <dl class="kv kv--ctx">
 <dt>Injection</dt><dd>{{c_inj}}</dd>
 <dt>Sample</dt><dd>{{c_sample}}, {{c_prep}}</dd>
-<dt>RT</dt><dd>{{c_rt}} min</dd>
+<dt>Retention time</dt><dd>{{c_rt}} min</dd>
 </dl>
 </div>
 </div>
@@ -36,7 +36,7 @@
 <h3 class="lab p-raw-h">Raw data <span class="sub">· the values the checks above recompute</span></h3>
 <div class="p-blk">
 <p class="lab">Payload <span class="sub">· instrumentId|sensorType|value|unit|capturedAt</span></p>
-<p class="hx hx-s p-pl">{{payload}}</p>
+<p class="hx hx-s p-pl">{{payloadW}}</p>
 </div>
 <div class="p-blk">
 <p class="lab">Fingerprint <var>r</var><sub>{{sn}}</sub></p>
@@ -50,11 +50,11 @@
 </dl>
 </div>
 <div class="p-blk">
-<p class="lab">Signature <span class="sub">· ECDSA P-256 over r<sub>{{sn}}</sub> · <a class="kid" href="check.html#method">demo key {{keyIdShort}}…</a></span></p>
+<p class="lab">Signature <span class="sub">· ECDSA P-256 over r<sub>{{sn}}</sub> · demo key {{keyIdShort}}… · <a class="kid" href="check.html#method">public key in Method</a></span></p>
 <p class="hx hx-s hx-sig">{{sigHead}} … {{sigTail}}</p>
 </div>
 </div>
 <template id="iqc-plate-words"><i data-k="fp.ok">Match</i><i data-k="fp.bad">No match</i><i data-k="sig.ok">Valid</i><i data-k="sig.bad">Fails</i><i data-k="sig.na">Not checked</i><i data-k="link.ok">Intact</i><i data-k="link.bad">Broken</i><i data-k="st">Checked in your browser: {pass} of {n} pass · {ms} ms</i><i data-k="st.nosig">Checked in your browser: {pass} of 2 pass. The signature could not be checked here (it needs an https:// page).</i></template>
 </div>
-<figcaption class="figcap"><b>Fig. 1</b> · Record {{sn}} of the synthetic sequence {{seq}}, as an auditor reads it. <span class="k">Basis</span> Same five fields, order and link rule as the alpha app’s HPLC import; SHA-256 is FIPS 180-4. {{demoSig}}</figcaption>
+<figcaption class="figcap"><b>Fig. 1</b> · Record {{sn}} of the synthetic sequence {{seq}}, as an auditor reads it. <span class="k">Basis</span> Same five fields, order and link rule as the alpha app’s HPLC import, where the instrument field is the app’s internal instrument number; SHA-256 is FIPS 180-4. {{demoSig}}</figcaption>
 </figure>

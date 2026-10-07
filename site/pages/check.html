@@ -1,6 +1,6 @@
 <h1 class="h1-doc">Check a record</h1>
 <section class="sec" id="verifier" aria-labelledby="s1-h">
-<h2 id="s1-h"><span class="no">1</span>Verifier</h2>
+<h2 id="s1-h"><span class="no">1</span>Change a value and watch the checks</h2>
 <div class="body">
 <p class="lead">Change any sealed field of the eight synthetic records. As you type, your browser recomputes the fingerprint, checks the signature and the link into the next record, and replays the whole history against the anchored fingerprint.</p>
 </div>
@@ -10,9 +10,9 @@
 </div>
 </section>
 <section class="sec sec--side" id="agent" aria-labelledby="s2-h">
-<h2 id="s2-h"><span class="no">2</span><span>What an AI agent would receive <span class="tag">Roadmap</span></span></h2>
+<h2 id="s2-h"><span class="no">2</span><span>What an AI agent would receive <span class="tag">Upcoming</span></span></h2>
 <div class="body">
-<p>Planned: experiment data that AI agents can verify before they use it. This is not an API today; it shows the record selected in the verifier, as stored, the way an agent would receive it.</p>
+<p>Upcoming: experiment data that AI agents could check before they use it. This is not an API; it shows the record selected above, as stored, the way an agent would receive it.</p>
 <pre class="json" tabindex="0" role="group" aria-label="The selected record as JSON (scrolls sideways)"><code data-agent>{{agentJSON}}</code></pre>
 <p>An agent would recompute the fingerprint from the fields, check the signature with the public key, recompute the link from the previous link the record stores, and replay the history to compare the anchor. Only if all four pass would it treat the record as unchanged since sealing; in use, it would take the public key and the anchor from outside the lab’s system.</p>
 <p class="note" data-agent-now><span class="nojs">Checked at build: fingerprint, signature, link and anchor pass for this record.</span></p>
@@ -22,13 +22,13 @@
 <h2 id="s3-h"><span class="no">3</span>Method</h2>
 <div class="body">
 <ul class="items">
-<li><span class="k">Payload</span><span><code>instrumentId|sensorType|value|unit|capturedAt</code>, UTF-8, no spaces around the bars: the alpha app’s canonical payload for an HPLC peak area. The alpha records peak area with the unit “counts”.</span></li>
-<li><span class="k">Fingerprint</span><span>r<sub>n</sub> = SHA-256 of the payload (FIPS 180-4), as lowercase hex. Check: the recomputed r<sub>n</sub> against the stored one.</span></li>
+<li><span class="k">Payload</span><span><code>instrumentId|sensorType|value|unit|capturedAt</code>, UTF-8, no spaces around the bars: the alpha app’s canonical payload for an HPLC peak area, where the instrument field is the app’s internal instrument number. The alpha records peak area with the unit “counts”. No field may hold the bar or a control character; a record whose fields do fails its fingerprint check.</span></li>
+<li><span class="k">Fingerprint</span><span>r<sub>n</sub> = SHA-256 of the payload’s UTF-8 bytes as they are, with no Unicode normalization (FIPS 180-4), as lowercase hex. Check: the recomputed r<sub>n</sub> against the stored one.</span></li>
 <li><span class="k">Link</span><span>h<sub>n</sub> = SHA-256 of the text h<sub>n−1</sub> + r<sub>n</sub> + n (lowercase hex, then the decimal position), starting from 64 zeros. Check: SHA-256 of the previous link the record stores, its recomputed fingerprint and n, against the link it stores, which the next record carries. A changed value breaks only the link into the next record.</span></li>
-<li><span class="k">Signature</span><span>ECDSA P-256 with SHA-256 over the 32 bytes of r<sub>n</sub> (FIPS 186-5), IEEE P1363 encoding, checked against the recomputed fingerprint. Records 1 to {{AN}} were signed at build time with a demo key whose private half was then discarded. Demo key id <code>{{keyId}}</code> (first 16 bytes of SHA-256 of its SPKI). Public key, uncompressed point:</span><code class="p">{{pub}}</code></li>
+<li><span class="k">Signature</span><span>ECDSA P-256 with SHA-256 over the 32 bytes of r<sub>n</sub> (FIPS 186-5), IEEE P1363 encoding in its low-S form only (the high-S twin of a signature is refused), checked against the recomputed fingerprint. Where your browser checks signatures, a record with no signature fails. Records 1 to {{AN}} were signed at build time with a demo key whose private half was then discarded. Demo key id <code>{{keyId}}</code> (first 16 bytes of SHA-256 of its SPKI). Public key, uncompressed point:</span><code class="p">{{pub}}</code></li>
 <li><span class="k">Anchor</span><span>The whole history replayed from 64 zeros over the recomputed fingerprints; the replayed link of record {{AN}} against the anchored fingerprint stored on this page (simulated, no network call). A correction moves the head on; it stays “not yet anchored” until a new anchor.</span></li>
-<li><span class="k">Pass</span><span>A record passes when its fingerprint and link check and its signature does not fail. Without the browser’s own checking tools (an http:// page), fingerprints and links are recomputed with a SHA-256 built into the page and signatures are not checked.</span></li>
-<li><span class="k">Limits</span><span>On this page the public key and the anchor ship with the records, so they show the method, not independent evidence: whoever can rewrite the page can replace the key, the signatures and the anchor together. In use, both must come from outside the lab’s system: a key published elsewhere, a fingerprint on a public network.</span></li>
+<li><span class="k">Pass</span><span>A record passes when its fingerprint and link match and its signature does not fail. Without the browser’s own checking tools (an http:// page), fingerprints and links are recomputed with a SHA-256 built into the page and signatures are not checked, so no record is called unchanged.</span></li>
+<li><span class="k">Limits</span><span>On this page the public key and the anchor come with the records, so they show the method, not independent evidence. Whoever can rewrite the page can replace the key, the signatures and the anchor together. In use, both would come from outside the lab’s system: a key published elsewhere, and a fingerprint anchored on a public network, which is upcoming. Signatures cover each record’s own fingerprint, not its position, so a removed record with every later link rewritten passes every check but the anchor. A correction’s one-time key travels with the correction, so its signature shows only that the correction has not changed since it was signed.</span></li>
 </ul>
 <p class="note"><span class="k">Basis</span>The same payload and link rule as the alpha app’s HPLC import; the same link rule as the record figure on joseqc.com.</p>
 </div>

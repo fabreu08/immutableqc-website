@@ -3,15 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-vVWkO3b5VXlCLGeY9QthrvF9jwC+bpxFUfEH42A4Ohc='; style-src 'self'; style-src-attr 'unsafe-inline'; font-src 'self'; img-src 'self'; connect-src 'none'; base-uri 'self'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
 <title>Alpha console (demo) · Immutable QC</title>
 <meta name="description" content="A demo lab that runs only in your browser, on synthetic data: add a result, correct it with a reason, check every fingerprint, link and signature, and anchor the head (simulated). No network calls.">
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#F4F6F5">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
-<link rel="stylesheet" href="console.css">
-<script>document.documentElement.classList.add('js')</script>
-<script src="console.js" defer onerror="document.documentElement.classList.remove('js')"></script>
+<link rel="preload" href="../fonts/archivo-c-115-620.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="../fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="console.css?v=f2cbf5c3">
+<script>(function(d){var c=d.documentElement.classList;c.add('js');addEventListener('error',function(e){var t=e.target;if(t&&t.tagName==='SCRIPT')c.remove('js')},true)})(document)</script>
+<script src="console.js?v=74193529" defer></script>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><symbol id="i-mark" viewBox="0 0 32 32"><circle cx="16" cy="16" r="16" style="fill:var(--plate-0)"/><circle cx="16" cy="16" r="9.5" style="fill:none;stroke:var(--ok);stroke-width:3"/><circle cx="16" cy="16" r="3.75" style="fill:var(--ok)"/></symbol><symbol id="i-ok" viewBox="0 0 16 16"><path d="M2.5 8.5l3.5 3.5 7.5-8" fill="none" stroke="currentColor" stroke-width="2"/></symbol><symbol id="i-x" viewBox="0 0 16 16"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9" fill="none" stroke="currentColor" stroke-width="2"/></symbol><symbol id="i-dash" viewBox="0 0 16 16"><path d="M3.5 8h9" fill="none" stroke="currentColor" stroke-width="2"/></symbol></svg>
@@ -30,7 +34,7 @@
 <p class="status">Independent project · Open alpha · Synthetic demo data · No customers yet · Runs only in your browser</p>
 <div class="intro-g">
 <p class="lead">A demo lab that runs in this page. Add a result or correct one with a reason, and every fingerprint, link and signature is checked again. Then simulate an edit or a rewrite and see what still shows it.</p>
-<p class="disc"><span class="k">Demo only</span> Everything here is synthetic and stays in this tab; the page makes no network calls. Records are signed with a demo key made in this browser: it identifies the browser, not a person. Anchoring is simulated. Not validated. No electronic signatures yet. Please do not enter real results.</p>
+<p class="disc"><span class="k">Demo only</span> Everything here is synthetic, and the page makes no network calls. Records stay in this tab; the demo key that signs them is kept in this browser, so later visits reuse it until you reset the demo lab. It identifies the browser, not a person. Anchoring is simulated. Not validated. No electronic signatures yet. Please do not enter real results.</p>
 </div>
 </div>
 
@@ -56,16 +60,16 @@
 <section class="view" id="instruments" aria-labelledby="instruments-h">
 <h3 id="instruments-h" tabindex="-1">Instruments</h3>
 <div data-v="instruments">
-<p class="help">Four demo instruments: <span class="nw">HPLC-02</span> (HPLC), <span class="nw">LCMS-01</span> (<span class="nw">LC-MS</span>), <span class="nw">PH-01</span> (bench pH meter) and <span class="nw">TEMP-01</span> (room temperature monitor). No instrument is connected: capture adapters are planned, and here results are typed in or simulated.</p>
+<p class="help">Four demo instruments: <span class="nw">HPLC-02</span> (HPLC), <span class="nw">LCMS-01</span> (<span class="nw">LC-MS</span>), <span class="nw">PH-01</span> (bench pH meter) and <span class="nw">TEMP-01</span> (room temperature monitor). No instrument is connected; here results are typed in or simulated.</p>
 </div>
 </section>
 
 <section class="view" id="anchor" aria-labelledby="anchor-h">
 <h3 id="anchor-h" tabindex="-1">Anchor</h3>
 <div class="prose">
-<p>An anchor keeps the head of the record history, the last link, somewhere outside the lab at a known time. The head depends on every record before it, so if anyone later rewrites the history, even signing it again, a replay from the start of record no longer reaches the anchored fingerprint.</p>
-<p>In the alpha, a batch fingerprint can be written by hand to a public test network, and there is no shared registry yet. This console makes no network calls: <b>Anchor (simulated)</b> keeps the head in this tab. Records 1 to 8 start anchored, with the same fingerprint as the site’s demo sequence.</p>
-<p class="note"><span class="k">Privacy</span> Only a fingerprint would go on a network, never the values. A plain <span class="nw">SHA-256</span> of a few guessable fields can in principle be matched by trying likely values, so salted commitments and, later, zero-knowledge proofs are on the <a href="../roadmap.html">roadmap</a>.</p>
+<p>Anchoring is an upcoming feature. It will keep the head of the record history (the link of the newest record) outside the lab, at a known time. The head depends on every record before it, so if anyone later rewrites the history, even signing it again, a replay from 64 zeros no longer reaches the anchored fingerprint.</p>
+<p>Nothing here writes to a network, and there is no shared registry yet. This console makes no network calls: <b>Anchor (simulated)</b> keeps the head in this tab. Records 1 to 8 start anchored, with the same fingerprint as the site’s demo sequence.</p>
+<p class="note"><span class="k">Privacy</span> Only a fingerprint will go on a network, never the values (<a href="../roadmap.html#privacy">IQC-RD-01 §2.2, Privacy on public networks</a>).</p>
 </div>
 <div data-v="anchor"></div>
 </section>
@@ -74,14 +78,14 @@
 <h3 id="method-h" tabindex="-1">Method</h3>
 <div class="prose">
 <ol class="meth">
-<li><h4>What is sealed</h4><p>Each record seals five fields, in this order, joined by a vertical bar and encoded as UTF-8:</p><code class="pl">instrumentId|sensorType|value|unit|capturedAt</code><p>For example <code>HPLC-02|hplc|1508811|counts|2026-09-14T08:47:50Z</code>. This is the alpha app’s payload for an imported HPLC peak, and the same construction as on the site. Injection, sample and retention time are shown as context and are not sealed in the alpha; sealing sample and method metadata is on the roadmap.</p></li>
+<li><h4>What is sealed</h4><p>Each record seals five fields, in this order, joined by a vertical bar and encoded as UTF-8, with no Unicode normalization. No field may hold the bar or a control character; a record whose fields do fails its fingerprint check.</p><code class="pl">instrumentId|sensorType|value|unit|capturedAt</code><p>For example <code>HPLC-02|hplc|1508811|counts|2026-09-14T08:47:50Z</code>. This is the alpha app’s payload for an imported HPLC peak, where the instrument field is the app’s internal instrument number, and the same construction as on the site. Injection, sample and retention time are shown as context and are not sealed in the alpha; sealing sample and method metadata is upcoming.</p></li>
 <li><h4>Fingerprint</h4><p>r<sub>n</sub> = <span class="nw">SHA-256</span> of the payload, as 64 lowercase hex characters. One changed character gives a completely different fingerprint.</p></li>
-<li><h4>Link</h4><p>h<sub>n</sub> = <span class="nw">SHA-256</span> of the text h<sub>n−1</sub> (hex), then r<sub>n</sub> (hex), then n (decimal). The start of record, h<sub>0</sub>, is 64 zeros. The head is the last link; it depends on every record before it.</p></li>
-<li><h4>Signature</h4><p>ECDSA P-256 with <span class="nw">SHA-256</span> over the 32 bytes of r<sub>n</sub>, stored as IEEE P1363 hex. The key pair is generated in this browser. Its private half cannot be exported; the pair is kept in this browser’s storage for this site, so later visits reuse it. The key ID is the first 32 hex characters of the <span class="nw">SHA-256</span> of the public key (SPKI), as on the site.</p>
+<li><h4>Link</h4><p>h<sub>n</sub> = <span class="nw">SHA-256</span> of the text h<sub>n−1</sub> (hex), then r<sub>n</sub> (hex), then n (decimal). The first record links to 64 zeros, h<sub>0</sub>. The head is the link of the newest record; it depends on every record before it.</p></li>
+<li><h4>Signature</h4><p>ECDSA P-256 with <span class="nw">SHA-256</span> over the 32 bytes of r<sub>n</sub>, stored as IEEE P1363 hex in its low-S form; the high-S twin of a signature is refused. The key pair is generated in this browser. Its private half cannot be exported; the pair is kept in this browser’s storage for this site, so later visits reuse it, and Reset deletes it and makes a new one. Bundles exported from this browser share a key ID until then. The key ID is the first 32 hex characters of the <span class="nw">SHA-256</span> of the public key (SPKI), as on the site. Every record here is signed, so a record with no signature fails.</p>
 <dl class="kv kv-m"><dt>Key ID</dt><dd data-key-id>made when the script runs</dd><dt>Public key (raw, hex)</dt><dd data-key-pub>made when the script runs</dd><dt>Kept</dt><dd data-key-kept>made when the script runs</dd></dl>
-<p>It shows which browser signed, not who. Demo signatures: in the alpha, one server key signs imported rows; per-analyst signatures are on the roadmap.</p></li>
-<li><h4>Checks</h4><p>After every change, your browser recomputes each record’s fingerprint from its fields, checks its signature over that fingerprint, and recomputes the link from the record before it. A changed value fails its own fingerprint and signature and breaks only the link into the next record; later records still pass their own checks. The anchor check replays the whole history from 64 zeros and compares the link at the anchored record with the anchored fingerprint.</p></li>
-<li><h4>Corrections</h4><p>A correction is a new record with the corrected value, sealed with the time it is appended. The original stays as sealed. The reason and the “corrects #k” reference sit beside the seal, not inside it, because the payload has five fields; the site’s pages do the same. The alpha app has no corrections yet.</p></li>
+<p>It shows which browser signed, not who. Demo signatures: in the alpha, one server key signs imported rows; per-analyst signatures are upcoming.</p></li>
+<li><h4>Checks</h4><p>After every change, your browser recomputes each record’s fingerprint from its fields and checks its signature over that fingerprint. It recomputes each record’s link from the previous link the record stores, and compares it with the link the record stores, which the next record carries. A changed value fails its own fingerprint, signature and link, so only the link into the next record breaks; later records still pass their own checks. The anchor check replays the whole history from 64 zeros and compares the link at the anchored record with the anchored fingerprint. These are the rules of the site’s Check a record page.</p></li>
+<li><h4>Corrections</h4><p>A correction is a new record with the corrected value and the original capture time. The original stays as sealed. The reason, the “correction of #k” reference and the time the correction was made sit beside the seal, not inside it, because the payload has five fields; the site’s pages do the same. The reason needs at least three words. The alpha app has no corrections yet.</p></li>
 <li><h4>What a pass shows</h4><p>A pass shows the record is unchanged since it was sealed in this tab. It does not show that the result was right, who entered it, or that the instrument was in calibration; that stays with your method, system suitability and second-person review.</p></li>
 </ol>
 <p class="tools" data-jsonly hidden><button class="btn" id="b-export" type="button" data-act="export">Export demo bundle (JSON)</button><button class="btn" id="b-reset-m" type="button" data-act="reset">Reset the demo lab</button></p>
@@ -92,8 +96,8 @@
 </main>
 <footer class="foot">
 <div class="wrap">
-<p class="ind">Immutable QC is an independent project built on the founder’s own time. It is not affiliated with or endorsed by any employer. Founder: José A. Fernández Abreu · <a href="https://joseqc.com">joseqc.com</a></p>
-<p class="meta"><a href="../index.html">Overview</a><a href="../sealed.html">How a record is sealed</a><a href="../check.html">Check a record</a><a href="../about.html">About</a><span class="m-fonts">Fonts, SIL Open Font License: <a href="../fonts/OFL-IBM-Plex-Sans.txt">IBM Plex Sans</a> <a href="../fonts/OFL-IBM-Plex-Mono.txt">IBM Plex Mono</a> <a href="../fonts/OFL-Archivo.txt">Archivo</a></span></p>
+<p class="ind">Immutable QC is an independent project built on the founder’s own time. It is not affiliated with or endorsed by any employer. Founder: <span class="nw">José A. Fernández Abreu</span> · <a href="https://joseqc.com">joseqc.com</a></p>
+<p class="meta"><a href="../index.html">Overview</a><a href="../sealed.html">How a record is sealed</a><a href="../check.html">Check a record</a><a href="../regulatory.html">Regulatory map</a><a href="../roadmap.html">Roadmap</a><a href="../about.html">About</a><span class="m-fonts">Fonts, SIL Open Font License: <a href="../fonts/OFL-IBM-Plex-Sans.txt">IBM Plex Sans</a> <a href="../fonts/OFL-IBM-Plex-Mono.txt">IBM Plex Mono</a> <a href="../fonts/OFL-Archivo.txt">Archivo</a></span></p>
 </div>
 </footer>
 </body>

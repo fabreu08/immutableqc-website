@@ -1,7 +1,7 @@
 {
  "_note": "Written by node site/build.mjs --og. source = SHA-256 of the og and icon templates as rendered, plus the font hashes.",
- "source": "24948f49234472fed6315dc87c2e40555fdffe578cbd5d9c78f0c474d6ab6c79",
- "og": "e3ab6ac975992a7ae612b437a1771c058fc39ce45235d295ad0e38dcdd6d9661",
+ "source": "c34c723a06bf38b5f9a8b8a6b16c77dce80144d3bd7ba7a027048015e42eb4c2",
+ "og": "aad0c4d7ff37d18f3dd0db1cf92b94de8c41525b2d25b92a6b530b9d29f4dfd1",
  "icon": "988754a3e38af3e06d9c60957f1e9f907327b57073b6a0f937c7032dcbc675e3",
  "renderer": "Chromium 141.0.7390.37"
 }

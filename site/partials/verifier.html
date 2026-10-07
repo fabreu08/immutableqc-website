@@ -13,18 +13,18 @@
 <h3><span class="n">1.2</span>Sealed fields of record <span data-seln>{{sel}}</span></h3>
 <p class="ctx"><span data-ctx>{{ctxLine}}</span> <span class="sub">(context, not sealed in the alpha)</span></p>
 {{fields}}
-<p class="payload">Payload · UTF-8 · <span data-bytes>{{pbytes}}</span> bytes<code data-payload>{{payload}}</code></p>
+<p class="payload">Payload · UTF-8 · <span data-bytes>{{pbytes}}</span> bytes<code data-payload>{{payloadW}}</code></p>
 <div class="v-now">
 <p class="v-now-l"><span class="k">Record <span data-seln>{{sel}}</span> now</span>{{nowItems}}</p>
-<p class="v-jump"><a href="#v-checks"><span>Details</span><svg class="i" aria-hidden="true"><use href="#i-down"/></svg></a><a href="#v-hist"><span>Record history</span><svg class="i" aria-hidden="true"><use href="#i-down"/></svg></a></p>
+<p class="v-jump"><a href="#v-checks"><span>What the check finds</span><svg class="i" aria-hidden="true"><use href="#i-down"/></svg></a><a href="#v-hist"><span>Record history</span><svg class="i" aria-hidden="true"><use href="#i-down"/></svg></a></p>
 </div>
 </div>
 </div>
 <div class="v-acts">
 <h3><span class="n">1.3</span>Rewrite or correct</h3>
 <p class="hint" data-hint>Change a sealed field above, then choose what to do with the change.</p>
-<div class="act"><button type="button" class="btn btn-x" data-act="rewrite" disabled>Rewrite history to hide it</button><p>Store the changed record’s new fingerprint and recompute every link from it on, so the links are consistent again.</p></div>
-<div class="act"><label for="reason">Reason for the correction (required)</label><input id="reason" name="reason" type="text" autocomplete="off" spellcheck="false" placeholder="e.g. peak reintegrated, see review note" readonly aria-describedby="reason-err"><p class="err" id="reason-err" hidden>A correction needs a reason.</p><button type="button" class="btn btn-ok" data-act="correct" disabled>Append a correction instead</button><p data-help-correct>Keep the original as sealed and add a new record with your reason, signed with a one-time demo key made in your browser.</p></div>
+<div class="act"><p class="err" id="fields-err" hidden>A sealed field cannot hold the separator | or a control character.</p><button type="button" class="btn btn-x" data-act="rewrite" disabled>Rewrite history to hide it</button><p>Store the changed record’s new fingerprint and recompute every link from it on, so the links are consistent again.</p></div>
+<div class="act"><label for="reason">Reason for the correction (required)</label><input id="reason" name="reason" type="text" autocomplete="off" spellcheck="false" placeholder="e.g. dilution factor entered as 10, should be 20 (notebook p. 14)" readonly aria-describedby="reason-err"><p class="err" id="reason-err" hidden>A correction needs a reason of at least three words.</p><button type="button" class="btn btn-ok" data-act="correct" disabled>Append a correction instead</button><p data-help-correct>Keep the original as sealed and add a new record with your reason, signed with a one-time demo key made in your browser. A reintegration belongs in the CDS: correct it there and import the result again.</p></div>
 <div class="reset"><button type="button" class="btn" data-act="reset" disabled>Reset</button><p class="out" data-out></p></div>
 </div>
 <div class="v-checks" id="v-checks">
@@ -33,7 +33,7 @@
 <div data-ck="fp" data-s="build"><dt>Fingerprint r<sub data-seln>{{sel}}</sub><span class="sub2">SHA-256 of the payload</span></dt><dd class="res"><svg class="i" aria-hidden="true"><use href="#i-ok"/></svg><span>Match</span></dd><dd><div class="cmp"><span class="k">recomputed</span><span class="hx" data-hx="rp">{{rpG}}</span><span class="k">stored</span><span class="hx" data-hx="r">{{rG}}</span></div><p class="d">Recomputed from the five fields: the same as the stored fingerprint.</p></dd></div>
 <div data-ck="sig" data-s="build"><dt>Signature<span class="sub2">ECDSA P-256 over the fingerprint</span></dt><dd class="res"><svg class="i" aria-hidden="true"><use href="#i-ok"/></svg><span>Valid</span></dd><dd><p class="d">Checked at build with demo key {{keyIdShort}}… (public key under Method).</p></dd></div>
 <div data-ck="link" data-s="build"><dt>Link h<sub data-seln>{{sel}}</sub><span class="sub2">SHA-256 of the stored h<sub data-selp>{{selp}}</sub> + r<sub data-seln>{{sel}}</sub> + position</span></dt><dd class="res"><svg class="i" aria-hidden="true"><use href="#i-ok"/></svg><span>Intact</span></dd><dd><div class="cmp"><span class="k">recomputed</span><span class="hx" data-hx="hp">{{hpG}}</span><span class="k">stored</span><span class="hx" data-hx="h">{{hG}}</span></div><p class="d">The same as the stored link, which record {{selnext}} carries as its previous link.</p></dd></div>
-<div data-ck="anc" data-s="build"><dt>Anchor<span class="sub2">whole history replayed from 64 zeros: link of record {{AN}} vs the anchored fingerprint</span></dt><dd class="res"><svg class="i" aria-hidden="true"><use href="#i-ok"/></svg><span>Matches</span></dd><dd><div class="cmp"><span class="k">replayed h<sub>{{AN}}</sub></span><span class="hx" data-hx="ap">{{ancG}}</span><span class="k">anchored</span><span class="hx" data-hx="anc">{{ancG}}</span></div><p class="d">Anchored fingerprint (simulated, no network call): the link of record {{AN}} when the batch was anchored.</p></dd></div>
+<div data-ck="anc" data-s="build"><dt>Anchor<span class="sub2">whole history replayed from 64 zeros: link of record {{AN}} vs the anchored fingerprint</span></dt><dd class="res"><svg class="i" aria-hidden="true"><use href="#i-ok"/></svg><span>Matches</span></dd><dd><div class="cmp"><span class="k">replayed h<sub>{{AN}}</sub></span><span class="hx" data-hx="ap">{{ancG}}</span><span class="k">anchored</span><span class="hx" data-hx="anc">{{ancG}}</span></div><p class="d">Anchored fingerprint (simulated, no network call): the link of record {{AN}}, stored on this page in place of a real anchor.</p></dd></div>
 </dl>
 </div>
 <div class="v-recipe">

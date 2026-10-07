@@ -40,8 +40,9 @@ function sha256(str) {
 // replays the record history with this code. The page gets a classic deferred script (the build wraps this file and
 // the pure-JS SHA-256 in one function scope, minus the export keywords), so it also runs from file:// and in sandboxed
 // previews, where module scripts need CORS.
-//   1. Contents menu (narrow screens)  2. Overview, Fig. 1: three checks on one record  3. Overview, Fig. 2: the record
-//   history, sealed in once  4. Check a record: the verifier
+//   1. Overview, Fig. 1: three checks on one record  2. Overview, Fig. 2: the record history, sealed in once
+//   3. Check a record: the verifier. The Contents menu lives in the inline script in <head> (site/build.mjs, prepaint), so
+//   it works before this deferred script runs, and even if it never loads.
 // Every hash is recomputed here from values on the page (WebCrypto; ./sha256.js only where crypto.subtle is missing).
 // Every status word comes from the verifier's own results, in words read from <template> HTML on the page.
 // Motion: one-shot WAAPI on load, on first view or on input, only under html.motion. No rAF, no repeating timers.
@@ -53,6 +54,15 @@ const hex = (b) => Array.from(new Uint8Array(b), (x) => x.toString(16).padStart(
 const bytes = (h) => { const b = new Uint8Array(h.length >> 1); for (let i = 0; i < b.length; i++) b[i] = parseInt(h.substr(2 * i, 2), 16); return b }
 const groups = (h) => h.match(/.{1,8}/g).map((g) => `<span>${g}</span>`).join('<wbr>')
 const shq = (s) => `'${String(s).replace(/'/g, `'\\''`)}'`
+// A sealed field may not hold the separator "|" or a control character: the payload joins the five fields with "|"
+// (the alpha app's canonical payload), so such a field would let two different records give the same bytes.
+const SEP = /[|\u0000-\u001f\u007f]/
+const sepIn = (f) => FIELDS.some((k) => SEP.test(String(f[k])))
+// ECDSA signatures are 64 bytes, r then s, with s in the lower half of the P-256 group order (low-S). Any signature also
+// has a high-S twin that verifies; accepting only low-S gives each signature one valid form.
+const P256_N = BigInt('0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551')
+const sigForm = (h) => typeof h === 'string' && /^[0-9a-f]{128}$/.test(h) && BigInt('0x' + h.slice(64)) * BigInt(2) < P256_N && BigInt('0x' + h.slice(64)) > BigInt(0)
+const lowS = (h) => { const s = BigInt('0x' + h.slice(64)); return s * BigInt(2) < P256_N ? h : h.slice(0, 64) + (P256_N - s).toString(16).padStart(64, '0') }
 const enc = new TextEncoder()
 const ECDSA = { name: 'ECDSA', hash: 'SHA-256' }
 
@@ -70,41 +80,55 @@ async function engine(pure) {
 //               the link INTO the next record; the later records still pass their own checks.
 //  anchor       the whole history replayed from 64 zeros over the recomputed fingerprints (fh); the caller compares
 //               the replayed link of the anchored record with the anchored fingerprint.
-// sig(rec, recomputedR) resolves true, false, or null (not checked). A record passes when its fingerprint and its
-// link check and its signature does not fail.
+//  separator    a field that holds "|" or a control character fails the fingerprint check (sep), whatever the hash.
+// sig(rec, recomputedR) resolves true, false, or null (not checked). Where this browser can check signatures (E.S),
+// every record on these pages is signed, so a record with no signature, or one not in its single low-S form, fails
+// (nosig) without asking sig(). A record passes when its fingerprint and its link match and its signature does not fail.
 async function replay(E, recs, sig) {
   const rp = await Promise.all(recs.map((x) => E.sha(payload(x.f))))
   const hl = await Promise.all(recs.map((x, i) => E.sha(x.prev + rp[i] + String(i + 1))))
   const rows = []
   let full = ZERO
   for (let i = 0; i < recs.length; i++) {
-    const x = recs[i], nx = recs[i + 1]
+    const x = recs[i], nx = recs[i + 1], sep = sepIn(x.f)
     full = await E.sha(full + rp[i] + String(i + 1))
     const link = hl[i] === x.h && (!nx || nx.prev === x.h) && (i > 0 || x.prev === ZERO)
-    rows.push({ x, n: i + 1, rp: rp[i], pp: x.prev, hp: hl[i], fh: full, fp: rp[i] === x.r, link })
+    rows.push({ x, n: i + 1, rp: rp[i], pp: x.prev, hp: hl[i], fh: full, fp: rp[i] === x.r && !sep, sep, link })
   }
-  const s = await Promise.all(rows.map((o) => sig(o.x, o.rp)))
-  rows.forEach((o, i) => { o.sig = s[i]; o.ok = o.fp && o.link && o.sig !== false })
+  const s = await Promise.all(rows.map((o) => (E.S && !sigForm(o.x.sig) ? false : sig(o.x, o.rp))))
+  rows.forEach((o, i) => { o.nosig = !!E.S && !o.x.sig; o.sig = s[i]; o.ok = o.fp && o.link && o.sig !== false })
   return rows
 }
 
 // The shell recipe for one record, exactly as printed: [kind, text] with kind c (comment), p (command), o (output).
+// Only values that are 64 lowercase hex characters go into the link command, quoted: a stored previous link is read from
+// a store that may have been edited, and it must never run as shell code.
+const HEX64 = /^[0-9a-f]{64}$/
 function recipe({ n, f, pp, rp, hp, r, h, last }) {
+  const linkOk = HEX64.test(pp) && HEX64.test(rp)
   return [
-    ['c', `# record ${n}: fingerprint of the five sealed fields (macOS: shasum -a 256)`],
+    ['c', `# record ${n}: fingerprint of the five sealed fields, in a UTF-8 terminal (macOS: shasum -a 256)`],
     ['p', `printf '%s' ${shq(payload(f))} | sha256sum`],
     ['o', `${rp}  -`],
-    ['c', rp === r ? '# same as the stored fingerprint' : `# differs from the stored fingerprint ${r.slice(0, 8)}…`],
-    ['c', n === 1 ? '# link: 64 zeros (start of record), then the fingerprint, then 1' : `# link: the previous link stored with record ${n}, then the fingerprint, then ${n}`],
-    ['p', `printf '%s' '${pp}${rp}${n}' | sha256sum`],
-    ['o', `${hp}  -`],
-    ['c', hp === h ? (last ? '# same as the stored link (the newest record)' : `# same as the stored link, which record ${n + 1} carries`) : `# differs from the stored link ${h.slice(0, 8)}…${last ? '' : `: link ${n}→${n + 1} broken`}`],
+    ['c', sepIn(f) ? '# a field holds the separator | or a control character: the payload no longer reads as five fields' : rp === r ? '# same as the stored fingerprint' : `# differs from the stored fingerprint ${r.slice(0, 8)}…`],
+    ['c', n === 1 ? '# link: 64 zeros (the start), then the fingerprint, then 1' : `# link: the previous link stored with record ${n}, then the fingerprint, then ${n}`],
+    linkOk ? ['p', `printf '%s' ${shq(pp + rp + n)} | sha256sum`] : ['c', '# the stored previous link is not 64 lowercase hex characters, so no command is printed for it'],
+    [linkOk ? 'o' : 'c', linkOk ? `${hp}  -` : `# recomputed in your browser: ${hp}`],
+    ['c', hp === h ? (last ? '# same as the stored link (the newest record)' : `# same as the stored link, which record ${n + 1} carries`) : `# differs from the stored link ${String(h).slice(0, 8)}…${last ? '' : `: link ${n}→${n + 1} broken`}`],
   ]
 }
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c])
-const recipeHTML = (lines) => lines.map(([k, t]) => `<span class="${k}">${esc(t)}</span>`).join('\n')
+// A payload may break after each bar, never inside a value; "| sha256sum" stays whole. Copying reads textContent, so
+// the <wbr> and spans add nothing to what is copied.
+const payloadHTML = (p) => esc(p).replace(/\|/g, '|<wbr>')
+function cmdHTML(t) {
+  const m = /^(printf '%s' )('(?:[^']|'\\'')*')( \| sha256sum)$/.exec(t)
+  if (!m) return esc(t)
+  return `${esc(m[1])}${/^'[0-9a-f]+'$/.test(m[2]) ? esc(m[2]) : payloadHTML(m[2])} <span class="nw">| sha256sum</span>`
+}
+const recipeHTML = (lines) => lines.map(([k, t]) => `<span class="${k}">${k === 'p' ? cmdHTML(t) : esc(t)}</span>`).join('\n')
 
-// What an AI agent would receive for one stored record (roadmap): the record as stored, never the verifier's verdict.
+// What an AI agent would receive for one stored record (upcoming): the record as stored, never the verifier's verdict.
 function agentJSON({ x, of, seq, keyId, publicKey, anchor, anchorN }) {
   const o = { record: x.n, sequence: seq, fields: Object.fromEntries(FIELDS.map((k) => [k, x.f[k]])) }
   if (x.corrects) Object.assign(o, { corrects: x.corrects, reason: x.reason })
@@ -127,7 +151,7 @@ const brokenLinks = (rows) => rows.filter((r) => !r.link && r.n < rows.length).m
 function statusLine(rows, { anchorOk, AN, signing }, say) {
   const ok = rows.filter((r) => r.ok).length
   const chg = rows.filter((r) => !r.fp).length, sg = rows.filter((r) => r.fp && r.sig === false).length, lk = brokenLinks(rows)
-  const parts = [say('st.head', { ok, n: rows.length })]
+  const parts = [say(signing ? 'st.head' : 'st.head.nosig', { ok, n: rows.length })]
   if (chg) parts.push(say('st.chg', { c: chg }))
   if (sg) parts.push(say(sg === 1 ? 'st.sig1' : 'st.sig', { s: sg }))
   if (lk.length) parts.push(say(lk.length === 1 ? 'st.link1' : 'st.link', { l: lk.join(', ') }))
@@ -137,7 +161,7 @@ function statusLine(rows, { anchorOk, AN, signing }, say) {
   return parts.join(' · ')
 }
 function rowStatus(o, { AN, by, len }, say) {
-  const w = !o.fp ? say('row.chg') : o.sig === false ? say('row.sig') : !o.link ? '' : o.sig === null ? say(o.x.sig ? 'row.na' : 'row.none') : say('row.ok')
+  const w = !o.fp ? say(o.sep ? 'row.sep' : 'row.chg') : o.sig === false ? say(o.nosig ? 'row.sigm' : 'row.sig') : !o.link ? '' : o.sig === null ? say(o.x.sig ? 'row.na' : 'row.none') : say('row.ok')
   const notes = []
   if (!o.link) notes.push(o.n < len ? say('row.lnk', { l: `${o.n}→${o.n + 1}` }) : say('row.lnk.head'))
   if (o.ok && o.x.orig && (o.x.h !== o.x.orig.h || o.x.r !== o.x.orig.r)) notes.push(say('row.relinked'))
@@ -151,7 +175,7 @@ function sentence(rows, { anchorOk, AN, signing }, a, say) {
   if (a) out.push(say(`s.${a.type}`, a))
   let sg = false
   for (const r of rows) {
-    const what = [!r.fp && say('w.fpno'), r.sig === false && say('w.sigf'), !r.link && (r.n < rows.length ? say('w.linkb', { a: r.n, b: r.n + 1 }) : say('w.linkh'))].filter(Boolean)
+    const what = [!r.fp && say(r.sep ? 'w.fpsep' : 'w.fpno'), r.sig === false && say(r.nosig ? 'w.sigm' : 'w.sigf'), !r.link && (r.n < rows.length ? say('w.linkb', { a: r.n, b: r.n + 1 }) : say('w.linkh'))].filter(Boolean)
     if (!what.length) continue
     out.push(say(r.fp ? 's.rec' : 's.chg', { k: r.n, what: join(what, say) }))
     if (r.fp && r.sig === false) sg = true
@@ -163,8 +187,9 @@ function sentence(rows, { anchorOk, AN, signing }, a, say) {
   if (rows.length > AN) out.push(rows.length === AN + 1 ? say('s.unanch1', { a: AN + 1 }) : say('s.unanch', { a: AN + 1, b: rows.length }))
   return out.join(' ')
 }
-// What the agent panel says about one record as it stands now. A pass says the record is unchanged since sealing,
-// never that the result was right; an unsigned record never counts its signature as passing.
+// What the agent panel says about one record as it stands now. A pass says the record is unchanged since sealing by
+// these checks, never that the result was right; where a signature was not checked (or there is none), not all four
+// checks ran, and the record is never called unchanged.
 function agentLine(o, { AN, anchorOk, by }, say) {
   const anchored = o.n <= AN
   const failed = [!o.fp && 'w.fp', o.sig === false && 'w.sig', !o.link && 'w.link', anchored && !anchorOk && 'w.anc'].filter(Boolean)
@@ -172,6 +197,7 @@ function agentLine(o, { AN, anchorOk, by }, say) {
   let s = say('a.pass', { what: list(['w.fp', o.sig === true && 'w.sig', 'w.link', anchored && 'w.anc'].filter(Boolean), say) })
   if (o.sig === null) s += say(o.x.sig ? 'a.na' : 'a.none')
   if (!anchored) s += say('a.unanch')
+  if (o.sig === null) return s + say('a.notall') + (by ? ` ${say('a.corrby', { c: by })}` : '')
   return s + say(by ? 'a.super' : 'a.ok', { c: by })
 }
 
@@ -186,7 +212,6 @@ function boot() {
   const mq = matchMedia('(prefers-reduced-motion: reduce)')
   const setMotion = () => root.classList.toggle('motion', !mq.matches)
   if (mq.addEventListener) mq.addEventListener('change', setMotion)
-  menu()
   const p = D.querySelector('[data-plate]')
   if (p) plate(p)
   const h = D.querySelector('[data-history]')
@@ -213,22 +238,7 @@ const ICON = (k) => `<svg class="i" aria-hidden="true"><use href="#i-${k}"/></sv
 const setHex = (el, h) => { if (el && el.dataset.v !== h && /^[0-9a-f]+$/.test(h)) { el.dataset.v = h; el.innerHTML = groups(h); return true } return false }
 const setText = (el, t) => { if (el && el.textContent !== t) { el.textContent = t; return true } return false }
 
-// ---------------------------------------------------------------- 1. Contents menu: aria-expanded, Escape, outside click
-function menu() {
-  const btn = D.querySelector('.menu-btn'), nav = D.querySelector('.nav')
-  if (!btn || !nav) return
-  const open = () => btn.getAttribute('aria-expanded') === 'true'
-  const set = (o) => { btn.setAttribute('aria-expanded', String(o)); nav.classList.toggle('open', o) }
-  btn.addEventListener('click', () => set(!open()))
-  D.addEventListener('keydown', (e) => { if (e.key === 'Escape' && open()) { set(false); btn.focus() } })
-  D.addEventListener('click', (e) => { if (open() && !nav.contains(e.target) && !btn.contains(e.target)) set(false) })
-  // tabbing past the last entry (or anywhere outside) closes the overlay, so it never covers the focused content
-  const away = (e) => { if (open() && e.relatedTarget && !nav.contains(e.relatedTarget) && !btn.contains(e.relatedTarget)) set(false) }
-  nav.addEventListener('focusout', away)
-  btn.addEventListener('focusout', away)
-}
-
-// ------------------------------------------------- 2. Overview, Fig. 1: three checks, each shown as it actually completes
+// ------------------------------------------------- 1. Overview, Fig. 1: three checks, each shown as it actually completes
 function plate(fig) {
   const say = words('iqc-plate-words')
   const q = (s) => fig.querySelector(s)
@@ -251,10 +261,10 @@ function plate(fig) {
     }
     const rp = await timed(() => E.sha(payload(f)))
     await show('fp', rp === r)
-    const so = E.S ? await timed(async () => {
+    const so = E.S ? (sigForm(fig.dataset.sig) ? await timed(async () => {
       const key = await E.S.importKey('raw', bytes(fig.dataset.pub), { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify'])
       return E.S.verify(ECDSA, key, bytes(fig.dataset.sig), bytes(rp))
-    }) : null
+    }) : false) : null
     await show('sig', so)
     const hp = await timed(() => E.sha(prev + rp + String(n)))
     await show('link', hp === h)
@@ -269,7 +279,7 @@ function plate(fig) {
   } else run()
 }
 
-// ------------------------------------- 3. Overview, Fig. 2: the record history, checked here and sealed in once, in view
+// ------------------------------------- 2. Overview, Fig. 2: the record history, checked here and sealed in once, in view
 // Read-only. The rows are prerendered "checked at build" with neutral open rings. This browser replays the history from
 // the values shown in the table (instrument from the header, peak area and capture time from each row) with the rule
 // above. The first time a quarter of the rows are on screen, each row's ring draws and its dot fills in turn (WAAPI,
@@ -346,7 +356,7 @@ async function history(fig) {
   if (mq.addEventListener) mq.addEventListener('change', () => { if (mq.matches) settle() })
 }
 
-// ------------------------------------------------------------------------------------- 4. Check a record: the verifier
+// ------------------------------------------------------------------------------------- 3. Check a record: the verifier
 async function verifier(root) {
   const say = words('iqc-words')
   const data = JSON.parse(D.getElementById('iqc-seq').textContent)
@@ -360,7 +370,7 @@ async function verifier(root) {
   recs = fresh()
 
   const form = q('[data-fields]'), inputs = Object.fromEntries(FIELDS.map((k) => [k, q(`input[name="${k}"]`, form)]))
-  const reason = q('#reason'), reasonErr = q('#reason-err')
+  const reason = q('#reason'), reasonErr = q('#reason-err'), fieldsErr = q('#fields-err')
   const btn = Object.fromEntries(qa('[data-act]').map((b) => [b.dataset.act, b]))
   const tbody = q('[data-rows]'), chips = q('[data-chips]')
   const agent = D.querySelector('[data-agent]'), agentNow = D.querySelector('[data-agent-now]')
@@ -389,7 +399,7 @@ async function verifier(root) {
     const m = { fp: o.fp, sig: o.sig, link: o.link }
     for (const [k, v] of Object.entries(m)) {
       const td = q(`[data-m="${k}"]`, tr), st = v === null ? 'na' : v ? 'ok' : 'bad'
-      const sr = k === 'sig' && v === null && !o.x.sig ? 'none' : st
+      const sr = k === 'sig' && !o.x.sig ? (v === null ? 'none' : 'missing') : st
       if (td.dataset.s !== st || td.dataset.w !== sr) {
         td.dataset.s = st; td.dataset.w = sr
         td.innerHTML = `${ICON(v === null ? 'dash' : v ? 'ok' : 'x')}<span class="sr-only">${say(`m.${k}.${sr}`)}</span>`
@@ -425,8 +435,8 @@ async function verifier(root) {
       if (ed) setText(q('code', was), x.orig.f[k])
       if (ed) inputs[k].setAttribute('aria-describedby', was.id); else inputs[k].removeAttribute('aria-describedby')
     }
-    const pl = payload(x.f)
-    setText(q('[data-payload]'), pl)
+    const pl = payload(x.f), pe = q('[data-payload]')
+    if (pe.textContent !== pl) pe.innerHTML = payloadHTML(pl)
     setText(q('[data-bytes]'), String(enc.encode(pl).length))
     // checks for the selected record
     const ck = (k, s, word, detail) => {
@@ -440,9 +450,9 @@ async function verifier(root) {
     for (const el of qa('[data-selp]')) setText(el, String(o.n - 1))
     if (setHex(q('[data-hx="rp"]'), o.rp)) pulse(q('[data-hx="rp"]'), 'fade', 160)
     setHex(q('[data-hx="r"]'), x.r)
-    ck('fp', o.fp ? 'ok' : 'bad', say(o.fp ? 'r.match' : 'r.nomatch'), say(o.fp ? 'd.fp.ok' : 'd.fp.bad'))
-    const sk = o.sig === null ? 'na' : o.sig ? 'ok' : 'bad'
-    ck('sig', sk, say(`r.sig.${x.sig ? sk : 'none'}`), x.sig ? say(`d.sig.${sk}`, { key: keyName(x) }) : say('d.sig.none'))
+    ck('fp', o.fp ? 'ok' : 'bad', say(o.fp ? 'r.match' : o.sep ? 'r.sep' : 'r.nomatch'), say(o.fp ? 'd.fp.ok' : o.sep ? 'd.fp.sep' : 'd.fp.bad'))
+    const sk = o.sig === null ? 'na' : o.sig ? 'ok' : 'bad', sw = x.sig ? sk : E.S ? 'missing' : 'none'
+    ck('sig', sk, say(`r.sig.${sw}`), x.sig ? say(`d.sig.${sk}`, { key: keyName(x) }) : say(`d.sig.${sw}`))
     if (setHex(q('[data-hx="hp"]'), o.hp)) pulse(q('[data-hx="hp"]'), 'fade', 160)
     setHex(q('[data-hx="h"]'), x.h)
     const lastRec = o.n === L, pv = rows[o.n - 2]
@@ -451,7 +461,7 @@ async function verifier(root) {
     ck('link', o.link ? 'ok' : 'bad', say(o.link ? 'r.intact' : 'r.broken'), ld)
     const a = rows[AN - 1]
     if (nowEl) {
-      const items = [['fp', o.fp ? 'ok' : 'bad', say(o.fp ? 'r.match' : 'r.nomatch')], ['sig', sk, say(`r.sig.${x.sig ? sk : 'none'}`)], ['link', o.link ? 'ok' : 'bad', say(o.link ? 'r.intact' : 'r.broken')],
+      const items = [['fp', o.fp ? 'ok' : 'bad', say(o.fp ? 'r.match' : o.sep ? 'r.sep' : 'r.nomatch')], ['sig', sk, say(`r.sig.${sw}`)], ['link', o.link ? 'ok' : 'bad', say(o.link ? 'r.intact' : 'r.broken')],
         ['anc', o.n > AN ? 'na' : v.anchor ? 'ok' : 'bad', say(o.n > AN ? 'r.anc.later' : v.anchor ? 'r.anc' : 'r.anc.no')]]
       for (const [k, s, w] of items) {
         const el = q(`[data-nw="${k}"]`, nowEl), was = el.dataset.s
@@ -485,7 +495,7 @@ async function verifier(root) {
     btn.correct.disabled = rewritten || !edited(x)
     btn.reset.disabled = !anyEdit && !rewritten && recs.length === sealedAt.length
     setText(q('[data-hint]'), rewritten ? say('hint.rewritten') : edited(x) ? say('hint.edit', { n: o.n }) : anyEdit ? say('hint.other') : say('hint'))
-    // what an AI agent would receive (roadmap)
+    // what an AI agent would receive (upcoming)
     if (agent) {
       const demo = x.key === 'demo', signed = !!x.sig
       setText(agent, agentJSON({ x, of: L, seq: data.seq, keyId: demo ? data.keyId : signed && ot ? ot.id : null, publicKey: demo ? data.pub : signed && ot ? ot.hex : null, anchor: data.anchor, anchorN: AN }))
@@ -545,19 +555,25 @@ async function verifier(root) {
     const id = hex(await E.S.digest('SHA-256', await E.S.exportKey('spki', kp.publicKey))).slice(0, 32).toUpperCase()
     return { priv: kp.privateKey, pub: kp.publicKey, id, hex: hex(await E.S.exportKey('raw', kp.publicKey)) }
   }
+  // a reason of a few words, at least three: "x" is not a reason a reviewer could follow
+  const reasonOk = (t) => t.split(/\s+/).filter((w) => /\w/.test(w)).length >= 3
   async function correct() {
     const x = recs[sel - 1]
     if (rewritten || !edited(x)) return
-    const why = reason.value.trim()
-    reason.setAttribute('aria-invalid', String(!why))
-    reasonErr.hidden = !!why
-    if (!why) { reason.focus(); announce(say('s.need'), true); return }
+    // a sealed field never holds the separator or a control character (it would make the payload ambiguous)
+    const sepBad = sepIn(x.f)
+    fieldsErr.hidden = !sepBad
+    if (sepBad) { announce(say('s.sep'), true); return }
+    const why = reason.value.trim(), good = reasonOk(why)
+    reason.setAttribute('aria-invalid', String(!good))
+    reasonErr.hidden = good
+    if (!good) { reason.focus(); announce(say('s.need'), true); return }
     const f = { ...x.f }
     Object.assign(x.f, x.orig.f) // the original stays as sealed
     const tail = recs[recs.length - 1], n = recs.length + 1
     const r = await E.sha(payload(f)), h = await E.sha(tail.h + r + String(n))
     let sig = ''
-    if (E.S) { ot = ot || await makeKey(); sig = hex(await E.S.sign(ECDSA, ot.priv, bytes(r))) }
+    if (E.S) { ot = ot || await makeKey(); sig = lowS(hex(await E.S.sign(ECDSA, ot.priv, bytes(r)))) }
     const at = new Date().toISOString().replace(/\.\d+Z$/, 'Z')
     const rec = { n, f, r, prev: tail.h, h, sig, key: 'ot', corrects: x.n, reason: why, at, ctx: x.ctx }
     rec.orig = { ...rec, f: { ...f } }
@@ -573,7 +589,7 @@ async function verifier(root) {
     for (const k of [...sc.keys()]) if (!k.startsWith('demo|')) sc.delete(k)
     qa('tr[data-extra]', tbody).forEach((t) => t.remove())
     qa('[data-extra]', chips).forEach((c) => c.remove())
-    reason.value = ''; reason.removeAttribute('aria-invalid'); reasonErr.hidden = true
+    reason.value = ''; reason.removeAttribute('aria-invalid'); reasonErr.hidden = true; fieldsErr.hidden = true
     select(Math.min(sel, sealedAt.length))
     await update({ type: 'reset' }, true)
   }
@@ -589,10 +605,13 @@ async function verifier(root) {
   }
   function addChip(x) {
     const c = chips.firstElementChild.cloneNode(true)
-    c.dataset.chip = x.n; c.dataset.extra = ''
+    c.dataset.chip = x.n; c.dataset.extra = ''; delete c.dataset.s
     const i = q('input', c)
     i.value = String(x.n); i.id = `rec-${x.n}`; i.checked = false
     setText(q('.n', c), String(x.n))
+    // its accessible name is its own: the correction it is, never the record the chip was cloned from
+    setText(q('.sr-only:not([data-cs])', c), say('chip.corr', { n: x.n, k: x.corrects }))
+    setText(q('[data-cs]', c), '')
     chips.append(c)
   }
 
@@ -603,11 +622,12 @@ async function verifier(root) {
     const k = e.target.name
     if (!FIELDS.includes(k)) return
     recs[sel - 1].f[k] = e.target.value
+    if (!sepIn(recs[sel - 1].f)) fieldsErr.hidden = true
     update()
   })
   form.addEventListener('submit', (e) => e.preventDefault())
   chips.addEventListener('change', (e) => { if (e.target.name === 'rec') { sel = +e.target.value; fill(); update() } })
-  reason.addEventListener('input', () => { if (reason.value.trim()) { reason.removeAttribute('aria-invalid'); reasonErr.hidden = true } })
+  reason.addEventListener('input', () => { if (reasonOk(reason.value.trim())) { reason.removeAttribute('aria-invalid'); reasonErr.hidden = true } })
   reason.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); correct() } })
   btn.rewrite.addEventListener('click', rewrite)
   btn.correct.addEventListener('click', correct)

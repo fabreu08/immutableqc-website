@@ -3,28 +3,30 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-De8f8Cc6y268V8BKaDpGYrx+EUmmODPs6Yx3XJ+n/o4='; style-src 'self'; style-src-attr 'unsafe-inline'; font-src 'self'; img-src 'self'; connect-src 'none'; base-uri 'self'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
 <title>Immutable QC · Tamper-evident lab records (open alpha)</title>
-<meta name="description" content="Each lab result becomes a sealed record: a SHA-256 fingerprint of its recorded fields, linked to the record before it. Open alpha on synthetic demo data; no customers yet.">
+<meta name="description" content="Each lab result becomes a sealed record: a SHA-256 fingerprint of five recorded fields, linked to the record before it and signed with a demo key. Open alpha on synthetic demo data; no customers yet.">
 <meta name="color-scheme" content="light">
 <meta name="theme-color" content="#F4F6F5">
 <link rel="canonical" href="https://immutableqc.com/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Immutable QC">
 <meta property="og:title" content="Immutable QC">
-<meta property="og:description" content="Each lab result becomes a sealed record: a SHA-256 fingerprint of its recorded fields, linked to the record before it. Open alpha on synthetic demo data; no customers yet.">
+<meta property="og:description" content="Each lab result becomes a sealed record: a SHA-256 fingerprint of five recorded fields, linked to the record before it and signed with a demo key. Open alpha on synthetic demo data; no customers yet.">
 <meta property="og:url" content="https://immutableqc.com/">
 <meta property="og:image" content="https://immutableqc.com/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="The Immutable QC mark and name, the tagline and the status line">
+<meta property="og:image:alt" content="Immutable QC card with the ring-and-dot mark and the status line: Independent project · Open alpha · Synthetic demo data · No customers yet">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preload" href="fonts/archivo-c-115-620.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="assets/site.css?v=6490e6b1">
-<script>(function(d){var c=d.documentElement.classList;c.add('js');try{if(!matchMedia('(prefers-reduced-motion: reduce)').matches)c.add('motion')}catch(e){}})(document)</script>
-<script defer src="assets/iqc.js?v=b3eb48d4"></script>
+<link rel="stylesheet" href="assets/site.css?v=2af6ac36">
+<script>(function(d){var c=d.documentElement.classList;c.add('js');try{if(!matchMedia('(prefers-reduced-motion: reduce)').matches)c.add('motion')}catch(e){}var q=function(s){return d.querySelector(s)},b=function(){return q('.menu-btn')},n=function(){return q('.nav')},o=function(){var x=b();return!!x&&x.getAttribute('aria-expanded')==='true'},s=function(v){var x=b(),y=n();if(x&&y){x.setAttribute('aria-expanded',String(v));y.classList.toggle('open',v)}};d.addEventListener('click',function(e){var t=e.target,x=b(),y=n();if(!t||!t.closest)return;if(q('base')&&t.closest('.skip')){e.preventDefault();var m=d.getElementById('main');if(m){m.focus();m.scrollIntoView()}return}if(!x||!y)return;if(x.contains(t))s(!o());else if(o()&&!y.contains(t))s(false)});d.addEventListener('keydown',function(e){if(e.key==='Escape'&&o()){s(false);b().focus()}});d.addEventListener('focusout',function(e){var x=b(),y=n(),r=e.relatedTarget;if(o()&&r&&(y.contains(e.target)||x.contains(e.target))&&!y.contains(r)&&!x.contains(r))s(false)})})(document)</script>
+<script defer src="assets/iqc.js?v=f96485a1"></script>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><symbol id="i-ok" viewBox="0 0 16 16"><path d="M2.5 8.5l3.5 3.5 7.5-8" fill="none" stroke="currentColor" stroke-width="2"/></symbol><symbol id="i-x" viewBox="0 0 16 16"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9" fill="none" stroke="currentColor" stroke-width="2"/></symbol><symbol id="i-dash" viewBox="0 0 16 16"><path d="M3.5 8h9" fill="none" stroke="currentColor" stroke-width="2"/></symbol><symbol id="i-open" viewBox="0 0 16 16"><circle cx="8" cy="8" r="4.5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-dasharray="2.4 1.8"/></symbol><symbol id="i-arrow" viewBox="0 0 16 16"><path d="M1.5 8h12M9 3.5L13.5 8 9 12.5" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol><symbol id="i-down" viewBox="0 0 16 16"><path d="M8 1.5v12M3.5 9L8 13.5 12.5 9" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol><symbol id="i-mark" viewBox="0 0 32 32"><circle cx="16" cy="16" r="16" style="fill:var(--plate-0)"/><circle cx="16" cy="16" r="9.5" style="fill:none;stroke:var(--ok);stroke-width:3"/><circle cx="16" cy="16" r="3.75" style="fill:var(--ok)"/></symbol></svg>
@@ -52,9 +54,10 @@
 <div class="wrap">
 <dl class="dochead">
 <div><dt>Document</dt><dd><span class="nw">IQC-OV-01</span></dd></div>
-<div><dt>Revision</dt><dd>Draft 2</dd></div>
-<div><dt>Updated</dt><dd>2026-10-06</dd></div>
-<div class="st"><dt>Status</dt><dd>Independent project · Open alpha · Public test network · Synthetic demo data · No customers yet</dd></div>
+<div><dt>Revision</dt><dd>Draft 3</dd></div>
+<div><dt>Updated</dt><dd>2026-10-07</dd></div>
+<div class="st"><dt>Status</dt><dd>Independent project · Open alpha · Synthetic demo data · No customers yet</dd></div>
+<div class="use"><dt>Use</dt><dd>Informational draft. Not a controlled document; not a regulatory assessment or a validation statement.</dd></div>
 </dl>
 
 <div class="hero">
@@ -63,11 +66,15 @@
 <section class="sec" aria-labelledby="s1-h">
 <h2 id="s1-h"><span class="no">1</span>Scope</h2>
 <div class="body">
-<p class="lead">Each result becomes a sealed record: a <span class="nw">SHA-256</span> fingerprint of its recorded fields, linked to the record before it. Batches can be anchored on a public test network, so a later rewrite shows. Only a fingerprint goes on the network, never the values.</p>
+<p class="lead">Each result becomes a sealed record: a <span class="nw">SHA-256</span> fingerprint of five of its recorded fields, signed and linked to the record before it, so a later change shows. Anchoring batches on a public network is an upcoming feature; only a fingerprint will go on the network, never the values.</p>
 </div>
 <h3 id="s11-h"><span class="no">1.1</span>Regulatory position</h3>
 <div class="body">
 <p class="reg">Built toward the audit-trail expectations of <span class="nw">21 CFR Part 11</span>, <span class="nw">EU Annex 11</span> and <span class="nw">ISO/IEC 17025:2017</span>. Not validated. No electronic signatures yet. Not a substitute for your computerized-system validation or SOPs.</p>
+</div>
+<div class="body first">
+<p><a class="xref" href="check.html#verifier"><span>Change a value and watch the checks</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
+<p><a class="xref" href="regulatory.html"><span>Read the regulatory map</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
 </div>
 </section>
 </div>
@@ -91,7 +98,7 @@
 <dl class="kv kv--ctx">
 <dt>Injection</dt><dd>06</dd>
 <dt>Sample</dt><dd>P200-S1, preparation 1</dd>
-<dt>RT</dt><dd>4.82 min</dd>
+<dt>Retention time</dt><dd>4.82 min</dd>
 </dl>
 </div>
 </div>
@@ -109,7 +116,7 @@
 <h3 class="lab p-raw-h">Raw data <span class="sub">· the values the checks above recompute</span></h3>
 <div class="p-blk">
 <p class="lab">Payload <span class="sub">· instrumentId|sensorType|value|unit|capturedAt</span></p>
-<p class="hx hx-s p-pl"><span class="nw">HPLC-02</span>|hplc|1508811|counts|2026-09-14T08:47:50Z</p>
+<p class="hx hx-s p-pl"><span class="nw">HPLC-02</span>|<wbr>hplc|<wbr>1508811|<wbr>counts|<wbr>2026-09-14T08:47:50Z</p>
 </div>
 <div class="p-blk">
 <p class="lab">Fingerprint <var>r</var><sub>6</sub></p>
@@ -123,30 +130,30 @@
 </dl>
 </div>
 <div class="p-blk">
-<p class="lab">Signature <span class="sub">· <span class="nw">ECDSA P-256</span> over r<sub>6</sub> · <a class="kid" href="check.html#method">demo key 7A15F562…</a></span></p>
+<p class="lab">Signature <span class="sub">· <span class="nw">ECDSA P-256</span> over r<sub>6</sub> · demo key 7A15F562… · <a class="kid" href="check.html#method">public key in Method</a></span></p>
 <p class="hx hx-s hx-sig">fd3cfca2c73346e6 … 6cadf2dfeb420279</p>
 </div>
 </div>
 <template id="iqc-plate-words"><i data-k="fp.ok">Match</i><i data-k="fp.bad">No match</i><i data-k="sig.ok">Valid</i><i data-k="sig.bad">Fails</i><i data-k="sig.na">Not checked</i><i data-k="link.ok">Intact</i><i data-k="link.bad">Broken</i><i data-k="st">Checked in your browser: {pass} of {n} pass · {ms} ms</i><i data-k="st.nosig">Checked in your browser: {pass} of 2 pass. The signature could not be checked here (it needs an https:// page).</i></template>
 </div>
-<figcaption class="figcap"><b>Fig. 1</b> · Record 6 of the synthetic sequence <span class="nw">SEQ-0914-02</span>, as an auditor reads it. <span class="k">Basis</span> Same five fields, order and link rule as the alpha app’s HPLC import; <span class="nw">SHA-256</span> is <span class="nw">FIPS 180-4</span>. Demo signatures. In the alpha, one server key signs imported rows; per-analyst signatures are on the roadmap.</figcaption>
+<figcaption class="figcap"><b>Fig. 1</b> · Record 6 of the synthetic sequence <span class="nw">SEQ-0914-02</span>, as an auditor reads it. <span class="k">Basis</span> Same five fields, order and link rule as the alpha app’s HPLC import, where the instrument field is the app’s internal instrument number; <span class="nw">SHA-256</span> is <span class="nw">FIPS 180-4</span>. Demo signatures. In the alpha, one server key signs imported rows; per-analyst signatures are upcoming.</figcaption>
 </figure>
 
 </div>
 <section class="sec" id="history" aria-labelledby="s2-h">
 <h2 id="s2-h"><span class="no">2</span>Record history</h2>
 <div class="body">
-<p>The whole synthetic sequence, as an auditor would page through it. When the table comes into view, your browser checks every record and seals it in once; after that nothing moves.</p>
+<p>The whole synthetic sequence, as an auditor would page through it. When the table comes into view, your browser checks every record once and marks each result; after that nothing moves.</p>
 </div>
 <div class="v-fig">
 <figure class="fig fig--hist" aria-labelledby="h-t">
 <div class="plate plate--hist" data-history>
 <div class="plate-h"><p class="fig-no">Fig. 2</p><p class="plate-t" id="h-t">Record history</p><p class="sim">Simulated · demo data</p></div>
-<dl class="meta"><div><dt>Sequence</dt><dd><span class="nw">SEQ-0914-02</span></dd></div><div><dt>Instrument</dt><dd data-inst><span class="nw">HPLC-02</span></dd></div><div><dt>Method</dt><dd>Assay of Product 200 mg tablets</dd></div><div><dt>Run</dt><dd>2026-09-14, 08:12 to 09:01 UTC</dd></div></dl>
+<dl class="meta"><div><dt>Sequence</dt><dd><span class="nw">SEQ-0914-02</span></dd></div><div><dt>Instrument</dt><dd data-inst><span class="nw">HPLC-02</span></dd></div><div><dt>Method</dt><dd>Assay of Product 200 mg tablets</dd></div><div><dt>Injections</dt><dd>2026-09-14, 08:12 to 09:01 UTC</dd></div></dl>
 <table class="hist" role="table">
 <caption>8 injections, one record each: 5 system-suitability injections of the reference standard (STD-A), then 3 preparations of Product 200 mg tablets (P200-S1 to P200-S3).</caption>
 <colgroup><col class="w-sp"><col class="w-n"><col class="w-smp"><col class="w-rt"><col class="w-at"><col class="w-pa"><col class="w-fp"><col class="w-ln"><col class="w-sg"></colgroup>
-<thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader" class="c-sp"><span class="sr-only">Seal</span></th><th scope="col" role="columnheader" class="c-n"><span aria-hidden="true">Rec</span><span class="sr-only">Record</span></th><th scope="col" role="columnheader" class="c-smp">Sample</th><th scope="col" role="columnheader" class="c-rt">RT <span class="u">min</span></th><th scope="col" role="columnheader" class="c-at">Captured <span class="u">UTC</span></th><th scope="col" role="columnheader" class="c-pa">Peak area <span class="u">counts</span></th><th scope="col" role="columnheader" class="c-fp">Finger&shy;print</th><th scope="col" role="columnheader" class="c-ln">Link <span class="u">to next</span></th><th scope="col" role="columnheader" class="c-sg"><span class="lg">Demo signature</span><span class="sm">Demo sig.</span></th></tr></thead>
+<thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader" class="c-sp"><span class="sr-only">Seal</span></th><th scope="col" role="columnheader" class="c-n"><span aria-hidden="true">#</span><span class="sr-only">Record</span></th><th scope="col" role="columnheader" class="c-smp">Sample <span class="u">context</span></th><th scope="col" role="columnheader" class="c-rt"><abbr title="retention time">RT</abbr> <span class="u">min · context</span></th><th scope="col" role="columnheader" class="c-at">Captured <span class="u">UTC</span></th><th scope="col" role="columnheader" class="c-pa">Peak area <span class="u">counts</span></th><th scope="col" role="columnheader" class="c-fp">Finger&shy;print</th><th scope="col" role="columnheader" class="c-ln">Link <span class="u">to next</span></th><th scope="col" role="columnheader" class="c-sg"><span class="lg">Demo signature</span><span class="sm">Demo sig.</span></th></tr></thead>
 <tbody role="rowgroup">
 <tr role="row" data-n="1"><td role="cell" class="c-sp"><svg class="nd" viewBox="0 0 20 20" aria-hidden="true"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/><path class="xx" d="M7.7 7.7l4.6 4.6m0-4.6l-4.6 4.6"/></svg></td><th scope="row" role="rowheader" class="c-n">1</th><td role="cell" class="c-smp">STD-A<span class="kd"> · system suitability, replicate 1</span></td><td role="cell" class="c-rt">4.82</td><td role="cell" class="c-at"><time datetime="2026-09-14T08:12:41Z">08:12:41</time></td><td role="cell" class="c-pa" data-v>1523847</td><td role="cell" class="c-fp"><code>0135c779</code><span class="sr-only" data-fpw>fingerprint checked at build</span></td><td role="cell" class="c-ln" data-m="link" data-s="build"><span class="st"><svg class="i" aria-hidden="true"><use href="#i-open"/></svg><span class="w">intact</span></span></td><td role="cell" class="c-sg" data-m="sig" data-s="build"><span class="st"><svg class="i" aria-hidden="true"><use href="#i-open"/></svg><span class="w">valid</span></span></td></tr>
 <tr role="row" data-n="2"><td role="cell" class="c-sp"><svg class="nd" viewBox="0 0 20 20" aria-hidden="true"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1"/><circle class="dt" cx="10" cy="10" r="2.75"/><path class="xx" d="M7.7 7.7l4.6 4.6m0-4.6l-4.6 4.6"/></svg></td><th scope="row" role="rowheader" class="c-n">2</th><td role="cell" class="c-smp">STD-A<span class="kd"> · system suitability, replicate 2</span></td><td role="cell" class="c-rt">4.81</td><td role="cell" class="c-at"><time datetime="2026-09-14T08:19:43Z">08:19:43</time></td><td role="cell" class="c-pa" data-v>1519962</td><td role="cell" class="c-fp"><code>9892c300</code><span class="sr-only" data-fpw>fingerprint checked at build</span></td><td role="cell" class="c-ln" data-m="link" data-s="build"><span class="st"><svg class="i" aria-hidden="true"><use href="#i-open"/></svg><span class="w">intact</span></span></td><td role="cell" class="c-sg" data-m="sig" data-s="build"><span class="st"><svg class="i" aria-hidden="true"><use href="#i-open"/></svg><span class="w">valid</span></span></td></tr>
@@ -159,34 +166,35 @@
 </tbody>
 </table>
 <div class="sum">
-<p class="sum-row"><span class="k">Status</span><span class="v" data-hist-st data-s="build">Checked at build: 8 of 8 records pass · anchor matches.<span class="nojs"> Live checking in your browser needs JavaScript.</span></span></p>
-<p class="sum-row"><span class="k">Head (last link), replayed from 64 zeros</span><span class="v"><code class="hx" data-head><span>0a35688a</span></code> <span class="res" data-head-st data-s="build"><svg class="i" aria-hidden="true"><use href="#i-open"/></svg><span>matches the anchored fingerprint</span></span></span></p>
-<p class="sum-row"><span class="k">Anchored fingerprint <span class="nb">(simulated, no network call)</span></span><span class="v"><code class="hx">0a35688a</code> <span class="say">the head of records 1 to 8 when the batch was anchored</span></span></p>
+<p class="sum-row"><span class="k">Status</span><span class="v" data-hist-st data-s="build">Checked at build: 8 of 8 records pass · simulated anchor matches.<span class="nojs"> Live checking in your browser needs JavaScript.</span></span></p>
+<p class="sum-row"><span class="k">Head (link of the newest record), replayed from 64 zeros</span><span class="v"><code class="hx" data-head><span>0a35688a</span></code> <span class="res" data-head-st data-s="build"><svg class="i" aria-hidden="true"><use href="#i-open"/></svg><span>matches the anchored fingerprint</span></span></span></p>
+<p class="sum-row"><span class="k">Anchored fingerprint <span class="nb">(simulated, no network call)</span></span><span class="v"><code class="hx">0a35688a</code> <span class="say">the head of records 1 to 8, stored on this page as a simulated anchor</span></span></p>
 </div>
-<div class="plate-f"><p class="say">Read only. Editing lives on Check a record.</p><a class="go" href="check.html#verifier"><span>Change a value and see what breaks</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></div>
-<template id="iqc-hist-words"><i data-k="fp.ok">fingerprint matches</i><i data-k="fp.bad">fingerprint does not match</i><i data-k="link.ok">intact</i><i data-k="link.bad">broken</i><i data-k="sig.ok">valid</i><i data-k="sig.bad">fails</i><i data-k="sig.na">unchecked</i><i data-k="sig.none">unsigned</i><i data-k="head.ok">matches the anchored fingerprint</i><i data-k="head.bad">no longer matches the anchored fingerprint</i><i data-k="st.head">Checked in your browser: {ok} of {n} records pass</i><i data-k="st.chg">{c} changed</i><i data-k="st.sig1">1 signature fails</i><i data-k="st.sig">{s} signatures fail</i><i data-k="st.link1">link {l} broken</i><i data-k="st.link">links {l} broken</i><i data-k="st.anc">anchor matches</i><i data-k="st.anc.part">anchor matches records 1 to {m}</i><i data-k="st.anc.no">anchor does not match</i><i data-k="st.unanch1">record {a} not yet anchored</i><i data-k="st.unanch">records {a} to {b} not yet anchored</i><i data-k="st.nosig">signatures not checked here</i></template>
+<div class="plate-f"><p class="say">Read only. Editing lives on Check a record.</p><a class="go" href="check.html#verifier"><span>Change a value on Check a record</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></div>
+<template id="iqc-hist-words"><i data-k="fp.ok">fingerprint matches</i><i data-k="fp.bad">fingerprint does not match</i><i data-k="link.ok">intact</i><i data-k="link.bad">broken</i><i data-k="sig.ok">valid</i><i data-k="sig.bad">fails</i><i data-k="sig.na">unchecked</i><i data-k="sig.none">unsigned</i><i data-k="head.ok">matches the anchored fingerprint</i><i data-k="head.bad">no longer matches the anchored fingerprint</i><i data-k="st.head">Checked in your browser: {ok} of {n} records pass</i><i data-k="st.head.nosig">Checked in your browser: {ok} of {n} records pass the fingerprint and link checks</i><i data-k="st.chg">{c} changed</i><i data-k="st.sig1">1 signature fails</i><i data-k="st.sig">{s} signatures fail</i><i data-k="st.link1">link {l} broken</i><i data-k="st.link">links {l} broken</i><i data-k="st.anc">simulated anchor matches</i><i data-k="st.anc.part">simulated anchor matches records 1 to {m}</i><i data-k="st.anc.no">simulated anchor does not match</i><i data-k="st.unanch1">record {a} not yet anchored</i><i data-k="st.unanch">records {a} to {b} not yet anchored</i><i data-k="st.nosig">signatures not checked here</i></template>
 </div>
-<figcaption class="figcap"><b>Fig. 2</b> · The eight records of sequence <span class="nw">SEQ-0914-02</span>, oldest first. Your browser checks each one from the values in the table: the fingerprint of its five sealed fields, its signature, and the link it carries into the next record; the head is the whole history replayed from 64 zeros. Sample and RT are context, not sealed in the alpha. Demo signatures. In the alpha, one server key signs imported rows; per-analyst signatures are on the roadmap.</figcaption>
+<figcaption class="figcap"><b>Fig. 2</b> · The eight records of sequence <span class="nw">SEQ-0914-02</span>, oldest first. Your browser checks each one from the values in the table: the fingerprint of its five sealed fields, its signature, and the link it carries into the next record. The head is the link of the newest record, recomputed by replaying the whole history from 64 zeros. Sample and retention time are context, not sealed in the alpha. Signatures as in Fig. 1.</figcaption>
 </figure>
 
 </div>
 </section>
 <section class="sec sec--side" id="today" aria-labelledby="s3-h">
-<h2 id="s3-h"><span class="no">3</span>What it does today</h2>
+<h2 id="s3-h"><span class="no">3</span>Today, upcoming and not claimed</h2>
 <div class="body">
 <ul class="items">
-<li><span class="k">Alpha console · demo in your browser</span><span>Runs on a synthetic lab, only in your browser. It gives each record a <span class="nw">SHA-256</span> fingerprint, links it to the record before it, signs it with a demo key made in your browser, and keeps corrections as new records with a reason. Its anchor is simulated, with no network call.</span></li>
-<li><span class="k">Alpha app · not public</span><span>Imports HPLC CSV exports. Each peak area becomes a record of instrument, measurement type, value, unit and capture time, signed by one server key. Reviewer sign-off and the app’s own verification do not work yet.</span></li>
-<li><span class="k">Anchoring · manual</span><span>A batch fingerprint can be written by hand to a small registry contract on a public test network. There is no shared registry yet, so every anchor on this site and in the console is simulated.</span></li>
-<li><span class="k">Not yet</span><span>No customers, no instrument capture, no electronic signatures, no validation and no Filecoin storage.</span></li>
+<li><span class="k">Alpha console · demo in your browser</span><span>Runs on a synthetic lab, only in your browser. Each record gets a <span class="nw">SHA-256</span> fingerprint, a link to the record before it (the first record links to a fixed start value of 64 zeros), and a signature from a demo key made in your browser. Corrections are new records with a reason, and every check is recomputed after each change. Its anchor is simulated, with no network call.</span></li>
+<li><span class="k">These pages</span><span>The same construction on one synthetic sequence, signed with a demo key at build. Your browser recomputes every check.</span></li>
+<li><span class="k">Alpha app · not public</span><span>Imports HPLC CSV exports. Each peak area becomes a record of instrument, measurement type, value, unit and capture time, fingerprinted, linked and signed by one server key. The capture time is an injection time typed at import, or the server’s clock if none is given.</span></li>
+<li><span class="k"><span class="tag tag--in">Upcoming</span></span><span>Anchoring batch fingerprints on a public test network, a shared registry, reviewer sign-off, server-side verification in the app, per-analyst signatures, sample and method metadata in the seal, privacy on public networks, agentic workflows and Filecoin integration. Every anchor on this site and in the console is simulated.</span></li>
+<li><span class="k">Not claimed</span><span>No customers, no instrument capture, no electronic signatures and no validation. Nothing on this site or in the console writes to a public network.</span></li>
 </ul>
-<p class="note"><span class="k">Basis</span>The same five fields and link rule in the alpha app’s HPLC import and on these pages. The console documents its own payload in its Method panel.</p>
+<p class="note"><span class="k">Basis</span>The same five fields and link rule in the alpha app’s HPLC import and on these pages; in the app, the instrument field is its internal instrument number. The console documents its own payload in its Method panel.</p>
 </div>
 </section>
 <section class="sec" id="fits" aria-labelledby="s4-h">
 <h2 id="s4-h"><span class="no">4</span>Where it fits</h2>
 <div class="body">
-<p>Your instrument, CDS, LIMS and QA review stay as they are. In the alpha, Immutable QC sits beside the CDS export: results imported from the CSV export are sealed and linked into a <span class="nw">tamper-evident</span> record history, so a later change to a sealed value shows. Changes made before import are not covered.</p>
+<p>Your instrument, CDS, LIMS and QA review stay as they are. In the alpha, Immutable QC sits beside the CDS export. The alpha app fingerprints, links and signs each imported peak area with one server key; checking them in the app is upcoming. On these pages and in the console the record history is <span class="nw">tamper-evident</span>, so a later change to a sealed value fails its checks. Changes made before import are not covered.</p>
 </div>
 <figure class="flow" aria-labelledby="f3-c">
 <ol class="lane">
@@ -199,15 +207,15 @@
 <p class="iqc-in"><span class="lab-s">CSV export from the CDS</span><span aria-hidden="true">↓</span></p>
 <div class="iqc-box">
 <p class="nm"><svg class="mark" aria-hidden="true"><use href="#i-mark"/></svg>Immutable QC <span class="tag">Alpha</span></p>
-<p class="sub">Imports the HPLC CSV export and keeps a sealed, linked record history of the results.</p>
+<p class="sub">Imports the HPLC CSV export, then fingerprints, links and signs each peak area.</p>
 </div>
-<p class="iqc-out"><span class="lab-s">Planned: QA review checks the sealed history</span></p>
+<p class="iqc-out"><span class="lab-s">Upcoming: QA review would check the sealed history</span></p>
 </div>
-<figcaption class="figcap" id="f3-c"><b>Fig. 3</b> · Where Immutable QC sits. The CDS export feeds it; nothing is sent back to the CDS or LIMS. The dashed link to QA review is planned, not built.</figcaption>
+<figcaption class="figcap" id="f3-c"><b>Fig. 3</b> · Where Immutable QC sits. The CDS export feeds it; nothing is sent back to the CDS or LIMS. The dashed link to QA review is upcoming (reviewer sign-off).</figcaption>
 </figure>
 </section>
 <section class="sec sec--side" id="public" aria-labelledby="s5-h">
-<h2 id="s5-h"><span class="no">5</span>What goes public</h2>
+<h2 id="s5-h"><span class="no">5</span><span>What would go public <span class="tag">Upcoming</span></span></h2>
 <div class="body">
 <div class="pub">
 <div class="pub-c">
@@ -220,46 +228,46 @@
 </ul>
 </div>
 <div class="pub-c">
-<h3 class="pub-h">Can go on a public test network</h3>
-<p>One batch fingerprint: 64 hex characters for a whole run of records, here the last link of records 1 to 8.</p>
+<h3 class="pub-h">Would go on a public network</h3>
+<p>Nothing on this site writes to a network. Once anchoring becomes available, one batch fingerprint will go on it for a whole run of records. It is a 64-character code; here it is the link of record 8, which depends on records 1 to 8.</p>
 <p class="hx-p"><span>0a35688a</span><wbr><span>4c3ec82a</span><wbr><span>5e621ced</span><wbr><span>e1f173a6</span><wbr><span>d436ade0</span><wbr><span>e20f159d</span><wbr><span>ca92c2a3</span><wbr><span>711e3dc1</span></p>
-<p class="say-p">Simulated here, with no network call. Anyone who already holds the records can recompute it and see whether they still match.</p>
+<p class="say-p">Simulated here, with no network call. Anyone who holds the records can recompute it and see whether they still match.</p>
 </div>
 </div>
-<p>A fingerprint is not encryption. A plain <span class="nw">SHA-256</span> of a few guessable fields can in principle be matched by trying likely values, which is why a single record’s fingerprint is never published. Salted commitments, and later zero-knowledge proofs, are on the roadmap so that what goes on a public network says nothing about results.</p>
-<p><a class="xref" href="roadmap.html#privacy"><span class="id"><span class="nw">IQC-RD-01</span> §2.2</span><span>Privacy on public networks</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
+<p>A fingerprint is not encryption. How a record is sealed, section 9, explains why, and what is upcoming.</p>
+<p><a class="xref" href="sealed.html#privacy"><span class="id"><span class="nw">IQC-HS-01</span> §9</span><span>Privacy on public networks</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
 </div>
 </section>
 <section class="sec sec--side" id="agents" aria-labelledby="s6-h">
-<h2 id="s6-h"><span class="no">6</span><span>Agentic workflows <span class="tag">Roadmap</span></span></h2>
+<h2 id="s6-h"><span class="no">6</span><span>Agentic workflows <span class="tag">Upcoming</span></span></h2>
 <div class="body">
 <blockquote class="pull"><p>In an intelligence explosion, human review can’t keep up with every result; records have to verify themselves.</p><footer><span class="nw">José A. Fernández Abreu</span>, founder</footer></blockquote>
-<p>Planned: verified experiment data that AI agents can check before they use it. An agent would recompute the fingerprint from the fields, check the signature and the link, and compare the anchor, and treat the record as unchanged only if all four pass. That says whether a result changed after it was sealed, not whether it was right when it was captured.</p>
-<p>Check a record shows one record the way an agent would receive it. It is labelled roadmap: there is no API today.</p>
-<p><a class="xref" href="roadmap.html#agents"><span class="id"><span class="nw">IQC-RD-01</span> §2.1</span><span>Agentic workflows on the roadmap</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
+<p>An agent would run the same four checks as Check a record before it uses a result. Passing them says a result has not changed since it was sealed; it does not say the result was right when it was captured.</p>
+<p>Check a record shows one record as an agent would receive it. There is no API yet.</p>
+<p><a class="xref" href="roadmap.html#agents"><span class="id"><span class="nw">IQC-RD-01</span> §2.1</span><span>Agentic workflows</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
 </div>
 </section>
 <section class="sec sec--side" id="docs" aria-labelledby="s7-h">
 <h2 id="s7-h"><span class="no">7</span>The document set</h2>
 <div class="body">
 <ul class="docs">
-<li><a class="xref" href="sealed.html"><span class="id"><span class="nw">IQC-HS-01</span></span><span>How a record is sealed</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>The payload, the fingerprint, the link rule, demo signatures, corrections, anchoring, what a check shows, and the privacy note.</p></li>
+<li><a class="xref" href="sealed.html"><span class="id"><span class="nw">IQC-HS-01</span></span><span>How a record is sealed</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>The payload, the fingerprint, the link rule, demo signatures, corrections, what a check shows, upcoming anchoring and the privacy note.</p></li>
 <li><a class="xref" href="check.html"><span class="id"><span class="nw">IQC-CK-01</span></span><span>Check a record</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>Change any sealed field and watch the checks; rewrite the history to hide it, or append a correction instead.</p></li>
-<li><a class="xref" href="regulatory.html"><span class="id"><span class="nw">IQC-RM-01</span></span><span>Regulatory map</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>Clause by clause: <span class="nw">21 CFR Part 11</span>, <span class="nw">EU Annex 11</span>, <span class="nw">ISO/IEC 17025:2017</span>, ALCOA+, GMP and TNI.</p></li>
-<li><a class="xref" href="roadmap.html"><span class="id"><span class="nw">IQC-RD-01</span></span><span>Roadmap</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>What exists today, and what is planned.</p></li>
+<li><a class="xref" href="regulatory.html"><span class="id"><span class="nw">IQC-RM-01</span></span><span>Regulatory map</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>Expectation by expectation for <span class="nw">21 CFR Part 11</span>, <span class="nw">EU Annex 11</span>, <span class="nw">ISO/IEC 17025:2017</span>, ALCOA+, GMP and TNI, with what exists today and what is not covered. A reading aid, not an assessment.</p></li>
+<li><a class="xref" href="roadmap.html"><span class="id"><span class="nw">IQC-RD-01</span></span><span>Roadmap</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>What works today, and what is upcoming.</p></li>
 <li><a class="xref" href="about.html"><span class="id"><span class="nw">IQC-AB-01</span></span><span>About</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>Who builds it, status, and questions.</p></li>
 <li><a class="xref" href="dashboard/"><span class="id">Demo</span><span>Alpha console</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>A synthetic lab that runs only in your browser.</p></li>
 </ul>
 </div>
 </section>
-<script type="application/json" id="iqc-seq">{"seq":"SEQ-0914-02","pub":"0458f36cfc0c1e0df9d1b97e3cd6e3e3ca7bc3acd4fa6b835584f63aa4551ef83855cbc7609030d0ddbe6a92bdb73176884a951eb6ba33eece29bdcb30d6b7c66f","keyId":"7A15F56288146023D45A47796F6A5553","anchor":"0a35688a4c3ec82a5e621cede1f173a6d436ade0e20f159dca92c2a3711e3dc1","anchorN":8,"select":6,"records":[{"n":1,"f":{"instrumentId":"HPLC-02","sensorType":"hplc","value":"1523847","unit":"counts","capturedAt":"2026-09-14T08:12:41Z"},"r":"0135c7794c42473a750237d2d67f4ebf1280584fcafe4c4b8718364c8b26ae70","prev":"0000000000000000000000000000000000000000000000000000000000000000","h":"c891c783b0f446a14670814ba59d71f405dee3eec6b4e710bc28ae13a529341d","sig":"2bd517ee97bddb412628829d7ace9193e9f3911611e498065f20dea04a68b9fae0666986698fdd600ebcdad3266f74ce29e30c1effcd6c17e6ef7e335d2c7b48","ctx":{"inj":"01","kind":"SST","sample":"STD-A","desc":"Reference standard, 0.20 mg/mL, replicate 1","prep":"replicate 1","rt":"4.82"}},{"n":2,"f":{"instrumentId":"HPLC-02","sensorType":"hplc","value":"1519962","unit":"counts","capturedAt":"2026-09-14T08:19:43Z"},"r":"9892c300f7ec0534343e67419a7fdf9ad16daff60e5145aacd514732a9c95f60","prev":"c891c783b0f446a14670814ba59d71f405dee3eec6b4e710bc28ae13a529341d","h":"7a4953a2414b01e28d9347ad1d6a6579c8b555bbf2e52b96cde03d642e87e6d0","sig":"fb4906e998e815c6b7ec5c7e5e9c4b7f385797190624a6da6e5a361dad6065a723a21a5666da2edb1df833ad79c8a1f58b7914ccb874b36577bee7eb79e9469c","ctx":{"inj":"02","kind":"SST","sample":"STD-A","desc":"Reference standard, 0.20 mg/mL, replicate 2","prep":"replicate 2","rt":"4.81"}},{"n":3,"f":{"instrumentId":"HPLC-02","sensorType":"hplc","value":"1527410","unit":"counts","capturedAt":"2026-09-14T08:26:44Z"},"r":"ae3ff2536da7c5c4be08a49d1f343da31f6e3cf399408708e14693f473c8a4c2","prev":"7a4953a2414b01e28d9347ad1d6a6579c8b555bbf2e52b96cde03d642e87e6d0","h":"5bca5e029bf1be13f6b38333d9ee3577ef36903b857cf4be390dc72cf8b6948a","sig":"9d664cf62477cf1f951e6b4deb4fbf1aed9f9186b098d5ee6b4874d51c285011f4a0d9fa11f5dd9ac23ac9d0248858c1ea7fbafdc1854b647864bfec7450071f","ctx":{"inj":"03","kind":"SST","sample":"STD-A","desc":"Reference standard, 0.20 mg/mL, replicate 3","prep":"replicate 3","rt":"4.82"}},{"n":4,"f":{"instrumentId":"HPLC-02","sensorType":"hplc","value":"1521188","unit":"counts","capturedAt":"2026-09-14T08:33:47Z"},"r":"976c4d87814195123fd9e64813eb7b76184c6272fcae2f74d354bf9cce5164b3","prev":"5bca5e029bf1be13f6b38333d9ee3577ef36903b857cf4be390dc72cf8b6948a","h":"469c206de1a395be9be00bac58e07dcf3bfad47ec8fef1153fbaad8502b1d36b","sig":"6f4e98a69a9ec9a5bcead850b5cc014b4a986680aa61e2c72c1fded4037de0391d8b14749546c9058f40b0a9d1a9c23d1a8f7887d9e64c83cb8bae950c432bc5","ctx":{"inj":"04","kind":"SST","sample":"STD-A","desc":"Reference standard, 0.20 mg/mL, replicate 4","prep":"replicate 4","rt":"4.83"}},{"n":5,"f":{"instrumentId":"HPLC-02","sensorType":"hplc","value":"1525603","unit":"counts","capturedAt":"2026-09-14T08:40:49Z"},"r":"1f00a3f2554c93ee86aaa49d49402b9740986cf4777bfa356da50e28fbfa121a","prev":"469c206de1a395be9be00bac58e07dcf3bfad47ec8fef1153fbaad8502b1d36b","h":"c04af03f4b9c69a30d06e27d9906e4e7f2bc176b7ba0a212582ad8c65f6bdfd5","sig":"70def28d6c5a20e5b97fb878e05087198604a09dad7219311400fbf258122a71502018cb2814d34ab8349d4d6012ba69940e29c33db80a165a2883c05a4f5bcf","ctx":{"inj":"05","kind":"SST","sample":"STD-A","desc":"Reference standard, 0.20 mg/mL, replicate 5","prep":"replicate 5","rt":"4.82"}},{"n":6,"f":{"instrumentId":"HPLC-02","sensorType":"hplc","value":"1508811","unit":"counts","capturedAt":"2026-09-14T08:47:50Z"},"r":"eb1690bc5922a312d90ee139fdf8e20b92bf2cb0feae8ee0e70bd24fbd2b54d7","prev":"c04af03f4b9c69a30d06e27d9906e4e7f2bc176b7ba0a212582ad8c65f6bdfd5","h":"c427b83a4e29adf9380bef67d00302e12ddfd558ae8f5a558547b2b0cf3cba23","sig":"fd3cfca2c73346e62ecca8b63809472ef61f4c01d375e91bce8f023b3fefb8cc6904175a9db890fe6bc0e8fe5fc34203cf5297b361db971e6cadf2dfeb420279","ctx":{"inj":"06","kind":"Sample","sample":"P200-S1","desc":"Product 200 mg tablets, preparation 1","prep":"preparation 1","rt":"4.82"}},{"n":7,"f":{"instrumentId":"HPLC-02","sensorType":"hplc","value":"1531274","unit":"counts","capturedAt":"2026-09-14T08:54:52Z"},"r":"ebe86f04fb007ecdcc87296ddd9fcab2fce7646d1b172220ec3ce3a63833948c","prev":"c427b83a4e29adf9380bef67d00302e12ddfd558ae8f5a558547b2b0cf3cba23","h":"b43dc487a612cb06fcec3ba624d25a40354c31e91a8095c5e32f785b284c778a","sig":"c62736903ebbbea78273b59ad62db18c44d7af0dec612f92ec240d373e9638dd2cd13356cbe733b520e6171b2381900d39669d382fa0b54ac54a41bb6a55944a","ctx":{"inj":"07","kind":"Sample","sample":"P200-S2","desc":"Product 200 mg tablets, preparation 2","prep":"preparation 2","rt":"4.81"}},{"n":8,"f":{"instrumentId":"HPLC-02","sensorType":"hplc","value":"1516039","unit":"counts","capturedAt":"2026-09-14T09:01:55Z"},"r":"45752d1145d10b60f0c0f67923c25c1536acb705dcd1492ae4b0746d48804e5f","prev":"b43dc487a612cb06fcec3ba624d25a40354c31e91a8095c5e32f785b284c778a","h":"0a35688a4c3ec82a5e621cede1f173a6d436ade0e20f159dca92c2a3711e3dc1","sig":"c7926ae188ec1d5fffd70c46d5c8e5e97fe74a9ea0bdf8abd55a7b35c0d83c144cf5334fc0ff2b1c5a59cdbda9c4305109e449af72b4636dc9a324d0ad0ba717","ctx":{"inj":"08","kind":"Sample","sample":"P200-S3","desc":"Product 200 mg tablets, preparation 3","prep":"preparation 3","rt":"4.82"}}]}</script>
+<script type="application/json" id="iqc-seq">{"seq":"SEQ-0914-02","pub":"0458f36cfc0c1e0df9d1b97e3cd6e3e3ca7bc3acd4fa6b835584f63aa4551ef83855cbc7609030d0ddbe6a92bdb73176884a951eb6ba33eece29bdcb30d6b7c66f","keyId":"7A15F56288146023D45A47796F6A5553","anchor":"0a35688a4c3ec82a5e621cede1f173a6d436ade0e20f159dca92c2a3711e3dc1","anchorN":8,"select":6,"records":[{"n":1,"f":{"instrumentId":"HPLC-02","sensorType":"hplc","value":"1523847","unit":"counts","capturedAt":"2026-09-14T08:12:41Z"},"r":"0135c7794c42473a750237d2d67f4ebf1280584fcafe4c4b8718364c8b26ae70","prev":"0000000000000000000000000000000000000000000000000000000000000000","h":"c891c783b0f446a14670814ba59d71f405dee3eec6b4e710bc28ae13a529341d","sig":"2bd517ee97bddb412628829d7ace9193e9f3911611e498065f20dea04a68b9fa1f999678967022a0f143252cd9908b319303ee8ea74a326d0cca4c8f9f36aa09","ctx":{"inj":"01","kind":"SST","kw":"system suitability","sample":"STD-A","desc":"Reference standard, 0.20 mg/mL, replicate 1","prep":"replicate 1","rt":"4.82"}},{"n":2,"f":{"instrumentId":"HPLC-02","sensorType":"hplc","value":"1519962","unit":"counts","capturedAt":"2026-09-14T08:19:43Z"},"r":"9892c300f7ec0534343e67419a7fdf9ad16daff60e5145aacd514732a9c95f60","prev":"c891c783b0f446a14670814ba59d71f405dee3eec6b4e710bc28ae13a529341d","h":"7a4953a2414b01e28d9347ad1d6a6579c8b555bbf2e52b96cde03d642e87e6d0","sig":"fb4906e998e815c6b7ec5c7e5e9c4b7f385797190624a6da6e5a361dad6065a723a21a5666da2edb1df833ad79c8a1f58b7914ccb874b36577bee7eb79e9469c","ctx":{"inj":"02","kind":"SST","kw":"system suitability","sample":"STD-A","desc":"Reference standard, 0.20 mg/mL, replicate 2","prep":"replicate 2","rt":"4.81"}},{"n":3,"f":{"instrumentId":"HPLC-02","sensorType":"hplc","value":"1527410","unit":"counts","capturedAt":"2026-09-14T08:26:44Z"},"r":"ae3ff2536da7c5c4be08a49d1f343da31f6e3cf399408708e14693f473c8a4c2","prev":"7a4953a2414b01e28d9347ad1d6a6579c8b555bbf2e52b96cde03d642e87e6d0","h":"5bca5e029bf1be13f6b38333d9ee3577ef36903b857cf4be390dc72cf8b6948a","sig":"9d664cf62477cf1f951e6b4deb4fbf1aed9f9186b098d5ee6b4874d51c2850110b5f2604ee0a22663dc5362fdb77a73dd2673fafe59253207b550ad688131e32","ctx":{"inj":"03","kind":"SST","kw":"system suitability","sample":"STD-A","desc":"Reference standard, 0.20 mg/mL, replicate 3","prep":"replicate 3","rt":"4.82"}},{"n":4,"f":{"instrumentId":"HPLC-02","sensorType":"hplc","value":"1521188","unit":"counts","capturedAt":"2026-09-14T08:33:47Z"},"r":"976c4d87814195123fd9e64813eb7b76184c6272fcae2f74d354bf9cce5164b3","prev":"5bca5e029bf1be13f6b38333d9ee3577ef36903b857cf4be390dc72cf8b6948a","h":"469c206de1a395be9be00bac58e07dcf3bfad47ec8fef1153fbaad8502b1d36b","sig":"6f4e98a69a9ec9a5bcead850b5cc014b4a986680aa61e2c72c1fded4037de0391d8b14749546c9058f40b0a9d1a9c23d1a8f7887d9e64c83cb8bae950c432bc5","ctx":{"inj":"04","kind":"SST","kw":"system suitability","sample":"STD-A","desc":"Reference standard, 0.20 mg/mL, replicate 4","prep":"replicate 4","rt":"4.83"}},{"n":5,"f":{"instrumentId":"HPLC-02","sensorType":"hplc","value":"1525603","unit":"counts","capturedAt":"2026-09-14T08:40:49Z"},"r":"1f00a3f2554c93ee86aaa49d49402b9740986cf4777bfa356da50e28fbfa121a","prev":"469c206de1a395be9be00bac58e07dcf3bfad47ec8fef1153fbaad8502b1d36b","h":"c04af03f4b9c69a30d06e27d9906e4e7f2bc176b7ba0a212582ad8c65f6bdfd5","sig":"70def28d6c5a20e5b97fb878e05087198604a09dad7219311400fbf258122a71502018cb2814d34ab8349d4d6012ba69940e29c33db80a165a2883c05a4f5bcf","ctx":{"inj":"05","kind":"SST","kw":"system suitability","sample":"STD-A","desc":"Reference standard, 0.20 mg/mL, replicate 5","prep":"replicate 5","rt":"4.82"}},{"n":6,"f":{"instrumentId":"HPLC-02","sensorType":"hplc","value":"1508811","unit":"counts","capturedAt":"2026-09-14T08:47:50Z"},"r":"eb1690bc5922a312d90ee139fdf8e20b92bf2cb0feae8ee0e70bd24fbd2b54d7","prev":"c04af03f4b9c69a30d06e27d9906e4e7f2bc176b7ba0a212582ad8c65f6bdfd5","h":"c427b83a4e29adf9380bef67d00302e12ddfd558ae8f5a558547b2b0cf3cba23","sig":"fd3cfca2c73346e62ecca8b63809472ef61f4c01d375e91bce8f023b3fefb8cc6904175a9db890fe6bc0e8fe5fc34203cf5297b361db971e6cadf2dfeb420279","ctx":{"inj":"06","kind":"Sample","kw":"sample","sample":"P200-S1","desc":"Product 200 mg tablets, preparation 1","prep":"preparation 1","rt":"4.82"}},{"n":7,"f":{"instrumentId":"HPLC-02","sensorType":"hplc","value":"1531274","unit":"counts","capturedAt":"2026-09-14T08:54:52Z"},"r":"ebe86f04fb007ecdcc87296ddd9fcab2fce7646d1b172220ec3ce3a63833948c","prev":"c427b83a4e29adf9380bef67d00302e12ddfd558ae8f5a558547b2b0cf3cba23","h":"b43dc487a612cb06fcec3ba624d25a40354c31e91a8095c5e32f785b284c778a","sig":"c62736903ebbbea78273b59ad62db18c44d7af0dec612f92ec240d373e9638dd2cd13356cbe733b520e6171b2381900d39669d382fa0b54ac54a41bb6a55944a","ctx":{"inj":"07","kind":"Sample","kw":"sample","sample":"P200-S2","desc":"Product 200 mg tablets, preparation 2","prep":"preparation 2","rt":"4.81"}},{"n":8,"f":{"instrumentId":"HPLC-02","sensorType":"hplc","value":"1516039","unit":"counts","capturedAt":"2026-09-14T09:01:55Z"},"r":"45752d1145d10b60f0c0f67923c25c1536acb705dcd1492ae4b0746d48804e5f","prev":"b43dc487a612cb06fcec3ba624d25a40354c31e91a8095c5e32f785b284c778a","h":"0a35688a4c3ec82a5e621cede1f173a6d436ade0e20f159dca92c2a3711e3dc1","sig":"c7926ae188ec1d5fffd70c46d5c8e5e97fe74a9ea0bdf8abd55a7b35c0d83c144cf5334fc0ff2b1c5a59cdbda9c4305109e449af72b4636dc9a324d0ad0ba717","ctx":{"inj":"08","kind":"Sample","kw":"sample","sample":"P200-S3","desc":"Product 200 mg tablets, preparation 3","prep":"preparation 3","rt":"4.82"}}]}</script>
 
 </div>
 </main>
 <footer class="foot">
 <div class="wrap">
 <p class="ind">Immutable QC is an independent project built on the founder’s own time. It is not affiliated with or endorsed by any employer. Founder: <span class="nw">José A. Fernández Abreu</span> · <a href="https://joseqc.com">joseqc.com</a></p>
-<p class="meta"><span class="m-doc"><span class="nw">IQC-OV-01</span> · Draft 2 · Updated 2026-10-06 · <a href="about.html#history">Revision history</a></span><span class="m-fonts">Fonts, SIL Open Font License: <a href="fonts/OFL-IBM-Plex-Sans.txt">IBM Plex Sans</a> <a href="fonts/OFL-IBM-Plex-Mono.txt">IBM Plex Mono</a> <a href="fonts/OFL-Archivo.txt">Archivo</a></span></p>
+<p class="meta"><span class="m-doc"><span class="nw">IQC-OV-01</span> · Draft 3 · Updated 2026-10-07 · <a href="about.html#history">Revision history</a></span><span class="m-fonts">Fonts, SIL Open Font License: <a href="fonts/OFL-IBM-Plex-Sans.txt">IBM Plex Sans</a> <a href="fonts/OFL-IBM-Plex-Mono.txt">IBM Plex Mono</a> <a href="fonts/OFL-Archivo.txt">Archivo</a></span></p>
 </div>
 </footer>
 

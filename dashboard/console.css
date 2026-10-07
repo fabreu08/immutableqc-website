@@ -9,6 +9,10 @@
 @font-face{font-family:'Archivo C fb';src:local('Arial'),local('Liberation Sans');size-adjust:120.71%;ascent-override:72.73%;descent-override:17.40%;line-gap-override:0%}
 @font-face{font-family:'Plex Sans fb';src:local('Arial'),local('Liberation Sans');size-adjust:101.20%;ascent-override:101.28%;descent-override:27.17%;line-gap-override:0%}
 @font-face{font-family:'Plex Mono fb';src:local('Courier New'),local('Liberation Mono');size-adjust:99.98%;ascent-override:102.52%;descent-override:27.50%;line-gap-override:0%}
+/* Android has none of the above: the same faces matched on Roboto and Droid Sans Mono (see the site's site.css) */
+@font-face{font-family:'Archivo C fbr';src:local('Roboto'),local('Roboto-Regular'),local('Roboto Regular');size-adjust:119.78%;ascent-override:73.30%;descent-override:17.54%;line-gap-override:0%}
+@font-face{font-family:'Plex Sans fbr';src:local('Roboto'),local('Roboto-Regular'),local('Roboto Regular');size-adjust:100.42%;ascent-override:102.07%;descent-override:27.38%;line-gap-override:0%}
+@font-face{font-family:'Plex Mono fbr';src:local('Droid Sans Mono'),local('DroidSansMono'),local('Roboto Mono'),local('RobotoMono-Regular');size-adjust:99.98%;ascent-override:102.52%;descent-override:27.50%;line-gap-override:0%}
 
 :root{
   color-scheme:light;
@@ -16,9 +20,9 @@
   --plate:#0A1520; --plate-0:#060D14; --plate-2:#0F1D2A; --p-fg:#E8EFF7; --p-fg2:#8FA1B4; --p-hair:#1E2A36; --p-ui:#62768B;
   --ok:#00D4AA; --ok-t:#52D6B6; --fail:#FF8F6B;
   --focus:var(--teal);
-  --display:'Archivo C','Archivo C fb',Arial,sans-serif;
-  --sans:'IBM Plex Sans','Plex Sans fb',Arial,sans-serif;
-  --mono:'IBM Plex Mono','Plex Mono fb',ui-monospace,Menlo,Consolas,monospace;
+  --display:'Archivo C','Archivo C fb','Archivo C fbr',Arial,sans-serif;
+  --sans:'IBM Plex Sans','Plex Sans fb','Plex Sans fbr',Arial,sans-serif;
+  --mono:'IBM Plex Mono','Plex Mono fb','Plex Mono fbr',ui-monospace,Menlo,Consolas,monospace;
   --g:16px; --max:1240px;
 }
 @media (min-width:768px){:root{--g:32px}}
@@ -139,7 +143,7 @@ h1{font:620 clamp(1.875rem,1.5rem + 1.6vw,2.625rem)/1.08 var(--display);letter-s
 @media (min-width:600px){.add-g{grid-template-columns:minmax(0,1fr) minmax(0,12rem) auto}}
 
 /* records: history list and the selected record */
-.rv{display:grid;gap:26px;margin-top:22px}
+.rv{display:grid;grid-template-columns:minmax(0,1fr);gap:26px;margin-top:22px}
 @media (min-width:1100px){.rv{grid-template-columns:minmax(0,5fr) minmax(0,7fr);column-gap:36px;align-items:start}}
 .hh{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 14px;margin-bottom:8px}
 .hist{border-top:1px solid var(--p-fg2)}
@@ -173,11 +177,11 @@ li[data-s=bad] .hs{color:var(--fail)}
 .det-s{font:500 .8125rem/1.4 var(--mono);color:var(--p-fg2)}
 .det-s[data-s=ok]{color:var(--ok-t)}
 .det-s[data-s=bad]{color:var(--fail)}
-.ctx{font-size:.875rem;line-height:1.5;color:var(--p-fg2)}
+.ctx{font-size:.875rem;line-height:1.5;color:var(--p-fg2);overflow-wrap:anywhere}
 .ctx .nb{white-space:nowrap}
 @media (max-width:419px){.ctx .nb{white-space:normal}}
 .pl-l{margin-bottom:-8px}
-code.pl{display:block;padding:9px 12px;background:var(--plate-0);border:1px solid var(--p-hair);border-radius:3px;font-size:.8125rem;line-height:1.5;color:var(--p-fg);word-break:break-all}
+code.pl{display:block;padding:9px 12px;background:var(--plate-0);border:1px solid var(--p-hair);border-radius:3px;font-size:.8125rem;line-height:1.5;color:var(--p-fg);word-break:normal;overflow-wrap:anywhere}
 .prose code.pl{color:var(--p-fg)}
 .ck{border-top:1px solid var(--p-fg2)}
 .ck>div{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:14px;row-gap:4px;padding:10px 0 11px;border-bottom:1px solid var(--p-hair)}
@@ -192,8 +196,14 @@ code.pl{display:block;padding:9px 12px;background:var(--plate-0);border:1px soli
 [data-s=ok]>.res .i{color:var(--ok)}
 [data-s=bad]>.res{color:var(--fail)}
 [data-s=na]>.res{color:var(--p-fg2)}
-.rc-d summary{display:flex;align-items:center;min-height:44px;cursor:pointer;color:var(--ok-t);font-size:.9375rem}
-.rc{margin-top:6px;padding:12px 14px;background:var(--plate-0);border:1px solid var(--p-hair);border-radius:4px;font:400 .8125rem/1.55 var(--mono);color:var(--p-fg);white-space:pre-wrap;word-break:break-all}
+/* a disclosure, and it looks like one: a caret that turns, an underline on hover */
+.rc-d summary{display:flex;align-items:center;gap:8px;min-height:44px;cursor:pointer;color:var(--ok-t);font-size:.9375rem;list-style:none}
+.rc-d summary::-webkit-details-marker{display:none}
+.rc-d summary::before{content:'▸';flex:none;width:1em;font-size:.875em;color:var(--p-fg2)}
+.rc-d[open] summary::before{content:'▾'}
+.rc-d summary:hover{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:.2em}
+/* commands break only where they must: a payload after a bar (the <wbr> there), a hex run anywhere; never inside a word */
+.rc{margin-top:6px;padding:12px 14px;background:var(--plate-0);border:1px solid var(--p-hair);border-radius:4px;font:400 .8125rem/1.55 var(--mono);color:var(--p-fg);white-space:pre-wrap;word-break:normal;overflow-wrap:anywhere}
 .rc .c{color:var(--p-fg2)}
 .rc .p::before{content:'$ ';color:var(--p-fg2)}
 .rc .o{color:var(--ok-t)}
@@ -203,6 +213,11 @@ code.pl{display:block;padding:9px 12px;background:var(--plate-0);border:1px soli
 .act{display:grid;gap:4px;padding-top:8px}
 .act p{font-size:.875rem;line-height:1.45;color:var(--p-fg2)}
 .act .btn{justify-self:start}
+/* the result of a simulated change, under the buttons that made it */
+.sim-r{display:grid;gap:6px;margin-top:4px;padding:10px 12px;background:var(--plate-0);border:1px solid var(--p-hair);border-left:3px solid var(--p-fg2);border-radius:3px}
+.sim-r[data-s=bad]{border-left-color:var(--fail)}
+.sim-r[data-s=ok]{border-left-color:var(--ok-t)}
+.sim-r .btn{justify-self:start}
 
 /* instruments */
 .inst{display:grid;gap:12px}

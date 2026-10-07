@@ -1,11 +1,11 @@
 {
- "_note": "Demo signatures over r_n (ECDSA P-256, SHA-256, IEEE P1363 hex). Written by build.mjs; the private key was never written and was discarded.",
+ "_note": "Demo signatures over r_n (ECDSA P-256, SHA-256, IEEE P1363 hex, low-S form). Written by site/build.mjs; the private key was never written and was discarded.",
  "pub": "0458f36cfc0c1e0df9d1b97e3cd6e3e3ca7bc3acd4fa6b835584f63aa4551ef83855cbc7609030d0ddbe6a92bdb73176884a951eb6ba33eece29bdcb30d6b7c66f",
  "sigs": [
   {
    "n": 1,
    "r": "0135c7794c42473a750237d2d67f4ebf1280584fcafe4c4b8718364c8b26ae70",
-   "sig": "2bd517ee97bddb412628829d7ace9193e9f3911611e498065f20dea04a68b9fae0666986698fdd600ebcdad3266f74ce29e30c1effcd6c17e6ef7e335d2c7b48"
+   "sig": "2bd517ee97bddb412628829d7ace9193e9f3911611e498065f20dea04a68b9fa1f999678967022a0f143252cd9908b319303ee8ea74a326d0cca4c8f9f36aa09"
   },
   {
    "n": 2,
@@ -15,7 +15,7 @@
   {
    "n": 3,
    "r": "ae3ff2536da7c5c4be08a49d1f343da31f6e3cf399408708e14693f473c8a4c2",
-   "sig": "9d664cf62477cf1f951e6b4deb4fbf1aed9f9186b098d5ee6b4874d51c285011f4a0d9fa11f5dd9ac23ac9d0248858c1ea7fbafdc1854b647864bfec7450071f"
+   "sig": "9d664cf62477cf1f951e6b4deb4fbf1aed9f9186b098d5ee6b4874d51c2850110b5f2604ee0a22663dc5362fdb77a73dd2673fafe59253207b550ad688131e32"
   },
   {
    "n": 4,

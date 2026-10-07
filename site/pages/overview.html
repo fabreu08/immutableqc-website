@@ -10,6 +10,10 @@
 <div class="body">
 <p class="reg">{{regulatory}}</p>
 </div>
+<div class="body first">
+<p><a class="xref" href="check.html#verifier"><span>Change a value and watch the checks</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
+<p><a class="xref" href="regulatory.html"><span>Read the regulatory map</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
+</div>
 </section>
 </div>
 {{> plate-record}}
@@ -17,28 +21,29 @@
 <section class="sec" id="history" aria-labelledby="s2-h">
 <h2 id="s2-h"><span class="no">2</span>Record history</h2>
 <div class="body">
-<p>The whole synthetic sequence, as an auditor would page through it. When the table comes into view, your browser checks every record and seals it in once; after that nothing moves.</p>
+<p>The whole synthetic sequence, as an auditor would page through it. When the table comes into view, your browser checks every record once and marks each result; after that nothing moves.</p>
 </div>
 <div class="v-fig">
 {{> plate-history}}
 </div>
 </section>
 <section class="sec sec--side" id="today" aria-labelledby="s3-h">
-<h2 id="s3-h"><span class="no">3</span>What it does today</h2>
+<h2 id="s3-h"><span class="no">3</span>Today, upcoming and not claimed</h2>
 <div class="body">
 <ul class="items">
-<li><span class="k">Alpha console · demo in your browser</span><span>Runs on a synthetic lab, only in your browser. It gives each record a SHA-256 fingerprint, links it to the record before it, signs it with a demo key made in your browser, and keeps corrections as new records with a reason. Its anchor is simulated, with no network call.</span></li>
-<li><span class="k">Alpha app · not public</span><span>Imports HPLC CSV exports. Each peak area becomes a record of instrument, measurement type, value, unit and capture time, signed by one server key. Reviewer sign-off and the app’s own verification do not work yet.</span></li>
-<li><span class="k">Anchoring · manual</span><span>A batch fingerprint can be written by hand to a small registry contract on a public test network. There is no shared registry yet, so every anchor on this site and in the console is simulated.</span></li>
-<li><span class="k">Not yet</span><span>No customers, no instrument capture, no electronic signatures, no validation and no Filecoin storage.</span></li>
+<li><span class="k">Alpha console · demo in your browser</span><span>Runs on a synthetic lab, only in your browser. Each record gets a SHA-256 fingerprint, a link to the record before it (the first record links to a fixed start value of 64 zeros), and a signature from a demo key made in your browser. Corrections are new records with a reason, and every check is recomputed after each change. Its anchor is simulated, with no network call.</span></li>
+<li><span class="k">These pages</span><span>The same construction on one synthetic sequence, signed with a demo key at build. Your browser recomputes every check.</span></li>
+<li><span class="k">Alpha app · not public</span><span>Imports HPLC CSV exports. Each peak area becomes a record of instrument, measurement type, value, unit and capture time, fingerprinted, linked and signed by one server key. The capture time is an injection time typed at import, or the server’s clock if none is given.</span></li>
+<li><span class="k"><span class="tag tag--in">Upcoming</span></span><span>Anchoring batch fingerprints on a public test network, a shared registry, reviewer sign-off, server-side verification in the app, per-analyst signatures, sample and method metadata in the seal, privacy on public networks, agentic workflows and Filecoin integration. Every anchor on this site and in the console is simulated.</span></li>
+<li><span class="k">Not claimed</span><span>No customers, no instrument capture, no electronic signatures and no validation. Nothing on this site or in the console writes to a public network.</span></li>
 </ul>
-<p class="note"><span class="k">Basis</span>The same five fields and link rule in the alpha app’s HPLC import and on these pages. The console documents its own payload in its Method panel.</p>
+<p class="note"><span class="k">Basis</span>The same five fields and link rule in the alpha app’s HPLC import and on these pages; in the app, the instrument field is its internal instrument number. The console documents its own payload in its Method panel.</p>
 </div>
 </section>
 <section class="sec" id="fits" aria-labelledby="s4-h">
 <h2 id="s4-h"><span class="no">4</span>Where it fits</h2>
 <div class="body">
-<p>Your instrument, CDS, LIMS and QA review stay as they are. In the alpha, Immutable QC sits beside the CDS export: results imported from the CSV export are sealed and linked into a tamper-evident record history, so a later change to a sealed value shows. Changes made before import are not covered.</p>
+<p>Your instrument, CDS, LIMS and QA review stay as they are. In the alpha, Immutable QC sits beside the CDS export. The alpha app fingerprints, links and signs each imported peak area with one server key; checking them in the app is upcoming. On these pages and in the console the record history is tamper-evident, so a later change to a sealed value fails its checks. Changes made before import are not covered.</p>
 </div>
 <figure class="flow" aria-labelledby="f3-c">
 <ol class="lane">
@@ -51,15 +56,15 @@
 <p class="iqc-in"><span class="lab-s">CSV export from the CDS</span><span aria-hidden="true">↓</span></p>
 <div class="iqc-box">
 <p class="nm"><svg class="mark" aria-hidden="true"><use href="#i-mark"/></svg>Immutable QC <span class="tag">Alpha</span></p>
-<p class="sub">Imports the HPLC CSV export and keeps a sealed, linked record history of the results.</p>
+<p class="sub">Imports the HPLC CSV export, then fingerprints, links and signs each peak area.</p>
 </div>
-<p class="iqc-out"><span class="lab-s">Planned: QA review checks the sealed history</span></p>
+<p class="iqc-out"><span class="lab-s">Upcoming: QA review would check the sealed history</span></p>
 </div>
-<figcaption class="figcap" id="f3-c"><b>Fig. 3</b> · Where Immutable QC sits. The CDS export feeds it; nothing is sent back to the CDS or LIMS. The dashed link to QA review is planned, not built.</figcaption>
+<figcaption class="figcap" id="f3-c"><b>Fig. 3</b> · Where Immutable QC sits. The CDS export feeds it; nothing is sent back to the CDS or LIMS. The dashed link to QA review is upcoming (reviewer sign-off).</figcaption>
 </figure>
 </section>
 <section class="sec sec--side" id="public" aria-labelledby="s5-h">
-<h2 id="s5-h"><span class="no">5</span>What goes public</h2>
+<h2 id="s5-h"><span class="no">5</span><span>What would go public <span class="tag">Upcoming</span></span></h2>
 <div class="body">
 <div class="pub">
 <div class="pub-c">
@@ -72,33 +77,33 @@
 </ul>
 </div>
 <div class="pub-c">
-<h3 class="pub-h">Can go on a public test network</h3>
-<p>One batch fingerprint: 64 hex characters for a whole run of records, here the last link of records 1 to {{AN}}.</p>
+<h3 class="pub-h">Would go on a public network</h3>
+<p>Nothing on this site writes to a network. Once anchoring becomes available, one batch fingerprint will go on it for a whole run of records. It is a 64-character code; here it is the link of record {{AN}}, which depends on records 1 to {{AN}}.</p>
 <p class="hx-p">{{ancG}}</p>
-<p class="say-p">Simulated here, with no network call. Anyone who already holds the records can recompute it and see whether they still match.</p>
+<p class="say-p">Simulated here, with no network call. Anyone who holds the records can recompute it and see whether they still match.</p>
 </div>
 </div>
-<p>A fingerprint is not encryption. A plain SHA-256 of a few guessable fields can in principle be matched by trying likely values, which is why a single record’s fingerprint is never published. Salted commitments, and later zero-knowledge proofs, are on the roadmap so that what goes on a public network says nothing about results.</p>
-<p><a class="xref" href="roadmap.html#privacy"><span class="id">IQC-RD-01 §2.2</span><span>Privacy on public networks</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
+<p>A fingerprint is not encryption. How a record is sealed, section 9, explains why, and what is upcoming.</p>
+<p><a class="xref" href="sealed.html#privacy"><span class="id">IQC-HS-01 §9</span><span>Privacy on public networks</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
 </div>
 </section>
 <section class="sec sec--side" id="agents" aria-labelledby="s6-h">
-<h2 id="s6-h"><span class="no">6</span><span>Agentic workflows <span class="tag">Roadmap</span></span></h2>
+<h2 id="s6-h"><span class="no">6</span><span>Agentic workflows <span class="tag">Upcoming</span></span></h2>
 <div class="body">
 <blockquote class="pull"><p>{{founderLine}}</p><footer>José A. Fernández Abreu, founder</footer></blockquote>
-<p>Planned: verified experiment data that AI agents can check before they use it. An agent would recompute the fingerprint from the fields, check the signature and the link, and compare the anchor, and treat the record as unchanged only if all four pass. That says whether a result changed after it was sealed, not whether it was right when it was captured.</p>
-<p>Check a record shows one record the way an agent would receive it. It is labelled roadmap: there is no API today.</p>
-<p><a class="xref" href="roadmap.html#agents"><span class="id">IQC-RD-01 §2.1</span><span>Agentic workflows on the roadmap</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
+<p>An agent would run the same four checks as Check a record before it uses a result. Passing them says a result has not changed since it was sealed; it does not say the result was right when it was captured.</p>
+<p>Check a record shows one record as an agent would receive it. There is no API yet.</p>
+<p><a class="xref" href="roadmap.html#agents"><span class="id">IQC-RD-01 §2.1</span><span>Agentic workflows</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
 </div>
 </section>
 <section class="sec sec--side" id="docs" aria-labelledby="s7-h">
 <h2 id="s7-h"><span class="no">7</span>The document set</h2>
 <div class="body">
 <ul class="docs">
-<li><a class="xref" href="sealed.html"><span class="id">IQC-HS-01</span><span>How a record is sealed</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>The payload, the fingerprint, the link rule, demo signatures, corrections, anchoring, what a check shows, and the privacy note.</p></li>
+<li><a class="xref" href="sealed.html"><span class="id">IQC-HS-01</span><span>How a record is sealed</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>The payload, the fingerprint, the link rule, demo signatures, corrections, what a check shows, upcoming anchoring and the privacy note.</p></li>
 <li><a class="xref" href="check.html"><span class="id">IQC-CK-01</span><span>Check a record</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>Change any sealed field and watch the checks; rewrite the history to hide it, or append a correction instead.</p></li>
-<li><a class="xref" href="regulatory.html"><span class="id">IQC-RM-01</span><span>Regulatory map</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>Clause by clause: 21 CFR Part 11, EU Annex 11, ISO/IEC 17025:2017, ALCOA+, GMP and TNI.</p></li>
-<li><a class="xref" href="roadmap.html"><span class="id">IQC-RD-01</span><span>Roadmap</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>What exists today, and what is planned.</p></li>
+<li><a class="xref" href="regulatory.html"><span class="id">IQC-RM-01</span><span>Regulatory map</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>Expectation by expectation for 21 CFR Part 11, EU Annex 11, ISO/IEC 17025:2017, ALCOA+, GMP and TNI, with what exists today and what is not covered. A reading aid, not an assessment.</p></li>
+<li><a class="xref" href="roadmap.html"><span class="id">IQC-RD-01</span><span>Roadmap</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>What works today, and what is upcoming.</p></li>
 <li><a class="xref" href="about.html"><span class="id">IQC-AB-01</span><span>About</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>Who builds it, status, and questions.</p></li>
 <li><a class="xref" href="dashboard/"><span class="id">Demo</span><span>Alpha console</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>A synthetic lab that runs only in your browser.</p></li>
 </ul>

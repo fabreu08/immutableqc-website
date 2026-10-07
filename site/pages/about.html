@@ -15,14 +15,14 @@
 <section class="sec sec--side" id="status" aria-labelledby="s3-h">
 <h2 id="s3-h"><span class="no">3</span>Status</h2>
 <div class="body">
-<p>{{status}}.</p>
+<p>{{status}}</p>
 <p>The demo data is synthetic. Nothing on this site is validated for regulated use.</p>
 </div>
 </section>
 <section class="sec sec--side" id="why" aria-labelledby="s4-h">
-<h2 id="s4-h"><span class="no">4</span>Why</h2>
+<h2 id="s4-h"><span class="no">4</span>Why it exists</h2>
 <div class="body">
-<p>Undocumented work did not happen. Labs already keep audit trails; the aim is a record that someone outside the lab can check from the record itself: a reviewer, an auditor, or later an AI agent.</p>
+<p>In a regulated lab, work that is not documented is treated as not done. Labs already keep audit trails; the aim is a record that someone outside the lab can check from the record itself: a reviewer, an auditor, or later an AI agent.</p>
 </div>
 </section>
 <section class="sec sec--side" id="faq" aria-labelledby="s5-h">
@@ -33,23 +33,23 @@
 </div>
 <h3 id="q2"><span class="no">5.2</span>Is my data put on a blockchain?</h3>
 <div class="body">
-<p>No. Your values stay with the lab. The most that goes on a public test network, which is a blockchain run for testing, is one batch fingerprint: 64 hex characters for a whole run of records. In the alpha that step is manual, and on this site and in the console it is simulated. Because a plain fingerprint of a few guessable fields could in principle be matched by trying likely values, salted commitments and later zero-knowledge proofs are on the roadmap.</p>
+<p>No. Nothing on this site or in the alpha console writes to any network, and the values you enter stay in your browser. Anchoring is an upcoming feature. At most it will put one batch fingerprint, a 64-character code for a whole run of records, on a public test network (a blockchain run for testing). On this site and in the console the anchor is simulated.</p>
 </div>
 <h3 id="q3"><span class="no">5.3</span>Does it replace my CDS, LIMS or audit trail?</h3>
 <div class="body">
-<p>No. It sits beside the CDS export and keeps a tamper-evident record history of the results imported from it. Your CDS audit trail, LIMS, SOPs and validation stay as they are.</p>
+<p>No. It sits beside the CDS export. The alpha app fingerprints, links and signs each imported peak area with one server key; checking them in the app is upcoming. Your CDS audit trail, LIMS, SOPs and validation stay as they are.</p>
 </div>
 <h3 id="q4"><span class="no">5.4</span>Can I use it for GMP records today?</h3>
 <div class="body">
-<p>Not yet. It is an open alpha on synthetic data: not validated, with no electronic signatures, no user accounts and no instrument capture. Use it to judge the approach, and keep regulated records in your validated systems.</p>
+<p>No. It is an open alpha on synthetic data: not validated, with no electronic signatures, no user accounts and no instrument capture. Use it to judge the approach, and keep regulated records in your validated systems.</p>
 </div>
 <h3 id="q5"><span class="no">5.5</span>What does a fingerprint cover?</h3>
 <div class="body">
-<p>In the alpha, five fields: instrument, measurement type, value, unit and capture time, joined by a vertical bar and hashed with SHA-256. Sample, injection and retention time are shown for context only; sealing sample and method metadata is on the roadmap.</p>
+<p>In the alpha, five fields: instrument, measurement type, value, unit and capture time, joined by a vertical bar and hashed with SHA-256. Sample, injection and retention time are shown for context only; sealing sample and method metadata is upcoming.</p>
 </div>
 <h3 id="q6"><span class="no">5.6</span>What if someone edits the database directly?</h3>
 <div class="body">
-<p>The edited record no longer matches its fingerprint or its signature, and the link into the next record breaks. If they also rewrite every later link, the links look consistent again; the signature still fails, and the replayed history no longer matches a fingerprint anchored outside the lab beforehand. In the alpha one server key signs, so whoever holds that key could re-sign an edit, and anchoring is a manual step.</p>
+<p>The edited record no longer matches its fingerprint, its signature fails, and the link into the next record breaks. Someone who also rewrites every later link and re-signs with the signing key can make the history consistent again. Deleting a record and relinking the ones after it needs no key at all, because each signature covers only its own record’s fingerprint. In the alpha one server key signs, so whoever holds it could do either. Only a fingerprint anchored outside the lab beforehand would still show it, and anchoring is upcoming.</p>
 </div>
 </section>
 <section class="sec sec--side" id="sources" aria-labelledby="s6-h">
@@ -68,6 +68,6 @@
 {{historyRows}}
 </tbody>
 </table>
-<p>The document set stays in draft until the founder approves a first issue.</p>
+<p>The document set stays in draft until the founder publishes a first release. It is informational: not a controlled document, and not a regulatory assessment or a validation statement.</p>
 </div>
 </section>

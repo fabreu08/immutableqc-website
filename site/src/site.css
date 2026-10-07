@@ -10,6 +10,12 @@
 @font-face{font-family:'Archivo C fb';src:local('Arial'),local('Liberation Sans');size-adjust:120.71%;ascent-override:72.73%;descent-override:17.40%;line-gap-override:0%}
 @font-face{font-family:'Plex Sans fb';src:local('Arial'),local('Liberation Sans');size-adjust:101.20%;ascent-override:101.28%;descent-override:27.17%;line-gap-override:0%}
 @font-face{font-family:'Plex Mono fb';src:local('Courier New'),local('Liberation Mono');size-adjust:99.98%;ascent-override:102.52%;descent-override:27.50%;line-gap-override:0%}
+/* Android has none of Arial, Liberation or Courier New: the same faces matched on Roboto (average glyph width 911/2048 em
+   against Arial's 904/2048, so each size-adjust is scaled by 904/911 and each override rescaled to keep the same metric)
+   and on Droid Sans Mono (the same 1229/2048 em advance as Courier New) */
+@font-face{font-family:'Archivo C fbr';src:local('Roboto'),local('Roboto-Regular'),local('Roboto Regular');size-adjust:119.78%;ascent-override:73.30%;descent-override:17.54%;line-gap-override:0%}
+@font-face{font-family:'Plex Sans fbr';src:local('Roboto'),local('Roboto-Regular'),local('Roboto Regular');size-adjust:100.42%;ascent-override:102.07%;descent-override:27.38%;line-gap-override:0%}
+@font-face{font-family:'Plex Mono fbr';src:local('Droid Sans Mono'),local('DroidSansMono'),local('Roboto Mono'),local('RobotoMono-Regular');size-adjust:99.98%;ascent-override:102.52%;descent-override:27.50%;line-gap-override:0%}
 
 :root{
   color-scheme:light;
@@ -19,9 +25,9 @@
   --plate:#0A1520; --plate-0:#060D14; --plate-2:#0F1D2A; --p-fg:#E8EFF7; --p-fg2:#8FA1B4; --p-hair:#1E2A36; --p-ui:#62768B;
   --ok:#00D4AA; --ok-t:#52D6B6; --fail:#FF8F6B; --fail-tint:rgba(255,143,107,.09); --spine:#24685E;
   --focus:var(--teal);
-  --display:'Archivo C','Archivo C fb',Arial,sans-serif;
-  --sans:'IBM Plex Sans','Plex Sans fb',Arial,sans-serif;
-  --mono:'IBM Plex Mono','Plex Mono fb',ui-monospace,Menlo,Consolas,monospace;
+  --display:'Archivo C','Archivo C fb','Archivo C fbr',Arial,sans-serif;
+  --sans:'IBM Plex Sans','Plex Sans fb','Plex Sans fbr',Arial,sans-serif;
+  --mono:'IBM Plex Mono','Plex Mono fb','Plex Mono fbr',ui-monospace,Menlo,Consolas,monospace;
   --g:16px; --max:1240px; --ind:0px; --ease:cubic-bezier(.2,.7,.2,1);
 }
 @media (min-width:600px){:root{--ind:3.5rem}}
@@ -43,7 +49,7 @@ a:hover{text-decoration-thickness:2px}
 /* mono scale: 12 labels · 13 data · 15 key values (16 only inside form fields, so phones do not zoom) */
 code,pre{font-family:var(--mono);font-size:.8125rem}
 pre code{font-size:1em}
-:where(.body,.lead) code:not(.p){font-size:.9375rem}
+:where(.body,.lead) :not(pre)>code:not(.p){font-size:.9375rem}
 var{font-style:normal}
 .nw{white-space:nowrap}
 sub{font-size:max(.72em,12px);line-height:0;vertical-align:-.25em}
@@ -95,8 +101,9 @@ button,input{font:inherit;color:inherit}
 .dochead>div+div{padding-left:12px;border-left:1px solid var(--hair)}
 .dochead dt{font:500 .75rem/1.35 var(--mono);letter-spacing:.07em;text-transform:uppercase;color:var(--ink-2)}
 .dochead dd{font:400 .8125rem/1.45 var(--mono);color:var(--ink)}
-.dochead .st{grid-column:1/-1;border-left:0;padding-left:0;border-top:1px solid var(--hair)}
-.dochead>div.st{padding-left:0;border-left:0}
+.dochead .st,.dochead .use{grid-column:1/-1;border-left:0;padding-left:0;border-top:1px solid var(--hair)}
+.dochead>div.st,.dochead>div.use{padding-left:0;border-left:0}
+.dochead .use dd{color:var(--ink-2)}
 @media (min-width:900px){
   .dochead>div{padding-right:20px}
   .dochead>div+div{padding-left:20px}
@@ -107,7 +114,7 @@ button,input{font:inherit;color:inherit}
 h1{margin-top:28px;font:620 clamp(2.375rem,1.62rem + 3vw,4.25rem)/1.02 var(--display);letter-spacing:-.012em;color:var(--ink);text-wrap:balance}
 .h1-doc{font-size:clamp(2.125rem,1.6rem + 2.2vw,3.25rem);max-width:20ch}
 .sec{margin-top:44px}
-.sec h2,.sec h3{display:flex;align-items:baseline;font:620 1.25rem/1.25 var(--display);letter-spacing:-.004em;color:var(--ink)}
+.sec h2,.sec h3{display:flex;align-items:baseline;font:620 1.375rem/1.25 var(--display);letter-spacing:-.004em;color:var(--ink)}
 .sec h3{font-size:1.0625rem;margin-top:22px}
 .no{flex:none;min-width:2.25rem;padding-right:.75rem;font:500 .8125rem/1 var(--mono);color:var(--ink-2);letter-spacing:.02em}
 .sec .body{margin-top:10px;padding-left:var(--ind);max-width:calc(44rem + var(--ind))}
@@ -129,13 +136,15 @@ h1{margin-top:28px;font:620 clamp(2.375rem,1.62rem + 3vw,4.25rem)/1.02 var(--dis
 .xref{display:inline-flex;align-items:center;gap:10px;min-height:44px;line-height:1.3;text-decoration:none}
 .xref>span:not(.id){text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:.2em}
 .xref:hover>span:not(.id){text-decoration-thickness:2px}
-.xref .id{display:inline-block;font:500 .75rem/1 var(--mono);letter-spacing:.05em;color:var(--ink-2)}
+.xref .id{display:inline-block;font:500 .75rem/1 var(--mono);letter-spacing:.05em;color:var(--ink-2);white-space:nowrap}
+/* phones: the document id sits above the link, so the link text and its arrow keep one line where they can */
+@media (max-width:599px){.xref{flex-wrap:wrap;row-gap:2px;padding:6px 0}.xref .id{flex-basis:100%}}
 .xref .i{color:var(--teal)}
 .tag{display:inline-block;margin-left:.4rem;padding:4px 7px;border:1px dashed var(--ui);border-radius:2px;font:500 .75rem/1 var(--mono);letter-spacing:.07em;text-transform:uppercase;color:var(--ink-2);vertical-align:.15em;white-space:nowrap}
 .items{display:grid;gap:10px}
 .items li{display:grid;grid-template-columns:minmax(0,1fr);gap:2px;padding-top:10px;border-top:1px solid var(--hair)}
 .items .k{font:500 .75rem/1.4 var(--mono);letter-spacing:.07em;text-transform:uppercase;color:var(--ink-2)}
-code.p{display:block;padding:10px 12px;background:var(--paper-2);border:1px solid var(--hair);border-radius:3px;font-size:.8125rem;line-height:1.5;overflow-wrap:anywhere}
+code.p{display:block;padding:10px 12px;background:var(--paper-2);border:1px solid var(--hair);border-radius:3px;font-size:.8125rem;line-height:1.5;word-break:normal;overflow-wrap:anywhere}
 .json{padding:14px 16px;background:var(--paper-2);border:1px solid var(--hair);border-radius:4px;font:400 .8125rem/1.55 var(--mono);color:var(--ink);white-space:pre;overflow-x:auto;overflow-wrap:normal;max-width:100%}
 .json:focus-visible{outline-offset:0}
 .rev{width:100%;border-collapse:collapse;font-size:.9375rem;line-height:1.45}
@@ -182,7 +191,8 @@ code.p{display:block;padding:10px 12px;background:var(--paper-2);border:1px soli
 .p-blk{margin-top:10px;padding-top:10px;border-top:1px solid var(--p-hair)}
 .p-blk:first-of-type{border-top:0;padding-top:0}
 .p-blk .hx{margin-top:4px}
-.p-pl{max-width:none;word-break:break-all}
+.p-pl{max-width:none;word-break:normal;overflow-wrap:anywhere}
+.p-pl>span{display:inline;margin-right:0}
 .p-links{display:grid;gap:8px;margin-top:4px}
 .p-links>div{display:grid;grid-template-columns:minmax(0,1fr);gap:0}
 @container (min-width:560px){.p-links{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:24px}}
@@ -225,7 +235,7 @@ code.p{display:block;padding:10px 12px;background:var(--paper-2);border:1px soli
 .ver{display:grid;grid-template-columns:minmax(0,1fr);gap:26px;margin-top:18px}
 .ver h3{display:flex;align-items:baseline;gap:.6rem;margin:0 0 8px;font:500 .75rem/1.35 var(--mono);letter-spacing:.07em;text-transform:uppercase;color:var(--p-fg2)}
 .ver h3 .n,.ver legend .n{color:var(--p-fg)}
-.v-in{display:grid;gap:26px;align-content:start}
+.v-in{display:grid;grid-template-columns:minmax(0,1fr);gap:26px;align-content:start;min-width:0}
 @media (min-width:1024px){
   .ver{grid-template-columns:minmax(0,5fr) minmax(0,7fr);column-gap:40px;row-gap:34px;grid-template-areas:"in checks" "acts checks" "acts recipe" "hist hist";align-items:start}
   .v-in{grid-area:in}.v-checks{grid-area:checks}.v-acts{grid-area:acts}.v-hist{grid-area:hist}.v-recipe{grid-area:recipe}
@@ -242,7 +252,7 @@ code.p{display:block;padding:10px 12px;background:var(--paper-2);border:1px soli
 .chip:hover .n{border-color:var(--p-fg2)}
 .chip[data-s=bad] .n{border-color:var(--fail);box-shadow:inset 0 -3px 0 var(--fail)}
 .chip[data-s=bad] input:checked+.n{background:var(--fail);border-color:var(--fail);color:var(--plate-0);box-shadow:none}
-.ctx{margin-bottom:8px;font:400 .8125rem/1.5 var(--mono);color:var(--p-fg2)}
+.ctx{margin-bottom:8px;font:400 .8125rem/1.5 var(--mono);color:var(--p-fg2);overflow-wrap:anywhere}
 .field{display:grid;grid-template-columns:minmax(0,1fr);gap:3px;margin-top:10px}
 .field label{font:400 .875rem/1.3 var(--sans);color:var(--p-fg2)}
 .field .key{margin-left:.4em;font:400 .75rem/1.3 var(--mono);color:var(--p-fg2)}
@@ -258,7 +268,7 @@ code.p{display:block;padding:10px 12px;background:var(--paper-2);border:1px soli
 }
 @media (min-width:600px){.field{grid-template-columns:7.25rem minmax(0,1fr);column-gap:12px}}
 .payload{margin-top:14px;padding-top:10px;border-top:1px solid var(--p-hair);font:400 .75rem/1.4 var(--mono);color:var(--p-fg2)}
-.payload code{display:block;margin-top:4px;font-size:.8125rem;line-height:1.5;color:var(--p-fg);word-break:break-all}
+.payload code{display:block;margin-top:4px;font-size:.8125rem;line-height:1.5;color:var(--p-fg);word-break:normal;overflow-wrap:anywhere}
 /* the selected record's four results, right under the payload you edit (narrow screens; wide ones show 1.4 beside it) */
 .v-now{margin-top:10px;padding:10px 12px;background:var(--plate-0);border:1px solid var(--p-hair);border-radius:4px}
 .v-now-l{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px;font:400 .8125rem/1.5 var(--mono);color:var(--p-fg2)}
@@ -334,7 +344,8 @@ code.p{display:block;padding:10px 12px;background:var(--paper-2);border:1px soli
 .anchor-line .hx{font-size:.8125rem}
 .anchor-line .res{justify-self:start}
 @media (min-width:768px){.anchor-line{grid-template-columns:minmax(0,1fr) auto}.anchor-line .res{grid-column:2;grid-row:1}}
-.rc{padding:12px 14px;background:var(--plate-0);border:1px solid var(--p-hair);border-radius:4px;font:400 .8125rem/1.55 var(--mono);color:var(--p-fg);white-space:pre-wrap;word-break:break-all}
+/* commands break only where they must: a payload after a bar (the <wbr> there), a hex run anywhere; never inside a word */
+.rc{padding:12px 14px;background:var(--plate-0);border:1px solid var(--p-hair);border-radius:4px;font:400 .8125rem/1.55 var(--mono);color:var(--p-fg);white-space:pre-wrap;word-break:normal;overflow-wrap:anywhere}
 .rc .c{color:var(--p-fg2)}
 .rc .p::before{content:'$ ';color:var(--p-fg2)}
 .rc .o{color:var(--ok-t)}
@@ -472,7 +483,9 @@ code.p{display:block;padding:10px 12px;background:var(--paper-2);border:1px soli
 .hx-p>span{display:inline-block;margin-right:.6em}
 .hx-p>span:last-child{margin-right:0}
 .pull{margin:0;padding:4px 0 4px 18px;border-left:3px solid var(--teal)}
-.pull p{font:620 clamp(1.25rem,1.05rem + .8vw,1.625rem)/1.3 var(--display);letter-spacing:-.004em;color:var(--ink);text-wrap:balance}
+/* the founder's line: a quotation at lead size, below the section heading, not a headline */
+.pull p{font:400 1.0625rem/1.5 var(--sans);color:var(--ink);text-wrap:pretty}
+@media (min-width:768px){.pull p{font-size:1.1875rem;line-height:1.5}}
 .pull footer{margin-top:8px;font:400 .8125rem/1.4 var(--mono);color:var(--ink-2)}
 .docs{display:grid;gap:0;border-top:1px solid var(--hair)}
 .docs li{padding:4px 0 10px;border-bottom:1px solid var(--hair)}
@@ -488,7 +501,7 @@ code.p{display:block;padding:10px 12px;background:var(--paper-2);border:1px soli
 .chainex{display:grid;gap:8px}
 .chainex dt{font:500 .75rem/1.4 var(--mono);letter-spacing:.03em;color:var(--ink-2)}
 .chainex dt sub{font-size:max(.8em,12px)}
-.rc-p{padding:10px 12px;background:var(--paper-2);border:1px solid var(--hair);border-radius:3px;font:400 .8125rem/1.55 var(--mono);color:var(--ink);white-space:pre-wrap;word-break:break-all}
+.rc-p{padding:10px 12px;background:var(--paper-2);border:1px solid var(--hair);border-radius:3px;font:400 .8125rem/1.55 var(--mono);color:var(--ink);white-space:pre-wrap;word-break:normal;overflow-wrap:anywhere}
 .pf{display:grid;gap:14px}
 @media (min-width:768px){.pf{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:28px}}
 .pf>div{padding-top:8px;border-top:2px solid var(--ink)}
@@ -508,7 +521,8 @@ code.p{display:block;padding:10px 12px;background:var(--paper-2);border:1px soli
 .cl:last-child{border-bottom:1px solid var(--hair)}
 .sec .cl h3{margin:0 0 8px;font-size:1rem}
 .cl h3 .no{font-size:.75rem}
-.cl-id{margin-right:.5em;font:500 .875rem/1.3 var(--mono);color:var(--ink)}
+/* a confirmed clause number follows the title, so every title starts on one left edge */
+.cl-id{margin-left:.35em;font:500 .8125rem/1.3 var(--mono);color:var(--ink-2);white-space:nowrap}
 .cl dl{display:grid;gap:6px}
 .cl dl>div{display:grid;grid-template-columns:minmax(0,1fr);gap:1px}
 .cl dt{font:500 .75rem/1.4 var(--mono);letter-spacing:.07em;text-transform:uppercase;color:var(--ink-2)}
@@ -530,14 +544,18 @@ code.p{display:block;padding:10px 12px;background:var(--paper-2);border:1px soli
 .motion .res,.motion .now-i,.motion .chip .n,.motion .field input,.motion .ht td,.motion .ht th,.motion .vstat,.motion .pst{transition:color .2s var(--ease),border-color .2s var(--ease),background-color .2s var(--ease),box-shadow .2s var(--ease)}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
 
-/* ---------------------------------------------------------------- print: a document should print as one */
+/* ---------------------------------------------------------------- print: a document should print as one; every printed
+   page says what it is (Chrome prints the page-margin boxes; other browsers print their own header and footer) */
 @media print{
   .top,.skip,.v-acts,.rc-f,.go{display:none!important}
   body{background:#fff}
   .plate{background:#fff;color:#000;border-color:#000}
   .plate *{color:#000!important}
 }
+@page{margin:16mm 14mm 18mm;@bottom-left{content:"Immutable QC · __REVISION__ · informational draft, not a controlled document";font:8pt/1.3 'IBM Plex Mono',monospace;color:#4A5560}@bottom-right{content:"page " counter(page) " of " counter(pages);font:8pt/1.3 'IBM Plex Mono',monospace;color:#4A5560}}
 .v-fig{margin-top:16px}
+.hero .first{margin-top:14px}
+.hero .first>*+*{margin-top:0}
 .plate-h .p-sub{margin:0}
 .h1-doc+.sec{margin-top:28px}
 @media (max-width:359px){.menu-btn{padding:0 10px}.menu-btn .bars{display:none}}

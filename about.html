@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-De8f8Cc6y268V8BKaDpGYrx+EUmmODPs6Yx3XJ+n/o4='; style-src 'self'; style-src-attr 'unsafe-inline'; font-src 'self'; img-src 'self'; connect-src 'none'; base-uri 'self'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
 <title>About · Immutable QC</title>
 <meta name="description" content="Who builds Immutable QC, its status, and plain answers to common questions.">
 <meta name="color-scheme" content="light">
@@ -16,15 +18,15 @@
 <meta property="og:image" content="https://immutableqc.com/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="The Immutable QC mark and name, the tagline and the status line">
+<meta property="og:image:alt" content="Immutable QC card with the ring-and-dot mark and the status line: Independent project · Open alpha · Synthetic demo data · No customers yet">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preload" href="fonts/archivo-c-115-620.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="assets/site.css?v=6490e6b1">
-<script>(function(d){var c=d.documentElement.classList;c.add('js');try{if(!matchMedia('(prefers-reduced-motion: reduce)').matches)c.add('motion')}catch(e){}})(document)</script>
-<script defer src="assets/iqc.js?v=b3eb48d4"></script>
+<link rel="stylesheet" href="assets/site.css?v=2af6ac36">
+<script>(function(d){var c=d.documentElement.classList;c.add('js');try{if(!matchMedia('(prefers-reduced-motion: reduce)').matches)c.add('motion')}catch(e){}var q=function(s){return d.querySelector(s)},b=function(){return q('.menu-btn')},n=function(){return q('.nav')},o=function(){var x=b();return!!x&&x.getAttribute('aria-expanded')==='true'},s=function(v){var x=b(),y=n();if(x&&y){x.setAttribute('aria-expanded',String(v));y.classList.toggle('open',v)}};d.addEventListener('click',function(e){var t=e.target,x=b(),y=n();if(!t||!t.closest)return;if(q('base')&&t.closest('.skip')){e.preventDefault();var m=d.getElementById('main');if(m){m.focus();m.scrollIntoView()}return}if(!x||!y)return;if(x.contains(t))s(!o());else if(o()&&!y.contains(t))s(false)});d.addEventListener('keydown',function(e){if(e.key==='Escape'&&o()){s(false);b().focus()}});d.addEventListener('focusout',function(e){var x=b(),y=n(),r=e.relatedTarget;if(o()&&r&&(y.contains(e.target)||x.contains(e.target))&&!y.contains(r)&&!x.contains(r))s(false)})})(document)</script>
+<script defer src="assets/iqc.js?v=f96485a1"></script>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><symbol id="i-ok" viewBox="0 0 16 16"><path d="M2.5 8.5l3.5 3.5 7.5-8" fill="none" stroke="currentColor" stroke-width="2"/></symbol><symbol id="i-x" viewBox="0 0 16 16"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9" fill="none" stroke="currentColor" stroke-width="2"/></symbol><symbol id="i-dash" viewBox="0 0 16 16"><path d="M3.5 8h9" fill="none" stroke="currentColor" stroke-width="2"/></symbol><symbol id="i-open" viewBox="0 0 16 16"><circle cx="8" cy="8" r="4.5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-dasharray="2.4 1.8"/></symbol><symbol id="i-arrow" viewBox="0 0 16 16"><path d="M1.5 8h12M9 3.5L13.5 8 9 12.5" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol><symbol id="i-down" viewBox="0 0 16 16"><path d="M8 1.5v12M3.5 9L8 13.5 12.5 9" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol><symbol id="i-mark" viewBox="0 0 32 32"><circle cx="16" cy="16" r="16" style="fill:var(--plate-0)"/><circle cx="16" cy="16" r="9.5" style="fill:none;stroke:var(--ok);stroke-width:3"/><circle cx="16" cy="16" r="3.75" style="fill:var(--ok)"/></symbol></svg>
@@ -52,9 +54,10 @@
 <div class="wrap">
 <dl class="dochead">
 <div><dt>Document</dt><dd><span class="nw">IQC-AB-01</span></dd></div>
-<div><dt>Revision</dt><dd>Draft 2</dd></div>
-<div><dt>Updated</dt><dd>2026-10-06</dd></div>
-<div class="st"><dt>Status</dt><dd>Independent project · Open alpha · Public test network · Synthetic demo data · No customers yet</dd></div>
+<div><dt>Revision</dt><dd>Draft 3</dd></div>
+<div><dt>Updated</dt><dd>2026-10-07</dd></div>
+<div class="st"><dt>Status</dt><dd>Independent project · Open alpha · Synthetic demo data · No customers yet</dd></div>
+<div class="use"><dt>Use</dt><dd>Informational draft. Not a controlled document; not a regulatory assessment or a validation statement.</dd></div>
 </dl>
 
 <h1 class="h1-doc">About</h1>
@@ -74,14 +77,14 @@
 <section class="sec sec--side" id="status" aria-labelledby="s3-h">
 <h2 id="s3-h"><span class="no">3</span>Status</h2>
 <div class="body">
-<p>Independent project · Open alpha · Public test network · Synthetic demo data · No customers yet.</p>
+<p>Independent project · Open alpha · Synthetic demo data · No customers yet</p>
 <p>The demo data is synthetic. Nothing on this site is validated for regulated use.</p>
 </div>
 </section>
 <section class="sec sec--side" id="why" aria-labelledby="s4-h">
-<h2 id="s4-h"><span class="no">4</span>Why</h2>
+<h2 id="s4-h"><span class="no">4</span>Why it exists</h2>
 <div class="body">
-<p>Undocumented work did not happen. Labs already keep audit trails; the aim is a record that someone outside the lab can check from the record itself: a reviewer, an auditor, or later an AI agent.</p>
+<p>In a regulated lab, work that is not documented is treated as not done. Labs already keep audit trails; the aim is a record that someone outside the lab can check from the record itself: a reviewer, an auditor, or later an AI agent.</p>
 </div>
 </section>
 <section class="sec sec--side" id="faq" aria-labelledby="s5-h">
@@ -92,23 +95,23 @@
 </div>
 <h3 id="q2"><span class="no">5.2</span>Is my data put on a blockchain?</h3>
 <div class="body">
-<p>No. Your values stay with the lab. The most that goes on a public test network, which is a blockchain run for testing, is one batch fingerprint: 64 hex characters for a whole run of records. In the alpha that step is manual, and on this site and in the console it is simulated. Because a plain fingerprint of a few guessable fields could in principle be matched by trying likely values, salted commitments and later zero-knowledge proofs are on the roadmap.</p>
+<p>No. Nothing on this site or in the alpha console writes to any network, and the values you enter stay in your browser. Anchoring is an upcoming feature. At most it will put one batch fingerprint, a 64-character code for a whole run of records, on a public test network (a blockchain run for testing). On this site and in the console the anchor is simulated.</p>
 </div>
 <h3 id="q3"><span class="no">5.3</span>Does it replace my CDS, LIMS or audit trail?</h3>
 <div class="body">
-<p>No. It sits beside the CDS export and keeps a <span class="nw">tamper-evident</span> record history of the results imported from it. Your CDS audit trail, LIMS, SOPs and validation stay as they are.</p>
+<p>No. It sits beside the CDS export. The alpha app fingerprints, links and signs each imported peak area with one server key; checking them in the app is upcoming. Your CDS audit trail, LIMS, SOPs and validation stay as they are.</p>
 </div>
 <h3 id="q4"><span class="no">5.4</span>Can I use it for GMP records today?</h3>
 <div class="body">
-<p>Not yet. It is an open alpha on synthetic data: not validated, with no electronic signatures, no user accounts and no instrument capture. Use it to judge the approach, and keep regulated records in your validated systems.</p>
+<p>No. It is an open alpha on synthetic data: not validated, with no electronic signatures, no user accounts and no instrument capture. Use it to judge the approach, and keep regulated records in your validated systems.</p>
 </div>
 <h3 id="q5"><span class="no">5.5</span>What does a fingerprint cover?</h3>
 <div class="body">
-<p>In the alpha, five fields: instrument, measurement type, value, unit and capture time, joined by a vertical bar and hashed with <span class="nw">SHA-256</span>. Sample, injection and retention time are shown for context only; sealing sample and method metadata is on the roadmap.</p>
+<p>In the alpha, five fields: instrument, measurement type, value, unit and capture time, joined by a vertical bar and hashed with <span class="nw">SHA-256</span>. Sample, injection and retention time are shown for context only; sealing sample and method metadata is upcoming.</p>
 </div>
 <h3 id="q6"><span class="no">5.6</span>What if someone edits the database directly?</h3>
 <div class="body">
-<p>The edited record no longer matches its fingerprint or its signature, and the link into the next record breaks. If they also rewrite every later link, the links look consistent again; the signature still fails, and the replayed history no longer matches a fingerprint anchored outside the lab beforehand. In the alpha one server key signs, so whoever holds that key could re-sign an edit, and anchoring is a manual step.</p>
+<p>The edited record no longer matches its fingerprint, its signature fails, and the link into the next record breaks. Someone who also rewrites every later link and re-signs with the signing key can make the history consistent again. Deleting a record and relinking the ones after it needs no key at all, because each signature covers only its own record’s fingerprint. In the alpha one server key signs, so whoever holds it could do either. Only a fingerprint anchored outside the lab beforehand would still show it, and anchoring is upcoming.</p>
 </div>
 </section>
 <section class="sec sec--side" id="sources" aria-labelledby="s6-h">
@@ -124,11 +127,12 @@
 <caption class="sr-only">Revision history of this document set</caption>
 <thead><tr><th scope="col">Revision</th><th scope="col">Date</th><th scope="col">Change</th></tr></thead>
 <tbody>
+<tr><td class="nw">Draft 3</td><td class="mono">2026-10-07</td><td>Everything not built yet is labeled Upcoming, under one label, and the Scope states anchoring as upcoming; the status line no longer names a test network; the Roadmap lists nine upcoming items; on the Regulatory map, clause numbers stay only where confirmed and “Not covered” replaces “Not yet”; the alpha app’s capture time, and what a removed record shows, described as they are; a missing signature, or a field holding the separator, now fails its check; corrections need a reason of at least three words and keep the original capture time in the console too; the set is marked informational, not a controlled document; GitHub Pages publishes only the built site, through GitHub Actions.</td></tr>
 <tr><td class="nw">Draft 2</td><td class="mono">2026-10-06</td><td>Full document set: every page written in full; Fig. 2 Record history on the Overview; one ring-and-dot mark for the nav, favicon and og card; the auditor’s link rule (a changed value breaks only the link into the next record); the privacy roadmap item; a regulatory map clause by clause; the alpha console reworked as an in-browser demo and linked again.</td></tr>
 <tr><td class="nw">Draft 1</td><td class="mono">2026-10-06</td><td>Prototype of the document set: Overview and Check a record in full; How a record is sealed, Regulatory map, Roadmap and About in outline. Not published.</td></tr>
 </tbody>
 </table>
-<p>The document set stays in draft until the founder approves a first issue.</p>
+<p>The document set stays in draft until the founder publishes a first release. It is informational: not a controlled document, and not a regulatory assessment or a validation statement.</p>
 </div>
 </section>
 
@@ -137,7 +141,7 @@
 <footer class="foot">
 <div class="wrap">
 <p class="ind">Immutable QC is an independent project built on the founder’s own time. It is not affiliated with or endorsed by any employer. Founder: <span class="nw">José A. Fernández Abreu</span> · <a href="https://joseqc.com">joseqc.com</a></p>
-<p class="meta"><span class="m-doc"><span class="nw">IQC-AB-01</span> · Draft 2 · Updated 2026-10-06 · <a href="about.html#history">Revision history</a></span><span class="m-fonts">Fonts, SIL Open Font License: <a href="fonts/OFL-IBM-Plex-Sans.txt">IBM Plex Sans</a> <a href="fonts/OFL-IBM-Plex-Mono.txt">IBM Plex Mono</a> <a href="fonts/OFL-Archivo.txt">Archivo</a></span></p>
+<p class="meta"><span class="m-doc"><span class="nw">IQC-AB-01</span> · Draft 3 · Updated 2026-10-07 · <a href="about.html#history">Revision history</a></span><span class="m-fonts">Fonts, SIL Open Font License: <a href="fonts/OFL-IBM-Plex-Sans.txt">IBM Plex Sans</a> <a href="fonts/OFL-IBM-Plex-Mono.txt">IBM Plex Mono</a> <a href="fonts/OFL-Archivo.txt">Archivo</a></span></p>
 </div>
 </footer>
 
