@@ -89,7 +89,7 @@
 <div class="body">
 <dl class="pf">
 <div><dt>A pass shows</dt><dd>The five sealed fields are unchanged since the record was sealed (fingerprint). The holder of the key signed that fingerprint (signature). The record agrees with the previous link it stores, and the next record with its link (link); only an anchor fixes its place in the history. The replayed history still reaches the anchored fingerprint (anchor; simulated on these pages).</dd></div>
-<div><dt>A pass does not show</dt><dd>That the result was right when it was captured: the right sample, a suitable system, correct integration. Who made the record, since signatures are not yet per analyst. Anything about fields outside the seal, such as sample, method or retention time. That no record was removed: a removed record, with every later link rewritten, passes every check but the anchor. With the key and the anchor on the same page, it shows the method, not independent evidence.</dd></div>
+<div><dt>A pass does not show</dt><dd>That the result was right when it was captured: the right sample, a suitable system, correct integration. Who made the record, since signatures are not yet per analyst. Anything about fields outside the seal, such as sample, method or retention time. That no record was removed: a removed record, with every later link rewritten, passes every check but the anchor. That the value was ever measured: a pass shows that a record has not changed since it was sealed, not that an instrument produced it, so a value an agent or a script invented and then sealed would pass too; measured and derived records, which would tell the two apart, are upcoming. With the key and the anchor on the same page, it shows the method, not independent evidence.</dd></div>
 <div><dt>A fail shows</dt><dd>Something changed after sealing, and where: which record no longer gives its fingerprint, and which link it breaks. A rewritten history shows as a signature that fails or a head that no longer matches the anchor.</dd></div>
 <div><dt>A fail does not show</dt><dd>Who changed it, when, or which value is right. Nor that the change was improper: a correction appended with a reason is the proper route, and it passes.</dd></div>
 </dl>
@@ -100,8 +100,9 @@
 <div class="body">
 <p>A fingerprint hides nothing that can be guessed. A plain SHA-256 of a few guessable fields (an instrument id, a measurement type, a peak area in a known range, a capture time to the second) can in principle be matched by trying likely values.</p>
 <p>Nothing on this site or in the console writes to a public network. When anchoring becomes available, it will write only a batch fingerprint, never the values. A batch fingerprint of guessable fields can still be tried. So can two anchors one record apart: from the head before and the head after, the one record between them can be found by trying likely values.</p>
-<p><span class="tag tag--in">Upcoming</span> Salted (hiding) commitments in place of plain fingerprints, so that what is published reveals nothing without the salt the lab keeps. Later, zero-knowledge proofs, so that a lab can show a property, such as “within specification” or “reviewed before release”, without disclosing the value.</p>
-<p><a class="xref" href="roadmap.html#privacy"><span class="id">IQC-RD-01 §2.2</span><span>Privacy on public networks</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
+<p><span class="tag tag--in">Upcoming</span> Salted (hiding) commitments in place of plain fingerprints, so that what is published reveals nothing without the salt the lab keeps; as the leaves of a Merkle batch, they would also let a lab show that one record is in an anchored batch without revealing the others. Later, zero-knowledge proofs, so that a lab can show a property, such as “within specification” or “reviewed before release”, without disclosing the value.</p>
+<p>The same principle would hold for storage: nothing readable leaves the lab. An encrypted archive on Filecoin is upcoming; each batch would be encrypted in the lab before upload, with keys that stay in the lab, so the network would hold ciphertext and never results, and content addressing would let anyone who fetches a copy check that it is the one captured.</p>
+<p><a class="xref" href="roadmap.html#privacy"><span class="id">IQC-RD-01 §2.6</span><span>Privacy on public networks</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
 </div>
 </section>
 <section class="sec sec--side" id="alpha" aria-labelledby="s10-h">
@@ -115,6 +116,10 @@
 <tr><th scope="row">Every check recomputed in your browser</th><td><b>Today.</b> On these pages and in the console.</td></tr>
 <tr><th scope="row">Signatures</th><td><b>Demo.</b> These pages: a build-time key, discarded. The console: a demo key made in your browser. The alpha app: one server key.</td></tr>
 <tr><th scope="row">Corrections appended with a reason</th><td><b>Demo.</b> On these pages and in the console; not in the alpha app.</td></tr>
+<tr><th scope="row">Sealing at capture (SiLA 2, OPC UA LADS adapters)</th><td><span class="tag tag--in">Upcoming</span></td></tr>
+<tr><th scope="row">Measured and derived records</th><td><span class="tag tag--in">Upcoming</span></td></tr>
+<tr><th scope="row">Lineage and recall</th><td><span class="tag tag--in">Upcoming</span></td></tr>
+<tr><th scope="row">Merkle batches with salted leaves</th><td><span class="tag tag--in">Upcoming</span></td></tr>
 <tr><th scope="row">Anchoring on a public test network</th><td><span class="tag tag--in">Upcoming</span> Simulated on these pages and in the console.</td></tr>
 <tr><th scope="row">A shared registry</th><td><span class="tag tag--in">Upcoming</span></td></tr>
 <tr><th scope="row">Reviewer sign-off</th><td><span class="tag tag--in">Upcoming</span></td></tr>
@@ -123,7 +128,8 @@
 <tr><th scope="row">Sample and method metadata in the seal</th><td><span class="tag tag--in">Upcoming</span></td></tr>
 <tr><th scope="row">Privacy on public networks</th><td><span class="tag tag--in">Upcoming</span></td></tr>
 <tr><th scope="row">Agentic workflows</th><td><span class="tag tag--in">Upcoming</span></td></tr>
-<tr><th scope="row">Filecoin integration</th><td><span class="tag tag--in">Upcoming</span></td></tr>
+<tr><th scope="row">Encrypted archive on Filecoin</th><td><span class="tag tag--in">Upcoming</span></td></tr>
+<tr><th scope="row">Post-quantum signatures and encryption</th><td><span class="tag tag--in">Upcoming</span></td></tr>
 <tr><th scope="row">Instrument capture, electronic signatures, validation</th><td><b>Not claimed.</b></td></tr>
 </tbody>
 </table>

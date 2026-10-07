@@ -22,34 +22,38 @@
 <section class="sec sec--side" id="why" aria-labelledby="s4-h">
 <h2 id="s4-h"><span class="no">4</span>Why it exists</h2>
 <div class="body">
-<p>In a regulated lab, work that is not documented is treated as not done. Labs already keep audit trails; the aim is a record that someone outside the lab can check from the record itself: a reviewer, an auditor, or later an AI agent.</p>
+<p>In an automated lab, results arrive faster than anyone can review them, and models train on them and choose the next experiment. In a regulated lab, work that is not documented is treated as not done. Both already keep records; the aim is a record that someone outside the system can check from the record itself: a reviewer, an auditor, a model, or an AI agent.</p>
 </div>
 </section>
 <section class="sec sec--side" id="faq" aria-labelledby="s5-h">
 <h2 id="s5-h"><span class="no">5</span>Questions</h2>
-<h3 id="q1"><span class="no">5.1</span>Do I need to buy or hold anything?</h3>
+<h3 id="q1"><span class="no">5.1</span>What kinds of labs is this for?</h3>
+<div class="body">
+<p>Automated research labs first: biotechnology, microbiology, chemistry and materials science, where self-driving labs, robotic workcells, cloud labs, AI-first research companies and CROs that hand automated data to clients produce results faster than people can review them, and models train on them. The founder’s own background is materials science, chemistry and microbiology. Regulated QC labs are the expansion path, not the opening; the Regulatory map is written for them.</p>
+</div>
+<h3 id="q2"><span class="no">5.2</span>Do I need to buy or hold anything?</h3>
 <div class="body">
 <p>No. There is nothing to buy, hold or connect. These pages and the alpha console run in your browser, with no sign-up.</p>
 </div>
-<h3 id="q2"><span class="no">5.2</span>Is my data put on a blockchain?</h3>
+<h3 id="q3"><span class="no">5.3</span>Is my data put on a blockchain?</h3>
 <div class="body">
 <p>No. Nothing on this site or in the alpha console writes to any network, and the values you enter stay in your browser. Anchoring is an upcoming feature. At most it will put one batch fingerprint, a 64-character code for a whole run of records, on a public test network (a blockchain run for testing). On this site and in the console the anchor is simulated.</p>
 </div>
-<h3 id="q3"><span class="no">5.3</span>Does it replace my CDS, LIMS or audit trail?</h3>
+<h3 id="q4"><span class="no">5.4</span>Does it replace my CDS, LIMS or audit trail?</h3>
 <div class="body">
-<p>No. It sits beside the CDS export. The alpha app fingerprints, links and signs each imported peak area with one server key; checking them in the app is upcoming. Your CDS audit trail, LIMS, SOPs and validation stay as they are.</p>
+<p>No. It sits beside the CDS export. The alpha app fingerprints, links and signs each imported peak area with one server key; checking them in the app is upcoming. Your CDS audit trail, LIMS, SOPs and validation stay as they are. In the alpha the fingerprint covers five fields: instrument, measurement type, value, unit and capture time, joined by a vertical bar and hashed with SHA-256; sample, injection and retention time are shown for context only, and sealing sample and method metadata is upcoming.</p>
 </div>
-<h3 id="q4"><span class="no">5.4</span>Can I use it for GMP records today?</h3>
+<h3 id="q5"><span class="no">5.5</span>Can I use it for GMP records today?</h3>
 <div class="body">
 <p>No. It is an open alpha on synthetic data: not validated, with no electronic signatures, no user accounts and no instrument capture. Use it to judge the approach, and keep regulated records in your validated systems.</p>
-</div>
-<h3 id="q5"><span class="no">5.5</span>What does a fingerprint cover?</h3>
-<div class="body">
-<p>In the alpha, five fields: instrument, measurement type, value, unit and capture time, joined by a vertical bar and hashed with SHA-256. Sample, injection and retention time are shown for context only; sealing sample and method metadata is upcoming.</p>
 </div>
 <h3 id="q6"><span class="no">5.6</span>What if someone edits the database directly?</h3>
 <div class="body">
 <p>The edited record no longer matches its fingerprint, its signature fails, and the link into the next record breaks. Someone who also rewrites every later link and re-signs with the signing key can make the history consistent again. Deleting a record and relinking the ones after it needs no key at all, because each signature covers only its own record’s fingerprint. In the alpha one server key signs, so whoever holds it could do either. Only a fingerprint anchored outside the lab beforehand would still show it, and anchoring is upcoming.</p>
+</div>
+<h3 id="q7"><span class="no">5.7</span>What about sabotage and espionage?</h3>
+<div class="body">
+<p>Most bad data is not malicious: a script, a sync conflict, a crash, a restored backup, a migration or a model that filled in a blank. Sabotage is the minority case, and the same machinery covers it. Detected: any change to a sealed value after capture, whoever made it and why, because the fingerprint, the signature and the link into the next record fail; once anchoring becomes available, a rewritten history would also disagree with the anchor, and signatures that cover each record’s position (upcoming) would show a removed record without one. Not detected: anything before capture, such as a swapped sample, a miscalibrated instrument or compromised robot software; sealing at capture (upcoming) would narrow that window, not close it. Espionage: nothing readable leaves the lab. Only a fingerprint would go on a public network, which, once salted (upcoming), would reveal nothing; an encrypted archive (upcoming) would be encrypted in the lab, with keys that stay in the lab. The records, the keys and the people who hold them stay the lab’s to protect: this is one risk to discuss with a lab, not a security program.</p>
 </div>
 </section>
 <section class="sec sec--side" id="sources" aria-labelledby="s6-h">

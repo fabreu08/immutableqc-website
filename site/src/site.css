@@ -675,6 +675,10 @@ __STORY_STATES__
 .hx-p{font:400 .8125rem/1.6 var(--mono);color:var(--ink);letter-spacing:.01em;max-width:38ch}
 .hx-p>span{display:inline-block;margin-right:.6em}
 .hx-p>span:last-child{margin-right:0}
+/* Overview §2: the ordinary causes of a wrong value, one compact list (two columns from 600 px) */
+.causes{display:grid;grid-template-columns:minmax(0,1fr);gap:0;border-top:1px solid var(--hair)}
+.causes li{padding:5px 0;border-bottom:1px solid var(--hair);font-size:.9375rem;line-height:1.45}
+@media (min-width:600px){.causes{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:28px}}
 .pull{margin:0;padding:4px 0 4px 18px;border-left:3px solid var(--teal)}
 /* the founder's line: a quotation at lead size, below the section heading, not a headline */
 .pull p{font:400 1.0625rem/1.5 var(--sans);color:var(--ink);text-wrap:pretty}
