@@ -1,26 +1,26 @@
-<section class="sec story" id="story" aria-labelledby="s2-h" data-story>
-<h2 id="s2-h"><span class="no">2</span>How a result becomes a sealed record</h2>
+<section class="sec story" id="story" aria-labelledby="s3-h" data-story>
+<h2 id="s3-h"><span class="no">3</span>How a result becomes a sealed record</h2>
 <div class="body">
 <p>One record from the demo sequence, record {{sn}} of {{seq}}, in seven steps from the instrument run to its place in the record history. Every value shown is computed from the signed demo data when the site is built.</p>
 </div>
 <div class="step-grid">
 <ol class="step-list">
 <li class="step" id="st-1" data-step="1"><span class="step-seg" aria-hidden="true"><span class="step-fill"></span></span>
-<h3><span class="no">2.1</span><a class="step-a" href="#st-1">Captured</a></h3>
+<h3><span class="no">3.1</span><a class="step-a" href="#st-1">Captured</a></h3>
 <div class="step-t">
 <p>Injection {{c_inj}} on {{instrument}}. The chromatography data system (CDS) integrates the peak at {{c_rt}} min, and its area, {{f_value}} counts, becomes the value of record {{sn}}, with four more fields: the instrument, the measurement type, the unit and the capture time.</p>
 </div>
 {{storyFig1}}
 </li>
 <li class="step" id="st-2" data-step="2"><span class="step-seg" aria-hidden="true"><span class="step-fill"></span></span>
-<h3><span class="no">2.2</span><a class="step-a" href="#st-2">Fingerprinted</a></h3>
+<h3><span class="no">3.2</span><a class="step-a" href="#st-2">Fingerprinted</a></h3>
 <div class="step-t">
 <p>The five fields are joined by a vertical bar into one line of {{pbytes}} bytes: <code class="pay-c">{{payloadW}}</code>. SHA-256 turns that line into a 64-character fingerprint, r<sub>{{sn}}</sub>. One changed character gives a completely different fingerprint.</p>
 </div>
 {{storyFig2}}
 </li>
 <li class="step" id="st-3" data-step="3"><span class="step-seg" aria-hidden="true"><span class="step-fill"></span></span>
-<h3><span class="no">2.3</span><a class="step-a" href="#st-3">Signed</a></h3>
+<h3><span class="no">3.3</span><a class="step-a" href="#st-3">Signed</a></h3>
 <div class="step-t">
 <p>The fingerprint is signed with the demo key (ECDSA P-256, key id {{keyIdShort}}…), and anyone with the public key can check that the signature covers this fingerprint and no other.</p>
 <p class="note">{{demoSig1}}</p>
@@ -28,14 +28,14 @@
 {{storyFig3}}
 </li>
 <li class="step" id="st-4" data-step="4"><span class="step-seg" aria-hidden="true"><span class="step-fill"></span></span>
-<h3><span class="no">2.4</span><a class="step-a" href="#st-4">Linked</a></h3>
+<h3><span class="no">3.4</span><a class="step-a" href="#st-4">Linked</a></h3>
 <div class="step-t">
 <p>Record {{sn}} also stores the link of record {{sp}}, h<sub>{{sp}}</sub>. Its own link is h<sub>{{sn}}</sub> = SHA-256(h<sub>{{sp}}</sub> + r<sub>{{sn}}</sub> + “{{sn}}”), and record {{snext}} carries h<sub>{{sn}}</sub> forward as its previous link. So every record is tied to the one before it, back to the fixed start value of 64 zeros.</p>
 </div>
 {{storyFig4}}
 </li>
 <li class="step" id="st-5" data-step="5"><span class="step-seg" aria-hidden="true"><span class="step-fill"></span></span>
-<h3><span class="no">2.5</span><a class="step-a" href="#st-5">A change shows</a></h3>
+<h3><span class="no">3.5</span><a class="step-a" href="#st-5">A change shows</a></h3>
 <div class="step-t">
 <p>Suppose the peak area is changed after sealing, from {{f_value}} to {{st_value}}: the recomputed fingerprint differs from the stored r<sub>{{sn}}</sub>, the signature fails and the link into record {{snext}} breaks, while records {{snext}} and {{N}} still pass their own checks. So {{st_rule}}. Replayed from 64 zeros, the head (the newest record’s link) no longer matches the anchored fingerprint, which is simulated here.</p>
 {{st_vals5}}
@@ -43,7 +43,7 @@
 {{storyFig5}}
 </li>
 <li class="step" id="st-6" data-step="6"><span class="step-seg" aria-hidden="true"><span class="step-fill"></span></span>
-<h3><span class="no">2.6</span><a class="step-a" href="#st-6">A correction is appended</a></h3>
+<h3><span class="no">3.6</span><a class="step-a" href="#st-6">A correction is appended</a></h3>
 <div class="step-t">
 <p>Made the right way, the same change is a correction: record {{sn}} stays as sealed, and a new record {{st_n9}} holds the new value, {{st_value}}, with its own fingerprint, a link from record {{N}} and a signature. Its reason (“{{st_reason}}”) and “corrects #{{sn}}” sit beside the seal, not inside it; all {{st_n9}} records pass, and the new head, h<sub>{{st_n9}}</sub>, is not yet anchored.</p>
 <p class="note">Record {{st_n9}} is signed with a one-time demo key (key id {{st_key9}}…), made at build and then discarded, as Check a record signs a correction with a one-time demo key made in your browser; the demo key that signed records 1 to {{N}} was discarded too, so it cannot sign anything new.</p>
@@ -52,7 +52,7 @@
 {{storyFig6}}
 </li>
 <li class="step" id="st-7" data-step="7">
-<h3><span class="no">2.7</span><a class="step-a" href="#st-7"><span>What comes next <span class="tag">Upcoming</span></span></a></h3>
+<h3><span class="no">3.7</span><a class="step-a" href="#st-7"><span>What comes next <span class="tag">Upcoming</span></span></a></h3>
 <div class="step-t">
 <p>Upcoming: the head of a batch, here h<sub>{{N}}</sub>, written to a public network. Only that fingerprint would go on the network, never the values. Upcoming too: an AI agent that checks fingerprint, signature, link and anchor before it uses a result.</p>
 <p><a class="xref" href="check.html#verifier"><span class="id">IQC-CK-01</span><span>Check it yourself</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>

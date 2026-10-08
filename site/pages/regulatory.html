@@ -36,14 +36,14 @@
 </dl></article>
 <article class="cl" aria-labelledby="c-2-5"><h3 id="c-2-5"><span class="no">2.5</span>Controls for open systems</h3><dl>
 <div><dt>Expectation</dt><dd>Additional measures, such as document encryption and appropriate digital signature standards, ensure record authenticity, integrity and, where needed, confidentiality.</dd></div>
-<div><dt>Approach</dt><dd>ECDSA P-256 signatures (FIPS 186-5) over each record’s fingerprint. When anchoring becomes available, only a fingerprint will go on a public network, never the values.</dd></div>
+<div><dt>Approach</dt><dd>ECDSA P-256 signatures (FIPS 186-5) over each record’s fingerprint. When anchoring becomes available, only a fingerprint will go on a public network, never the values; values would leave the lab only encrypted, and only if the lab chooses the encrypted archive (upcoming).</dd></div>
 <div><dt>Today</dt><dd>Demo keys only: a build-time key on these pages, a key made in your browser in the console, one server key in the alpha app.</dd></div>
 <div><dt>Not covered</dt><dd>Managed keys and encryption. <a href="roadmap.html#signatures">Per-analyst signatures</a> <span class="tag">Upcoming</span> <a href="roadmap.html#privacy">Privacy on public networks</a>, with salted commitments in place of plain fingerprints <span class="tag">Upcoming</span></dd></div>
 </dl></article>
 <article class="cl" aria-labelledby="c-2-6"><h3 id="c-2-6"><span class="no">2.6</span><span>Signature manifestations and linking <span class="cl-id">§11.50, §11.70</span></span></h3><dl>
 <div><dt>Expectation</dt><dd>A signed record shows the signer’s printed name, the date and time, and the meaning of the signature, such as review or approval. Signatures are linked to their records so they cannot be excised, copied or transferred.</dd></div>
-<div><dt>Approach</dt><dd>A digital signature over a record’s fingerprint covers exactly those sealed fields and fails on any other.</dd></div>
-<div><dt>Today</dt><dd>Demo signatures that cover the fingerprint. A digital signature on a record’s bytes is not an electronic signature by a person.</dd></div>
+<div><dt>Approach</dt><dd>An ECDSA signature over a record’s fingerprint covers exactly those sealed fields and fails on any other.</dd></div>
+<div><dt>Today</dt><dd>Demo signatures that cover the fingerprint. A signature made with a system key on a record’s bytes is neither an electronic signature nor a digital signature as 21 CFR Part 11 uses those terms: both identify a person.</dd></div>
 <div><dt>Not covered</dt><dd>Signer name, signing time and meaning. <a href="roadmap.html#review">Reviewer sign-off</a> <span class="tag">Upcoming</span></dd></div>
 </dl></article>
 <article class="cl" aria-labelledby="c-2-7"><h3 id="c-2-7"><span class="no">2.7</span>Electronic signatures</h3><dl>
@@ -86,7 +86,7 @@
 </dl></article>
 <article class="cl" aria-labelledby="c-3-5"><h3 id="c-3-5"><span class="no">3.5</span><span>Electronic signature <span class="cl-id">§14</span></span></h3><dl>
 <div><dt>Expectation</dt><dd>Electronic signatures have the same impact as handwritten ones within the company, are permanently linked to their record, and include the time and date they were applied.</dd></div>
-<div><dt>Approach</dt><dd>A digital signature over the fingerprint is bound to the record’s sealed fields.</dd></div>
+<div><dt>Approach</dt><dd>An ECDSA signature over the fingerprint is bound to the record’s sealed fields.</dd></div>
 <div><dt>Today</dt><dd>Demo signatures only; no person signs anything.</dd></div>
 <div><dt>Not covered</dt><dd>Electronic signatures.</dd></div>
 </dl></article>
@@ -105,7 +105,7 @@
 <div><dt>Expectation</dt><dd>Technical records include the date and the identity of the personnel responsible for each activity and for checking data and results. Original observations, data and calculations are recorded when they are made.</dd></div>
 <div><dt>Approach</dt><dd>The capture time is one of the sealed fields.</dd></div>
 <div><dt>Today</dt><dd>In the alpha app the capture time sealed with each peak area is an injection time typed at import, or the server’s clock if none is given, the same for every peak in a file. It is not read from the export or from the instrument.</dd></div>
-<div><dt>Not covered</dt><dd>Personnel identity; instrument capture; reading the injection time from the export; a trusted clock.</dd></div>
+<div><dt>Not covered</dt><dd>Personnel identity; <a href="roadmap.html#capture">sealing at capture</a> <span class="tag">Upcoming</span>; reading the injection time from the export; a trusted clock.</dd></div>
 </dl></article>
 <article class="cl" aria-labelledby="c-4-2"><h3 id="c-4-2"><span class="no">4.2</span>Amendments to technical records</h3><dl>
 <div><dt>Expectation</dt><dd>Amendments can be tracked to previous versions or original observations. The original and amended data are both kept, with the date of the change, what was changed and who made it.</dd></div>
@@ -146,7 +146,7 @@
 <article class="cl" aria-labelledby="c-5-3"><h3 id="c-5-3"><span class="no">5.3</span>Contemporaneous</h3><dl>
 <div><dt>Approach</dt><dd>The capture time is sealed; a correction carries the time it was made, beside the seal.</dd></div>
 <div><dt>Today</dt><dd>In the alpha app the capture time is an injection time typed at import, or the server’s clock at import. It is not read from the CSV export.</dd></div>
-<div><dt>Not covered</dt><dd>Capture at the instrument, and a trusted clock.</dd></div>
+<div><dt>Not covered</dt><dd><a href="roadmap.html#capture">Sealing at capture</a> <span class="tag">Upcoming</span>; a trusted clock.</dd></div>
 </dl></article>
 <article class="cl" aria-labelledby="c-5-4"><h3 id="c-5-4"><span class="no">5.4</span>Original</h3><dl>
 <div><dt>Approach</dt><dd>Values parsed from the export are sealed on import.</dd></div>
@@ -171,7 +171,7 @@
 <article class="cl" aria-labelledby="c-5-8"><h3 id="c-5-8"><span class="no">5.8</span>Enduring</h3><dl>
 <div><dt>Approach</dt><dd>Anchoring batch fingerprints outside the lab, an upcoming feature.</dd></div>
 <div><dt>Today</dt><dd>A simulated anchor on these pages and in the console; nothing is written to a network.</dd></div>
-<div><dt>Not covered</dt><dd>Keeping the records. <a href="roadmap.html#anchoring">Anchoring on a public test network</a> <span class="tag">Upcoming</span> <a href="roadmap.html#filecoin">Filecoin integration</a> <span class="tag">Upcoming</span></dd></div>
+<div><dt>Not covered</dt><dd>Keeping the records: for GMP retention the lab’s validated archive stays the record, and a Filecoin copy would be one more encrypted copy, whose storage providers would need the supplier controls EU Annex 11 expects. <a href="roadmap.html#anchoring">Anchoring on a public test network</a> <span class="tag">Upcoming</span> <a href="roadmap.html#filecoin">Encrypted archive on Filecoin</a> <span class="tag">Upcoming</span></dd></div>
 </dl></article>
 <article class="cl" aria-labelledby="c-5-9"><h3 id="c-5-9"><span class="no">5.9</span>Available</h3><dl>
 <div><dt>Approach</dt><dd>Anyone holding the records can recompute and compare the fingerprints.</dd></div>

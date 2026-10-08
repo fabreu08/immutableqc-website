@@ -445,7 +445,7 @@ code.p{display:block;padding:10px 12px;background:var(--paper-2);border:1px soli
   .hist .st{gap:4px}.hist .st .i{width:12px;height:12px}
 }
 
-/* ---------------------------------------------------------------- Overview §2: how a result becomes a sealed record.
+/* ---------------------------------------------------------------- Overview §3 (§2 until Draft 6): how a result becomes a sealed record.
    Seven steps, each with its own static figure in that step's final state (no JS, reduced motion, phones). On wide
    screens (html.stage, set before paint from the width and the small viewport height, --svh) one sticky stage beside
    the steps shows the active step instead, and a rail fills to it. A figure's state is [data-s] on its scene; per part,
@@ -648,17 +648,45 @@ __STORY_STATES__
 .node+.node::after{content:'';position:absolute;left:20px;top:-7px;border:4px solid transparent;border-top:6px solid var(--ink);border-bottom:0}
 .iqc{display:grid;grid-template-columns:minmax(0,1fr);margin-top:6px}
 .iqc-in{display:flex;align-items:center;gap:8px;padding:6px 0 6px 18px;border-left:1px solid var(--teal);margin-left:6px;font:500 .75rem/1.4 var(--mono);letter-spacing:.04em;text-transform:uppercase;color:var(--teal)}
+/* an upcoming input is dashed, like the upcoming link to QA review (Fig. 4: sealing at the orchestrator or driver) */
+.iqc-in--up{border-left-style:dashed}
 .iqc-box{padding:12px 14px 13px;border:2px solid var(--teal);border-radius:3px;background:var(--paper-2)}
 .iqc-box .mark{width:22px;height:22px}
 .iqc-box .tag{margin-left:2px}
 .iqc-out{margin-top:10px;padding:10px 12px;border:1px dashed var(--ui);border-radius:3px;font:500 .75rem/1.45 var(--mono);letter-spacing:.04em;text-transform:uppercase;color:var(--ink-2)}
 .lab-s{display:inline}
+.iqc-in .ar-up{display:none}
+/* below 900 px a flow figure is one column, and Immutable QC hangs beside the lane as a branch between node 2 and node 3,
+   where the orchestrator or driver (Fig. 4) or the CDS (Fig. 5) hands a result on; the lane's line runs past it on the
+   left. The list and the block keep their markup (display: contents) and their reading order; only the drawing moves.
+   Fig. 4's export from the data pipeline (today) enters the box from below, so the box sits right on node 3 there */
+@media (max-width:899.98px){
+  .flow{display:flex;flex-direction:column}
+  .flow .lane,.flow .iqc{display:contents}
+  .flow .node{order:1}
+  .flow .node+.node{margin-top:22px}
+  .flow .lane>.node:nth-child(n+3){order:5}
+  .flow .iqc-in{order:2;position:relative;margin:0 0 0 46px}
+  .flow .iqc-box{order:3;position:relative;margin-left:40px}
+  .flow .iqc-box .nm{flex-wrap:wrap;row-gap:4px}
+  .flow .iqc-in--today{order:4}
+  .flow .iqc-in--today .ar-dn{display:none}
+  .flow .iqc-in--today .ar-up{display:inline}
+  .flow--fits .lane>.node:nth-child(3){margin-top:0}
+  .flow .iqc-out{order:6}
+  .flow .figcap{order:7}
+  .flow .iqc-in::after,.flow .iqc-box::after{content:'';position:absolute;left:-22px;top:0;bottom:0;border-left:1px solid var(--ink)}
+  .flow .iqc-box::after{left:-17px;top:-2px;bottom:-2px}
+}
 @media (min-width:900px){
   .lane{grid-template-columns:repeat(4,minmax(0,1fr));gap:28px}
   .node+.node::before{left:-28px;top:50%;width:28px;height:0;border-left:0;border-top:1px solid var(--ink)}
   .node+.node::after{left:-7px;top:calc(50% - 4px);border:4px solid transparent;border-left:6px solid var(--ink);border-right:0}
   .iqc{grid-template-columns:repeat(4,minmax(0,1fr));column-gap:28px;margin-top:0}
-  .iqc-in{grid-column:2/span 2;grid-row:1;height:32px;margin-left:24px;padding:0 0 0 12px}
+  .iqc-in{grid-column:2/span 2;grid-row:1;min-height:32px;margin-left:24px;padding:4px 0 6px 12px}
+  /* Fig. 4: the upcoming seal drops from the orchestrator or driver, today's export from the data pipeline */
+  .iqc-in--up{grid-column:2}
+  .iqc-in--today{grid-column:3}
   .iqc-out{position:relative}
   .iqc-out::before{content:'';position:absolute;left:24px;bottom:100%;height:32px;border-left:1px dashed var(--ui)}
   .iqc-box{grid-column:2/span 2;grid-row:2}
@@ -675,6 +703,10 @@ __STORY_STATES__
 .hx-p{font:400 .8125rem/1.6 var(--mono);color:var(--ink);letter-spacing:.01em;max-width:38ch}
 .hx-p>span{display:inline-block;margin-right:.6em}
 .hx-p>span:last-child{margin-right:0}
+/* Overview §2: the ordinary causes of a wrong value, one compact list (two columns from 600 px) */
+.causes{display:grid;grid-template-columns:minmax(0,1fr);gap:0;border-top:1px solid var(--hair)}
+.causes li{padding:5px 0;border-bottom:1px solid var(--hair);font-size:.9375rem;line-height:1.45}
+@media (min-width:600px){.causes{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:28px}}
 .pull{margin:0;padding:4px 0 4px 18px;border-left:3px solid var(--teal)}
 /* the founder's line: a quotation at lead size, below the section heading, not a headline */
 .pull p{font:400 1.0625rem/1.5 var(--sans);color:var(--ink);text-wrap:pretty}

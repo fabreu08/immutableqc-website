@@ -6,21 +6,36 @@
 <div class="body">
 <p class="lead">{{definition}}</p>
 </div>
-<h3 id="s11-h"><span class="no">1.1</span>Regulatory position</h3>
-<div class="body">
-<p class="reg">{{regulatory}}</p>
-</div>
 <div class="body first">
 <p><a class="xref" href="check.html#verifier"><span>Change a value and watch the checks</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
-<p><a class="xref" href="regulatory.html"><span>Read the regulatory map</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
+<p><a class="xref" href="#fits"><span>Where it would fit in an automated lab</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
 </div>
 </section>
 </div>
 {{> plate-record}}
 </div>
+<section class="sec sec--side" id="why" aria-labelledby="s2-h">
+<h2 id="s2-h"><span class="no">2</span>Why: one wrong value snowballs</h2>
+<div class="body">
+<p class="lead">{{whyNow}}</p>
+<p>A wrong value usually comes from ordinary software and operations:</p>
+<ul class="causes">
+<li>a script that “fixed” the units</li>
+<li>a sync conflict between two copies</li>
+<li>a crash halfway through a write</li>
+<li>a backup restored from last week</li>
+<li>a migration that rounded values</li>
+<li>an outage that dropped a batch</li>
+<li>a model that filled in a blank</li>
+</ul>
+<p>One wrong value does not stay put: it feeds an analysis, the analysis feeds a model, and the model picks the next experiment, so a concentration a script wrote in mg/mL where the pipeline expects µg/mL can end up in a dose-response fit, a training set and tomorrow’s plates. Today a seal shows a value changed after it was sealed; upcoming, a restored backup or a dropped batch would show against an anchor, a filled-in blank with measured and derived records, and lineage would find every analysis, model and decision recorded as using a wrong value.</p>
+<p class="note"><span class="k">Deliberate changes</span>A value changed on purpose after sealing, by someone without the signing key, fails the same checks as one changed by accident. A history rewritten with the key, or a record deleted and the rest relinked (which needs no key), passes each record’s checks; <a href="about.html#q7">question 5.7 on the About page</a> says what would show it, and what is not covered.</p>
+<blockquote class="pull"><p>{{founderLine}}</p><footer>José A. Fernández Abreu, founder</footer></blockquote>
+</div>
+</section>
 {{> story}}
-<section class="sec" id="history" aria-labelledby="s3-h">
-<h2 id="s3-h"><span class="no">3</span>Record history</h2>
+<section class="sec" id="history" aria-labelledby="s4-h">
+<h2 id="s4-h"><span class="no">4</span>Record history</h2>
 <div class="body">
 <p>The whole synthetic sequence, as an auditor would page through it. When the table comes into view, your browser checks every record once and marks each result; after that nothing moves.</p>
 </div>
@@ -28,25 +43,48 @@
 {{> plate-history}}
 </div>
 </section>
-<section class="sec sec--side" id="today" aria-labelledby="s4-h">
-<h2 id="s4-h"><span class="no">4</span>Today, upcoming and not claimed</h2>
+<section class="sec sec--side" id="today" aria-labelledby="s5-h">
+<h2 id="s5-h"><span class="no">5</span>Today, upcoming and not claimed</h2>
 <div class="body">
 <ul class="items">
 <li><span class="k">Alpha console · demo in your browser</span><span>Runs on a synthetic lab, only in your browser. Each record gets a SHA-256 fingerprint, a link to the record before it (the first record links to a fixed start value of 64 zeros), and a signature from a demo key made in your browser. Corrections are new records with a reason, and every check is recomputed after each change. Its anchor is simulated, with no network call.</span></li>
 <li><span class="k">These pages</span><span>The same construction on one synthetic sequence, signed with a demo key at build. Your browser recomputes every check.</span></li>
 <li><span class="k">Alpha app · not public</span><span>Imports HPLC CSV exports. Each peak area becomes a record of instrument, measurement type, value, unit and capture time, fingerprinted, linked and signed by one server key. The capture time is an injection time typed at import, or the server’s clock if none is given.</span></li>
-<li><span class="k"><span class="tag tag--in">Upcoming</span></span><span>Anchoring batch fingerprints on a public test network, a shared registry, reviewer sign-off, server-side verification in the app, per-analyst signatures, sample and method metadata in the seal, privacy on public networks, agentic workflows and Filecoin integration. Every anchor on this site and in the console is simulated.</span></li>
-<li><span class="k">Not claimed</span><span>No customers, no instrument capture, no electronic signatures and no validation. Nothing on this site or in the console writes to a public network.</span></li>
+<li><span class="k"><span class="tag tag--in">Upcoming</span></span><span>Sealing at capture (SiLA 2 and OPC UA LADS adapters), measured and derived records, lineage and recall, agentic workflows, Merkle batches with salted leaves and inclusion checks, privacy on public networks, anchoring batch fingerprints on a public test network, an encrypted archive on Filecoin, per-analyst signatures, signatures that cover each record’s position, reviewer sign-off, server-side verification in the app, sample and method metadata in the seal, a shared registry, and post-quantum signatures and encryption, in the Roadmap’s order. Every anchor on this site and in the console is simulated.</span></li>
+<li><span class="k">Not claimed</span><span>No customers, no capture at the instrument or orchestrator, no electronic signatures and no validation. Nothing on this site or in the console writes to a public network.</span></li>
 </ul>
 <p class="note"><span class="k">Basis</span>The same five fields and link rule in the alpha app’s HPLC import and on these pages; in the app, the instrument field is its internal instrument number. The console documents its own payload in its Method panel.</p>
 </div>
 </section>
-<section class="sec" id="fits" aria-labelledby="s5-h">
-<h2 id="s5-h"><span class="no">5</span>Where it fits</h2>
+<section class="sec" id="fits" aria-labelledby="s6-h">
+<h2 id="s6-h"><span class="no">6</span>Where it fits</h2>
 <div class="body">
-<p>Your instrument, CDS, LIMS and QA review stay as they are. In the alpha, Immutable QC sits beside the CDS export. The alpha app fingerprints, links and signs each imported peak area with one server key; checking them in the app is upcoming. On these pages and in the console the record history is tamper-evident, so a later change to a sealed value fails its checks. Changes made before import are not covered.</p>
+<p>In an automated lab, software already sits between the instrument and the record: the scheduler or orchestrator, the device drivers and the data pipeline that feeds models and agents. Sealing each result in the orchestrator or driver, as the instrument produces it, over SiLA 2 or OPC UA LADS, is upcoming.</p>
+<p>Today, Immutable QC sits beside an HPLC CSV export: the alpha app fingerprints, links and signs each peak area imported from it with one server key, and checking them in the app is upcoming. On these pages and in the console the record history is tamper-evident, so a later change to a sealed value fails its checks. Today a change made before import is not covered; with sealing at capture, only a change made before capture would be.</p>
 </div>
-<figure class="flow" aria-labelledby="f4-c">
+<figure class="flow flow--fits" aria-labelledby="f4-c">
+<ol class="lane">
+<li class="node"><span class="nm">Instrument</span><span class="sub">runs the method and produces each result</span></li>
+<li class="node node--cds"><span class="nm">Orchestrator or driver</span><span class="sub">schedules the run and receives each result (SiLA 2, OPC UA LADS); sealing here is upcoming</span></li>
+<li class="node"><span class="nm">Data pipeline</span><span class="sub">stores, converts, joins and exports results</span></li>
+<li class="node node--qa"><span class="nm">Models and agents</span><span class="sub">analyze results, train on them and pick the next experiment</span></li>
+</ol>
+<div class="iqc">
+<p class="iqc-in iqc-in--up"><span class="lab-s">Upcoming: sealed here</span><span aria-hidden="true">↓</span></p>
+<p class="iqc-in iqc-in--today"><span class="lab-s">Today: an HPLC CSV export</span><span class="ar-dn" aria-hidden="true">↓</span><span class="ar-up" aria-hidden="true">↑</span></p>
+<div class="iqc-box">
+<p class="nm"><svg class="mark" aria-hidden="true"><use href="#i-mark"/></svg>Immutable QC <span class="tag">Alpha</span></p>
+<p class="sub">Today: imports an HPLC CSV export, then fingerprints, links and signs each peak area. Upcoming: would seal each result as the orchestrator or driver receives it, before anything downstream could change it.</p>
+</div>
+<p class="iqc-out"><span class="lab-s">Upcoming: agents would check the sealed history before use</span></p>
+</div>
+<figcaption class="figcap" id="f4-c"><b>Fig. 4</b> · Where Immutable QC would sit in an automated lab. Today it imports an HPLC CSV export (solid line); sealing at the orchestrator or driver, and the check by models and agents, are upcoming (dashed lines).</figcaption>
+</figure>
+<h3 id="gmp"><span class="no">6.1</span>When your process moves into GMP</h3>
+<div class="body">
+<p>Your instrument, CDS, LIMS and QA review stay as they are. In the alpha, Immutable QC sits beside the CDS export; nothing is sent back to the CDS or LIMS, and the sealed history is what a reviewer or an auditor would check.</p>
+</div>
+<figure class="flow" aria-labelledby="f5-c">
 <ol class="lane">
 <li class="node"><span class="nm">Instrument</span><span class="sub">acquires the run</span></li>
 <li class="node node--cds"><span class="nm">CDS</span><span class="sub">integrates peaks and keeps its own audit trail</span></li>
@@ -61,17 +99,21 @@
 </div>
 <p class="iqc-out"><span class="lab-s">Upcoming: QA review would check the sealed history</span></p>
 </div>
-<figcaption class="figcap" id="f4-c"><b>Fig. 4</b> · Where Immutable QC sits. The CDS export feeds it; nothing is sent back to the CDS or LIMS. The dashed link to QA review is upcoming (reviewer sign-off).</figcaption>
+<figcaption class="figcap" id="f5-c"><b>Fig. 5</b> · Where Immutable QC sits in a GMP lab. The CDS export feeds it; nothing is sent back to the CDS or LIMS. The dashed link to QA review is upcoming (reviewer sign-off).</figcaption>
 </figure>
+<div class="body">
+<p class="reg">{{regulatory}}</p>
+<p><a class="xref" href="regulatory.html"><span>Read the regulatory map</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
+</div>
 </section>
-<section class="sec sec--side" id="public" aria-labelledby="s6-h">
-<h2 id="s6-h"><span class="no">6</span><span>What would go public <span class="tag">Upcoming</span></span></h2>
+<section class="sec sec--side" id="public" aria-labelledby="s7-h">
+<h2 id="s7-h"><span class="no">7</span><span>What would go public <span class="tag">Upcoming</span></span></h2>
 <div class="body">
 <div class="pub">
 <div class="pub-c">
 <h3 class="pub-h">Stays with the lab</h3>
 <ul class="plain">
-<li>Peak areas and every other value</li>
+<li>Peak areas and every other value, in readable form</li>
 <li>Sample, method and sequence records</li>
 <li>Names, reasons and review notes</li>
 <li>The record history itself</li>
@@ -79,32 +121,34 @@
 </div>
 <div class="pub-c">
 <h3 class="pub-h">Would go on a public network</h3>
-<p>Nothing on this site writes to a network. Once anchoring becomes available, one batch fingerprint will go on it for a whole run of records. It is a 64-character code; here it is the link of record {{AN}}, which depends on records 1 to {{AN}}.</p>
+<p>Nothing on this site writes to a network. Once anchoring becomes available, by default one batch fingerprint will go on it for a whole run of records. It is a 64-character code; here it is the link of record {{AN}}, which depends on records 1 to {{AN}}.</p>
 <p class="hx-p">{{ancG}}</p>
 <p class="say-p">Simulated here, with no network call. Anyone who holds the records can recompute it and see whether they still match.</p>
+<p>Only if a lab chooses the encrypted archive, also upcoming: its records as ciphertext, encrypted in the lab with keys that stay there, never readable on the network.</p>
 </div>
 </div>
-<p>A fingerprint is not encryption. How a record is sealed, section 9, explains why, and what is upcoming.</p>
+<p>A fingerprint is not encryption. How a record is sealed, section 9, explains why, and what is upcoming: salted batches, and an encrypted archive that would hold nothing readable.</p>
 <p><a class="xref" href="sealed.html#privacy"><span class="id">IQC-HS-01 §9</span><span>Privacy on public networks</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
 </div>
 </section>
-<section class="sec sec--side" id="agents" aria-labelledby="s7-h">
-<h2 id="s7-h"><span class="no">7</span><span>Agentic workflows <span class="tag">Upcoming</span></span></h2>
+<section class="sec sec--side" id="agents" aria-labelledby="s8-h">
+<h2 id="s8-h"><span class="no">8</span><span>Agentic workflows <span class="tag">Upcoming</span></span></h2>
 <div class="body">
-<blockquote class="pull"><p>{{founderLine}}</p><footer>José A. Fernández Abreu, founder</footer></blockquote>
-<p>An agent would run the same four checks as Check a record before it uses a result. Passing them says a result has not changed since it was sealed; it does not say the result was right when it was captured.</p>
+<p>An agent would run the same four checks as Check a record before it uses a result. Passing them says a result has not changed since it was sealed; it does not say the result was right when it was captured, or that it was ever measured.</p>
+<p>Measured and derived records, upcoming: only a record sealed at capture, by the instrument’s or orchestrator’s key, would count as measured. Anything an agent, a script or an analysis produces would be a derived record, under a different signer, citing the fingerprints of the sealed records it came from. So a number an agent gives either traces back to a measurement or it does not, and one that does not would be flagged before use. A derived number that cites real measurements but was computed or copied wrongly would still pass; a checker would re-run the analysis from its cited inputs where it is deterministic.</p>
 <p>Check a record shows one record as an agent would receive it. There is no API yet.</p>
-<p><a class="xref" href="roadmap.html#agents"><span class="id">IQC-RD-01 §2.1</span><span>Agentic workflows</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
+<p><a class="xref" href="roadmap.html#agents"><span class="id">IQC-RD-01 §2.4</span><span>Agentic workflows</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
+<p><a class="xref" href="roadmap.html#derived"><span class="id">IQC-RD-01 §2.2</span><span>Measured and derived records</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
 </div>
 </section>
-<section class="sec sec--side" id="docs" aria-labelledby="s8-h">
-<h2 id="s8-h"><span class="no">8</span>The document set</h2>
+<section class="sec sec--side" id="docs" aria-labelledby="s9-h">
+<h2 id="s9-h"><span class="no">9</span>The document set</h2>
 <div class="body">
 <ul class="docs">
 <li><a class="xref" href="sealed.html"><span class="id">IQC-HS-01</span><span>How a record is sealed</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>The payload, the fingerprint, the link rule, demo signatures, corrections, what a check shows, upcoming anchoring and the privacy note.</p></li>
 <li><a class="xref" href="check.html"><span class="id">IQC-CK-01</span><span>Check a record</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>Change any sealed field and watch the checks; rewrite the history to hide it, or append a correction instead.</p></li>
 <li><a class="xref" href="regulatory.html"><span class="id">IQC-RM-01</span><span>Regulatory map</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>Expectation by expectation for 21 CFR Part 11, EU Annex 11, ISO/IEC 17025:2017, ALCOA+, GMP and TNI, with what exists today and what is not covered. A reading aid, not an assessment.</p></li>
-<li><a class="xref" href="roadmap.html"><span class="id">IQC-RD-01</span><span>Roadmap</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>What works today, and what is upcoming.</p></li>
+<li><a class="xref" href="roadmap.html"><span class="id">IQC-RD-01</span><span>Roadmap</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>What works today, and what is upcoming, the automated-lab items first.</p></li>
 <li><a class="xref" href="about.html"><span class="id">IQC-AB-01</span><span>About</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>Who builds it, status, and questions.</p></li>
 <li><a class="xref" href="dashboard/"><span class="id">Demo</span><span>Alpha console</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>A synthetic lab that runs only in your browser.</p></li>
 </ul>

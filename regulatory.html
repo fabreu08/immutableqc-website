@@ -24,9 +24,9 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preload" href="fonts/archivo-c-115-620.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="assets/site.css?v=1914a376">
+<link rel="stylesheet" href="assets/site.css?v=07085ed9">
 <script>(function(d){var c=d.documentElement.classList;c.add('js');try{if(!matchMedia('(prefers-reduced-motion: reduce)').matches)c.add('motion')}catch(e){}var r=d.documentElement,h=innerHeight;r.style.setProperty('--svh',h+'px');if(innerWidth>=960&&h>=(innerWidth>=1180?600:700)&&'IntersectionObserver'in window)c.add('stage');var q=function(s){return d.querySelector(s)},b=function(){return q('.menu-btn')},n=function(){return q('.nav')},o=function(){var x=b();return!!x&&x.getAttribute('aria-expanded')==='true'},s=function(v){var x=b(),y=n();if(x&&y){x.setAttribute('aria-expanded',String(v));y.classList.toggle('open',v)}};d.addEventListener('click',function(e){var t=e.target,x=b(),y=n();if(!t||!t.closest)return;if(q('base')&&t.closest('.skip')){e.preventDefault();var m=d.getElementById('main');if(m){m.focus();m.scrollIntoView()}return}if(!x||!y)return;if(x.contains(t))s(!o());else if(o()&&!y.contains(t))s(false)});d.addEventListener('keydown',function(e){if(e.key==='Escape'&&o()){s(false);b().focus()}});d.addEventListener('focusout',function(e){var x=b(),y=n(),r=e.relatedTarget;if(o()&&r&&(y.contains(e.target)||x.contains(e.target))&&!y.contains(r)&&!x.contains(r))s(false)})})(document)</script>
-<script defer src="assets/iqc.js?v=e7ae5d1e"></script>
+<script defer src="assets/iqc.js?v=c5a57112"></script>
 </head>
 <body data-doc="IQC-RM-01">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><symbol id="i-ok" viewBox="0 0 16 16"><path d="M2.5 8.5l3.5 3.5 7.5-8" fill="none" stroke="currentColor" stroke-width="2"/></symbol><symbol id="i-x" viewBox="0 0 16 16"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9" fill="none" stroke="currentColor" stroke-width="2"/></symbol><symbol id="i-dash" viewBox="0 0 16 16"><path d="M3.5 8h9" fill="none" stroke="currentColor" stroke-width="2"/></symbol><symbol id="i-open" viewBox="0 0 16 16"><circle cx="8" cy="8" r="4.5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-dasharray="2.4 1.8"/></symbol><symbol id="i-arrow" viewBox="0 0 16 16"><path d="M1.5 8h12M9 3.5L13.5 8 9 12.5" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol><symbol id="i-down" viewBox="0 0 16 16"><path d="M8 1.5v12M3.5 9L8 13.5 12.5 9" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol><symbol id="i-mark" viewBox="0 0 32 32"><circle cx="16" cy="16" r="16" style="fill:var(--plate-0)"/><circle cx="16" cy="16" r="9.5" style="fill:none;stroke:var(--ok);stroke-width:3"/><circle cx="16" cy="16" r="3.75" style="fill:var(--ok)"/></symbol></svg>
@@ -54,7 +54,7 @@
 <div class="wrap">
 <dl class="dochead">
 <div><dt>Document</dt><dd><span class="nw">IQC-RM-01</span></dd></div>
-<div><dt>Revision</dt><dd>Draft 5</dd></div>
+<div><dt>Revision</dt><dd>Draft 6</dd></div>
 <div><dt>Updated</dt><dd>2026-10-07</dd></div>
 <div class="st"><dt>Status</dt><dd>Independent project · Open alpha · Synthetic demo data · No customers yet</dd></div>
 <div class="use"><dt>Use</dt><dd>Informational draft. Not a controlled document; not a regulatory assessment or a validation statement.</dd></div>
@@ -98,14 +98,14 @@
 </dl></article>
 <article class="cl" aria-labelledby="c-2-5"><h3 id="c-2-5"><span class="no">2.5</span>Controls for open systems</h3><dl>
 <div><dt>Expectation</dt><dd>Additional measures, such as document encryption and appropriate digital signature standards, ensure record authenticity, integrity and, where needed, confidentiality.</dd></div>
-<div><dt>Approach</dt><dd><span class="nw">ECDSA P-256</span> signatures (<span class="nw">FIPS 186-5</span>) over each record’s fingerprint. When anchoring becomes available, only a fingerprint will go on a public network, never the values.</dd></div>
+<div><dt>Approach</dt><dd><span class="nw">ECDSA P-256</span> signatures (<span class="nw">FIPS 186-5</span>) over each record’s fingerprint. When anchoring becomes available, only a fingerprint will go on a public network, never the values; values would leave the lab only encrypted, and only if the lab chooses the encrypted archive (upcoming).</dd></div>
 <div><dt>Today</dt><dd>Demo keys only: a build-time key on these pages, a key made in your browser in the console, one server key in the alpha app.</dd></div>
 <div><dt>Not covered</dt><dd>Managed keys and encryption. <a href="roadmap.html#signatures">Per-analyst signatures</a> <span class="tag">Upcoming</span> <a href="roadmap.html#privacy">Privacy on public networks</a>, with salted commitments in place of plain fingerprints <span class="tag">Upcoming</span></dd></div>
 </dl></article>
 <article class="cl" aria-labelledby="c-2-6"><h3 id="c-2-6"><span class="no">2.6</span><span>Signature manifestations and linking <span class="cl-id">§11.50, §11.70</span></span></h3><dl>
 <div><dt>Expectation</dt><dd>A signed record shows the signer’s printed name, the date and time, and the meaning of the signature, such as review or approval. Signatures are linked to their records so they cannot be excised, copied or transferred.</dd></div>
-<div><dt>Approach</dt><dd>A digital signature over a record’s fingerprint covers exactly those sealed fields and fails on any other.</dd></div>
-<div><dt>Today</dt><dd>Demo signatures that cover the fingerprint. A digital signature on a record’s bytes is not an electronic signature by a person.</dd></div>
+<div><dt>Approach</dt><dd>An ECDSA signature over a record’s fingerprint covers exactly those sealed fields and fails on any other.</dd></div>
+<div><dt>Today</dt><dd>Demo signatures that cover the fingerprint. A signature made with a system key on a record’s bytes is neither an electronic signature nor a digital signature as <span class="nw">21 CFR Part 11</span> uses those terms: both identify a person.</dd></div>
 <div><dt>Not covered</dt><dd>Signer name, signing time and meaning. <a href="roadmap.html#review">Reviewer sign-off</a> <span class="tag">Upcoming</span></dd></div>
 </dl></article>
 <article class="cl" aria-labelledby="c-2-7"><h3 id="c-2-7"><span class="no">2.7</span>Electronic signatures</h3><dl>
@@ -148,7 +148,7 @@
 </dl></article>
 <article class="cl" aria-labelledby="c-3-5"><h3 id="c-3-5"><span class="no">3.5</span><span>Electronic signature <span class="cl-id">§14</span></span></h3><dl>
 <div><dt>Expectation</dt><dd>Electronic signatures have the same impact as handwritten ones within the company, are permanently linked to their record, and include the time and date they were applied.</dd></div>
-<div><dt>Approach</dt><dd>A digital signature over the fingerprint is bound to the record’s sealed fields.</dd></div>
+<div><dt>Approach</dt><dd>An ECDSA signature over the fingerprint is bound to the record’s sealed fields.</dd></div>
 <div><dt>Today</dt><dd>Demo signatures only; no person signs anything.</dd></div>
 <div><dt>Not covered</dt><dd>Electronic signatures.</dd></div>
 </dl></article>
@@ -167,7 +167,7 @@
 <div><dt>Expectation</dt><dd>Technical records include the date and the identity of the personnel responsible for each activity and for checking data and results. Original observations, data and calculations are recorded when they are made.</dd></div>
 <div><dt>Approach</dt><dd>The capture time is one of the sealed fields.</dd></div>
 <div><dt>Today</dt><dd>In the alpha app the capture time sealed with each peak area is an injection time typed at import, or the server’s clock if none is given, the same for every peak in a file. It is not read from the export or from the instrument.</dd></div>
-<div><dt>Not covered</dt><dd>Personnel identity; instrument capture; reading the injection time from the export; a trusted clock.</dd></div>
+<div><dt>Not covered</dt><dd>Personnel identity; <a href="roadmap.html#capture">sealing at capture</a> <span class="tag">Upcoming</span>; reading the injection time from the export; a trusted clock.</dd></div>
 </dl></article>
 <article class="cl" aria-labelledby="c-4-2"><h3 id="c-4-2"><span class="no">4.2</span>Amendments to technical records</h3><dl>
 <div><dt>Expectation</dt><dd>Amendments can be tracked to previous versions or original observations. The original and amended data are both kept, with the date of the change, what was changed and who made it.</dd></div>
@@ -208,7 +208,7 @@
 <article class="cl" aria-labelledby="c-5-3"><h3 id="c-5-3"><span class="no">5.3</span>Contemporaneous</h3><dl>
 <div><dt>Approach</dt><dd>The capture time is sealed; a correction carries the time it was made, beside the seal.</dd></div>
 <div><dt>Today</dt><dd>In the alpha app the capture time is an injection time typed at import, or the server’s clock at import. It is not read from the CSV export.</dd></div>
-<div><dt>Not covered</dt><dd>Capture at the instrument, and a trusted clock.</dd></div>
+<div><dt>Not covered</dt><dd><a href="roadmap.html#capture">Sealing at capture</a> <span class="tag">Upcoming</span>; a trusted clock.</dd></div>
 </dl></article>
 <article class="cl" aria-labelledby="c-5-4"><h3 id="c-5-4"><span class="no">5.4</span>Original</h3><dl>
 <div><dt>Approach</dt><dd>Values parsed from the export are sealed on import.</dd></div>
@@ -233,7 +233,7 @@
 <article class="cl" aria-labelledby="c-5-8"><h3 id="c-5-8"><span class="no">5.8</span>Enduring</h3><dl>
 <div><dt>Approach</dt><dd>Anchoring batch fingerprints outside the lab, an upcoming feature.</dd></div>
 <div><dt>Today</dt><dd>A simulated anchor on these pages and in the console; nothing is written to a network.</dd></div>
-<div><dt>Not covered</dt><dd>Keeping the records. <a href="roadmap.html#anchoring">Anchoring on a public test network</a> <span class="tag">Upcoming</span> <a href="roadmap.html#filecoin">Filecoin integration</a> <span class="tag">Upcoming</span></dd></div>
+<div><dt>Not covered</dt><dd>Keeping the records: for GMP retention the lab’s validated archive stays the record, and a Filecoin copy would be one more encrypted copy, whose storage providers would need the supplier controls <span class="nw">EU Annex 11</span> expects. <a href="roadmap.html#anchoring">Anchoring on a public test network</a> <span class="tag">Upcoming</span> <a href="roadmap.html#filecoin">Encrypted archive on Filecoin</a> <span class="tag">Upcoming</span></dd></div>
 </dl></article>
 <article class="cl" aria-labelledby="c-5-9"><h3 id="c-5-9"><span class="no">5.9</span>Available</h3><dl>
 <div><dt>Approach</dt><dd>Anyone holding the records can recompute and compare the fingerprints.</dd></div>
@@ -297,7 +297,7 @@
 <footer class="foot">
 <div class="wrap">
 <p class="ind">Immutable QC is an independent project built on the founder’s own time. It is not affiliated with or endorsed by any employer. Founder: <span class="nw">José A. Fernández Abreu</span> · <a href="https://joseqc.com">joseqc.com</a></p>
-<p class="meta"><span class="m-doc"><span class="nw">IQC-RM-01</span> · Draft 5 · Updated 2026-10-07 · <a href="about.html#history">Revision history</a></span><span class="m-fonts">Fonts, SIL Open Font License: <a href="fonts/OFL-IBM-Plex-Sans.txt">IBM Plex Sans</a> <a href="fonts/OFL-IBM-Plex-Mono.txt">IBM Plex Mono</a> <a href="fonts/OFL-Archivo.txt">Archivo</a></span></p>
+<p class="meta"><span class="m-doc"><span class="nw">IQC-RM-01</span> · Draft 6 · Updated 2026-10-07 · <a href="about.html#history">Revision history</a></span><span class="m-fonts">Fonts, SIL Open Font License: <a href="fonts/OFL-IBM-Plex-Sans.txt">IBM Plex Sans</a> <a href="fonts/OFL-IBM-Plex-Mono.txt">IBM Plex Mono</a> <a href="fonts/OFL-Archivo.txt">Archivo</a></span></p>
 </div>
 </footer>
 

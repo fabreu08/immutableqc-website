@@ -254,6 +254,56 @@ for (const w of WIDTHS) {
 }
 console.log(`overflow: ${R.overflow.length} runs, ${R.overflow.filter((o) => o.over || o.offenders.length).length} with overflow`)
 
+// ---------------------------------------------------------------------------------------------- 1b. the flow figures (Overview, Figs. 4 and 5)
+// Immutable QC is drawn where it takes a result: Fig. 4's upcoming seal at the orchestrator or driver (node 2) and today's
+// HPLC CSV export at the data pipeline (node 3); Fig. 5's export at the CDS (node 2). Below 900 px the figure is one
+// column and the Immutable QC branch hangs between node 2 and node 3, never under the last node; from 900 px each
+// connector drops from its own node's column. Each lane stays a list of four items in the accessibility tree.
+if (PAGES.includes('index.html')) {
+  R.flow = []
+  for (const w of [320, 390, 768, 1024, 1440]) {
+    const ctx = await ctxFor(w, 800), p = await ctx.newPage(), cdp = await ctx.newCDPSession(p)
+    await p.goto(BASE + 'index.html', { waitUntil: 'load' }); await p.evaluate(() => document.fonts.ready)
+    const m = await p.evaluate(() => [...document.querySelectorAll('#fits figure.flow')].map((f) => {
+      const r = (e) => { if (!e) return null; const b = e.getBoundingClientRect(); return { t: Math.round(b.top + scrollY), b: Math.round(b.bottom + scrollY), l: Math.round(b.left), r: Math.round(b.right) } }
+      const n = [...f.querySelectorAll('.lane > .node')].map(r)
+      return { id: f.getAttribute('aria-labelledby'), n, up: r(f.querySelector('.iqc-in--up')), today: r(f.querySelector('.iqc-in--today')), into: r(f.querySelector('.iqc-in:not(.iqc-in--up):not(.iqc-in--today)')), box: r(f.querySelector('.iqc-box')), out: r(f.querySelector('.iqc-out')) }
+    }))
+    const bad = []
+    for (const f of m) {
+      const [, n2, n3, n4] = f.n, ins = [f.up, f.today, f.into].filter(Boolean)
+      if (f.n.length !== 4 || !ins.length) { bad.push(`${f.id}: ${f.n.length} nodes, ${ins.length} connectors`); continue }
+      if (w < 900) {
+        const between = (e) => e.t >= n2.b - 1 && e.b <= n3.t + 1
+        for (const e of [...ins, f.box]) if (!between(e)) bad.push(`${f.id}: a part of the Immutable QC branch (${e.t}–${e.b}) is not between node 2 (bottom ${n2.b}) and node 3 (top ${n3.t})`)
+        if (f.up && !(f.up.b <= f.box.t + 1)) bad.push(`${f.id}: the upcoming seal does not enter the box from node 2's side`)
+        if (f.today && !(f.today.t >= f.box.b - 1 && Math.abs(f.today.b - n3.t) <= 1)) bad.push(`${f.id}: today's export does not run from node 3 into the box`)
+        if (f.out && !(f.out.t >= n4.b)) bad.push(`${f.id}: the upcoming check sits above the last node`)
+      } else {
+        const under = (e, nd) => e.l >= nd.l - 1 && e.l < nd.r && e.t >= nd.b - 1
+        if (f.up && !under(f.up, n2)) bad.push(`${f.id}: the upcoming seal does not drop from node 2's column`)
+        if (f.today && !under(f.today, n3)) bad.push(`${f.id}: today's export does not drop from node 3's column`)
+        if (f.into && !under(f.into, n2)) bad.push(`${f.id}: the export does not drop from node 2's column`)
+      }
+    }
+    if (m.length !== 2 || !m[0].up || !m[0].today || m[0].into || !m[1].into || m[1].up || m[1].today) bad.push(`figures: ${JSON.stringify(m.map((f) => [f.id, !!f.up, !!f.today, !!f.into]))}`)
+    // each lane as Chrome's accessibility tree has it: a list, not ignored, with its four list items
+    const { root } = await cdp.send('DOM.getDocument', { depth: -1 })
+    const { nodeIds } = await cdp.send('DOM.querySelectorAll', { nodeId: root.nodeId, selector: '#fits figure.flow ol.lane' })
+    for (const id of nodeIds) {
+      const { nodes } = await cdp.send('Accessibility.getPartialAXTree', { nodeId: id, fetchRelatives: false })
+      const li = await cdp.send('DOM.querySelectorAll', { nodeId: id, selector: ':scope > li' })
+      const items = []
+      for (const lid of li.nodeIds) { const { nodes: ln } = await cdp.send('Accessibility.getPartialAXTree', { nodeId: lid, fetchRelatives: false }); items.push(ln[0] && !ln[0].ignored && ln[0].role && ln[0].role.value) }
+      if (!(nodes[0] && !nodes[0].ignored && nodes[0].role && nodes[0].role.value === 'list' && items.length === 4 && items.every((r) => r === 'listitem'))) bad.push(`a lane is not a list of four items in the accessibility tree: ${JSON.stringify([nodes[0] && nodes[0].role, items])}`)
+    }
+    R.flow.push({ w, m, bad })
+    for (const x of bad) fail(`flow figures at ${w}: ${x}`)
+    await ctx.close()
+  }
+  console.log(`flow figures: ${R.flow.length} widths, ${R.flow.reduce((a, x) => a + x.bad.length, 0)} problems`)
+}
+
 // ---------------------------------------------------------------------------------------------- 2. axe at 375 and 1280
 for (const w of [375, 1280]) {
   const ctx = await ctxFor(w, 800, { bypassCSP: true }), p = await ctx.newPage()

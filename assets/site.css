@@ -581,17 +581,39 @@ code.p{display:block;padding:10px 12px;background:var(--paper-2);border:1px soli
 .node+.node::after{content:'';position:absolute;left:20px;top:-7px;border:4px solid transparent;border-top:6px solid var(--ink);border-bottom:0}
 .iqc{display:grid;grid-template-columns:minmax(0,1fr);margin-top:6px}
 .iqc-in{display:flex;align-items:center;gap:8px;padding:6px 0 6px 18px;border-left:1px solid var(--teal);margin-left:6px;font:500 .75rem/1.4 var(--mono);letter-spacing:.04em;text-transform:uppercase;color:var(--teal)}
+.iqc-in--up{border-left-style:dashed}
 .iqc-box{padding:12px 14px 13px;border:2px solid var(--teal);border-radius:3px;background:var(--paper-2)}
 .iqc-box .mark{width:22px;height:22px}
 .iqc-box .tag{margin-left:2px}
 .iqc-out{margin-top:10px;padding:10px 12px;border:1px dashed var(--ui);border-radius:3px;font:500 .75rem/1.45 var(--mono);letter-spacing:.04em;text-transform:uppercase;color:var(--ink-2)}
 .lab-s{display:inline}
+.iqc-in .ar-up{display:none}
+@media (max-width:899.98px){
+.flow{display:flex;flex-direction:column}
+.flow .lane,.flow .iqc{display:contents}
+.flow .node{order:1}
+.flow .node+.node{margin-top:22px}
+.flow .lane>.node:nth-child(n+3){order:5}
+.flow .iqc-in{order:2;position:relative;margin:0 0 0 46px}
+.flow .iqc-box{order:3;position:relative;margin-left:40px}
+.flow .iqc-box .nm{flex-wrap:wrap;row-gap:4px}
+.flow .iqc-in--today{order:4}
+.flow .iqc-in--today .ar-dn{display:none}
+.flow .iqc-in--today .ar-up{display:inline}
+.flow--fits .lane>.node:nth-child(3){margin-top:0}
+.flow .iqc-out{order:6}
+.flow .figcap{order:7}
+.flow .iqc-in::after,.flow .iqc-box::after{content:'';position:absolute;left:-22px;top:0;bottom:0;border-left:1px solid var(--ink)}
+.flow .iqc-box::after{left:-17px;top:-2px;bottom:-2px}
+}
 @media (min-width:900px){
 .lane{grid-template-columns:repeat(4,minmax(0,1fr));gap:28px}
 .node+.node::before{left:-28px;top:50%;width:28px;height:0;border-left:0;border-top:1px solid var(--ink)}
 .node+.node::after{left:-7px;top:calc(50% - 4px);border:4px solid transparent;border-left:6px solid var(--ink);border-right:0}
 .iqc{grid-template-columns:repeat(4,minmax(0,1fr));column-gap:28px;margin-top:0}
-.iqc-in{grid-column:2/span 2;grid-row:1;height:32px;margin-left:24px;padding:0 0 0 12px}
+.iqc-in{grid-column:2/span 2;grid-row:1;min-height:32px;margin-left:24px;padding:4px 0 6px 12px}
+.iqc-in--up{grid-column:2}
+.iqc-in--today{grid-column:3}
 .iqc-out{position:relative}
 .iqc-out::before{content:'';position:absolute;left:24px;bottom:100%;height:32px;border-left:1px dashed var(--ui)}
 .iqc-box{grid-column:2/span 2;grid-row:2}
@@ -608,6 +630,9 @@ code.p{display:block;padding:10px 12px;background:var(--paper-2);border:1px soli
 .hx-p{font:400 .8125rem/1.6 var(--mono);color:var(--ink);letter-spacing:.01em;max-width:38ch}
 .hx-p>span{display:inline-block;margin-right:.6em}
 .hx-p>span:last-child{margin-right:0}
+.causes{display:grid;grid-template-columns:minmax(0,1fr);gap:0;border-top:1px solid var(--hair)}
+.causes li{padding:5px 0;border-bottom:1px solid var(--hair);font-size:.9375rem;line-height:1.45}
+@media (min-width:600px){.causes{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:28px}}
 .pull{margin:0;padding:4px 0 4px 18px;border-left:3px solid var(--teal)}
 .pull p{font:400 1.0625rem/1.5 var(--sans);color:var(--ink);text-wrap:pretty}
 @media (min-width:768px){.pull p{font-size:1.1875rem;line-height:1.5}}
@@ -671,20 +696,20 @@ body{background:#fff}
 .stage .step-list{padding-top:0}
 .step .sf .sc{content-visibility:visible}
 }
-@page{margin:16mm 14mm 18mm;@bottom-left{content:"Immutable QC · Draft 5 · informational draft, not a controlled document";font:8pt/1.3 'IBM Plex Mono',monospace;color:#4A5560}@bottom-right{content:"page " counter(page) " of " counter(pages);font:8pt/1.3 'IBM Plex Mono',monospace;color:#4A5560}}
-@page doc-iqc-ov-01{@bottom-left{content:"IQC-OV-01 · Draft 5 · informational draft, not a controlled document"}}
+@page{margin:16mm 14mm 18mm;@bottom-left{content:"Immutable QC · Draft 6 · informational draft, not a controlled document";font:8pt/1.3 'IBM Plex Mono',monospace;color:#4A5560}@bottom-right{content:"page " counter(page) " of " counter(pages);font:8pt/1.3 'IBM Plex Mono',monospace;color:#4A5560}}
+@page doc-iqc-ov-01{@bottom-left{content:"IQC-OV-01 · Draft 6 · informational draft, not a controlled document"}}
 body[data-doc="IQC-OV-01"]{page:doc-iqc-ov-01}
-@page doc-iqc-hs-01{@bottom-left{content:"IQC-HS-01 · Draft 5 · informational draft, not a controlled document"}}
+@page doc-iqc-hs-01{@bottom-left{content:"IQC-HS-01 · Draft 6 · informational draft, not a controlled document"}}
 body[data-doc="IQC-HS-01"]{page:doc-iqc-hs-01}
-@page doc-iqc-ck-01{@bottom-left{content:"IQC-CK-01 · Draft 5 · informational draft, not a controlled document"}}
+@page doc-iqc-ck-01{@bottom-left{content:"IQC-CK-01 · Draft 6 · informational draft, not a controlled document"}}
 body[data-doc="IQC-CK-01"]{page:doc-iqc-ck-01}
-@page doc-iqc-rm-01{@bottom-left{content:"IQC-RM-01 · Draft 5 · informational draft, not a controlled document"}}
+@page doc-iqc-rm-01{@bottom-left{content:"IQC-RM-01 · Draft 6 · informational draft, not a controlled document"}}
 body[data-doc="IQC-RM-01"]{page:doc-iqc-rm-01}
-@page doc-iqc-rd-01{@bottom-left{content:"IQC-RD-01 · Draft 5 · informational draft, not a controlled document"}}
+@page doc-iqc-rd-01{@bottom-left{content:"IQC-RD-01 · Draft 6 · informational draft, not a controlled document"}}
 body[data-doc="IQC-RD-01"]{page:doc-iqc-rd-01}
-@page doc-iqc-ab-01{@bottom-left{content:"IQC-AB-01 · Draft 5 · informational draft, not a controlled document"}}
+@page doc-iqc-ab-01{@bottom-left{content:"IQC-AB-01 · Draft 6 · informational draft, not a controlled document"}}
 body[data-doc="IQC-AB-01"]{page:doc-iqc-ab-01}
-@page doc-iqc-nf{@bottom-left{content:"IQC-NF · Draft 5 · informational draft, not a controlled document"}}
+@page doc-iqc-nf{@bottom-left{content:"IQC-NF · Draft 6 · informational draft, not a controlled document"}}
 body[data-doc="IQC-NF"]{page:doc-iqc-nf}
 .v-fig{margin-top:16px}
 .hero .first{margin-top:14px}
