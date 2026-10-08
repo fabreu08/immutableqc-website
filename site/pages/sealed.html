@@ -62,7 +62,7 @@
 <p>Each fingerprint is signed with ECDSA P-256 over its 32 bytes. On these pages, records 1 to {{N}} were signed when the site was built, by a demo key whose private half was then discarded. Its public key is published on the pages that check it. That shows the method, but it is not independent evidence. In use, the public key would be published outside the lab’s system. {{demoSig}}</p>
 <p>In the record checker, an edited record’s signature still fails after the history is rewritten, but only because the demo key was discarded. In the alpha, whoever holds the one server key could re-sign an edited record; only a fingerprint anchored outside the lab beforehand would still disagree.</p>
 <p>Where your browser can check signatures, every record on these pages is signed, so a record with no signature fails.</p>
-<p>A digital signature on a record’s bytes is not an electronic signature by a person under 21 CFR Part 11.</p>
+<p>A signature made with a system key on a record’s bytes is neither an electronic signature nor a digital signature as 21 CFR Part 11 uses those terms: both identify a person.</p>
 <p class="note"><span class="k">Basis</span>ECDSA, FIPS 186-5. IEEE P1363 encoding, in its low-S form only. Demo key id {{keyIdShort}}…</p>
 </div>
 </section>
@@ -81,7 +81,7 @@
 <p>Anchoring is an upcoming feature. It will write a batch fingerprint, with a time, somewhere the lab does not control, so that a later rewrite of the history shows. On these pages the batch fingerprint is the link of record {{AN}}, the newest record in the batch, replayed from 64 zeros. It is stored on the page as the anchored fingerprint (simulated, no network call).</p>
 <p class="hx-p">{{ancG}}</p>
 <p>The first network will be {{network}}. The registry code for that network (a smart contract) is written, but nothing on this site or in the console writes to a network, and no shared registry exists yet. Every anchor here is simulated.</p>
-<p>Only a fingerprint will go on the network, never the values. A registry entry would show that a fingerprint existed by a given time. It would not show who the lab is, and it would not keep the records.</p>
+<p>Anchoring will put only a fingerprint on the network, never the values. A registry entry would show that a fingerprint existed by a given time, and the address that wrote it, which links a lab’s anchors to one another; as the registry code is written today, it would also show the first and last record numbers of the batch. It would show no value, and it would not keep the records.</p>
 </div>
 </section>
 <section class="sec sec--side" id="pass-fail" aria-labelledby="s8-h">
@@ -100,8 +100,8 @@
 <div class="body">
 <p>A fingerprint hides nothing that can be guessed. A plain SHA-256 of a few guessable fields (an instrument id, a measurement type, a peak area in a known range, a capture time to the second) can in principle be matched by trying likely values.</p>
 <p>Nothing on this site or in the console writes to a public network. When anchoring becomes available, it will write only a batch fingerprint, never the values. A batch fingerprint of guessable fields can still be tried. So can two anchors one record apart: from the head before and the head after, the one record between them can be found by trying likely values.</p>
-<p><span class="tag tag--in">Upcoming</span> Salted (hiding) commitments in place of plain fingerprints, so that what is published reveals nothing without the salt the lab keeps; as the leaves of a Merkle batch, they would also let a lab show that one record is in an anchored batch without revealing the others. Later, zero-knowledge proofs, so that a lab can show a property, such as “within specification” or “reviewed before release”, without disclosing the value.</p>
-<p>The same principle would hold for storage: nothing readable leaves the lab. An encrypted archive on Filecoin is upcoming; each batch would be encrypted in the lab before upload, with keys that stay in the lab, so the network would hold ciphertext and never results, and content addressing would let anyone who fetches a copy check that it is the one captured.</p>
+<p><span class="tag tag--in">Upcoming</span> Salted (hiding) commitments in place of plain fingerprints, so that what is published reveals nothing without the salt the lab keeps; as the leaves of a Merkle batch, they would also let a lab show that one record is in an anchored batch without revealing the others’ contents. Later, zero-knowledge proofs, so that a lab can show a property, such as “within specification” or “reviewed before release”, without disclosing the value.</p>
+<p>Storage would follow the same rule as anchoring: nothing readable leaves the lab. An encrypted archive on Filecoin is upcoming; each batch would be encrypted in the lab before upload, with keys that stay in the lab, so the network would hold ciphertext and never results, and content addressing would let anyone who fetches a copy check that it is, byte for byte, the ciphertext the lab archived under that address.</p>
 <p><a class="xref" href="roadmap.html#privacy"><span class="id">IQC-RD-01 §2.6</span><span>Privacy on public networks</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
 </div>
 </section>
@@ -119,18 +119,19 @@
 <tr><th scope="row">Sealing at capture (SiLA 2, OPC UA LADS adapters)</th><td><span class="tag tag--in">Upcoming</span></td></tr>
 <tr><th scope="row">Measured and derived records</th><td><span class="tag tag--in">Upcoming</span></td></tr>
 <tr><th scope="row">Lineage and recall</th><td><span class="tag tag--in">Upcoming</span></td></tr>
+<tr><th scope="row">Agentic workflows</th><td><span class="tag tag--in">Upcoming</span></td></tr>
 <tr><th scope="row">Merkle batches with salted leaves</th><td><span class="tag tag--in">Upcoming</span></td></tr>
+<tr><th scope="row">Privacy on public networks</th><td><span class="tag tag--in">Upcoming</span></td></tr>
 <tr><th scope="row">Anchoring on a public test network</th><td><span class="tag tag--in">Upcoming</span> Simulated on these pages and in the console.</td></tr>
-<tr><th scope="row">A shared registry</th><td><span class="tag tag--in">Upcoming</span></td></tr>
+<tr><th scope="row">Encrypted archive on Filecoin</th><td><span class="tag tag--in">Upcoming</span></td></tr>
+<tr><th scope="row">Per-analyst signatures</th><td><span class="tag tag--in">Upcoming</span></td></tr>
+<tr><th scope="row">Signatures that cover each record’s position</th><td><span class="tag tag--in">Upcoming</span></td></tr>
 <tr><th scope="row">Reviewer sign-off</th><td><span class="tag tag--in">Upcoming</span></td></tr>
 <tr><th scope="row">Server-side verification in the app</th><td><span class="tag tag--in">Upcoming</span></td></tr>
-<tr><th scope="row">Per-analyst signatures</th><td><span class="tag tag--in">Upcoming</span></td></tr>
 <tr><th scope="row">Sample and method metadata in the seal</th><td><span class="tag tag--in">Upcoming</span></td></tr>
-<tr><th scope="row">Privacy on public networks</th><td><span class="tag tag--in">Upcoming</span></td></tr>
-<tr><th scope="row">Agentic workflows</th><td><span class="tag tag--in">Upcoming</span></td></tr>
-<tr><th scope="row">Encrypted archive on Filecoin</th><td><span class="tag tag--in">Upcoming</span></td></tr>
+<tr><th scope="row">A shared registry</th><td><span class="tag tag--in">Upcoming</span></td></tr>
 <tr><th scope="row">Post-quantum signatures and encryption</th><td><span class="tag tag--in">Upcoming</span></td></tr>
-<tr><th scope="row">Instrument capture, electronic signatures, validation</th><td><b>Not claimed.</b></td></tr>
+<tr><th scope="row">Electronic signatures, validation</th><td><b>Not claimed.</b></td></tr>
 </tbody>
 </table>
 <p><a class="xref" href="roadmap.html#planned"><span class="id">IQC-RD-01 §2</span><span>Upcoming, item by item</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>

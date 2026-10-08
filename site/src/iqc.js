@@ -3,7 +3,7 @@
 // replays the record history with this code. The page gets a classic deferred script (the build wraps this file and
 // the pure-JS SHA-256 in one function scope, minus the export keywords), so it also runs from file:// and in sandboxed
 // previews, where module scripts need CORS.
-//   1. Overview, Fig. 1: three checks on one record  1b. Overview, section 2: the story (Figs. 2.1 to 2.7)
+//   1. Overview, Fig. 1: three checks on one record  1b. Overview, section 3: the story (Figs. 2.1 to 2.7)
 //   2. Overview, Fig. 3: the record history, sealed in once
 //   3. Check a record: the verifier. The Contents menu lives in the inline script in <head> (site/build.mjs, prepaint), so
 //   it works before this deferred script runs, and even if it never loads.
@@ -244,7 +244,7 @@ function plate(fig) {
   } else run()
 }
 
-// ---------------------------------------- 1b. Overview, section 2: how a result becomes a sealed record (Fig. 2.1 to 2.7)
+// ---------------------------------------- 1b. Overview, section 3: how a result becomes a sealed record (Fig. 2.1 to 2.7)
 // Every state of a figure is CSS on its [data-s]; this code only moves between states. Each step carries a static
 // figure in its final state. On wide screens (html.stage, set before paint) one sticky stage beside the steps shows the
 // active step instead: an IntersectionObserver on the step blocks against a thin band at mid-viewport (fixed in px from

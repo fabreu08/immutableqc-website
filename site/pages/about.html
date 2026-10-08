@@ -37,15 +37,15 @@
 </div>
 <h3 id="q3"><span class="no">5.3</span>Is my data put on a blockchain?</h3>
 <div class="body">
-<p>No. Nothing on this site or in the alpha console writes to any network, and the values you enter stay in your browser. Anchoring is an upcoming feature. At most it will put one batch fingerprint, a 64-character code for a whole run of records, on a public test network (a blockchain run for testing). On this site and in the console the anchor is simulated.</p>
+<p>No. Nothing on this site or in the alpha console writes to any network, and the values you enter stay in your browser. Anchoring is an upcoming feature. By default it will put only one batch fingerprint, a 64-character code for a whole run of records, on a public test network (a blockchain run for testing). A lab that chooses the encrypted archive, also upcoming, would store its records on Filecoin too, encrypted in the lab first and never readable there. On this site and in the console the anchor is simulated.</p>
 </div>
-<h3 id="q4"><span class="no">5.4</span>Does it replace my CDS, LIMS or audit trail?</h3>
+<h3 id="q4"><span class="no">5.4</span>Does it replace my orchestrator, ELN, CDS, LIMS or audit trail?</h3>
 <div class="body">
-<p>No. It sits beside the CDS export. The alpha app fingerprints, links and signs each imported peak area with one server key; checking them in the app is upcoming. Your CDS audit trail, LIMS, SOPs and validation stay as they are. In the alpha the fingerprint covers five fields: instrument, measurement type, value, unit and capture time, joined by a vertical bar and hashed with SHA-256; sample, injection and retention time are shown for context only, and sealing sample and method metadata is upcoming.</p>
+<p>No. Today it sits beside an HPLC CSV export; upcoming, it would sit in or beside the orchestrator and hand each sealed result on unchanged. The alpha app fingerprints, links and signs each imported peak area with one server key; checking them in the app is upcoming. Your orchestrator, CDS audit trail, ELN, LIMS, SOPs and validation stay as they are. In the alpha the fingerprint covers five fields: instrument, measurement type, value, unit and capture time, joined by a vertical bar and hashed with SHA-256; sample, injection and retention time are shown for context only, and sealing sample and method metadata is upcoming.</p>
 </div>
 <h3 id="q5"><span class="no">5.5</span>Can I use it for GMP records today?</h3>
 <div class="body">
-<p>No. It is an open alpha on synthetic data: not validated, with no electronic signatures, no user accounts and no instrument capture. Use it to judge the approach, and keep regulated records in your validated systems.</p>
+<p>No. It is an open alpha on synthetic data: not validated, with no electronic signatures, no user accounts and no capture at the instrument or orchestrator. Use it to judge the approach, and keep regulated records in your validated systems.</p>
 </div>
 <h3 id="q6"><span class="no">5.6</span>What if someone edits the database directly?</h3>
 <div class="body">
@@ -53,7 +53,10 @@
 </div>
 <h3 id="q7"><span class="no">5.7</span>What about sabotage and espionage?</h3>
 <div class="body">
-<p>Most bad data is not malicious: a script, a sync conflict, a crash, a restored backup, a migration or a model that filled in a blank. Sabotage is the minority case, and the same machinery covers it. Detected: any change to a sealed value after capture, whoever made it and why, because the fingerprint, the signature and the link into the next record fail; once anchoring becomes available, a rewritten history would also disagree with the anchor, and signatures that cover each record’s position (upcoming) would show a removed record without one. Not detected: anything before capture, such as a swapped sample, a miscalibrated instrument or compromised robot software; sealing at capture (upcoming) would narrow that window, not close it. Espionage: nothing readable leaves the lab. Only a fingerprint would go on a public network, which, once salted (upcoming), would reveal nothing; an encrypted archive (upcoming) would be encrypted in the lab, with keys that stay in the lab. The records, the keys and the people who hold them stay the lab’s to protect: this is one risk to discuss with a lab, not a security program.</p>
+<p>Most bad data is not malicious: a script, a sync conflict, a crash, a restored backup, a migration or a model that filled in a blank. Sabotage is the minority case, and the same checks cover it, within limits.</p>
+<p>Detected today, wherever the checks are run (these pages, the console, or the recipe in How a record is sealed; checking in the alpha app is upcoming): a sealed value changed after sealing by anyone without the signing key, whoever it was and why; the fingerprint, the signature and the link into the next record fail. A history rewritten with the key would show only against an anchor taken earlier. A record deleted, moved or copied, with the rest relinked, needs no key today; it would show against an earlier anchor too, and through signatures that cover each record’s position when done by anyone without the key. Both are upcoming.</p>
+<p>Not detected: anything before sealing, such as a swapped sample, a miscalibrated instrument or compromised robot software. In the alpha app, records are sealed at import; sealing at capture (upcoming) would narrow that window, not close it.</p>
+<p>Espionage is not detected: a seal makes a change show, not a copy. What limits it is that nothing readable leaves the lab. Anchoring would put only a fingerprint on a public network, and once salted (upcoming) it would reveal no value; values would leave only encrypted in the lab, with keys that stay there, and only if the lab chooses the encrypted archive (upcoming). Protecting the records, the keys and the people who hold them stays with the lab; Immutable QC would be one part of that, not a security program.</p>
 </div>
 </section>
 <section class="sec sec--side" id="sources" aria-labelledby="s6-h">

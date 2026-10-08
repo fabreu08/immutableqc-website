@@ -24,9 +24,9 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preload" href="fonts/archivo-c-115-620.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="assets/site.css?v=c4cce61d">
+<link rel="stylesheet" href="assets/site.css?v=07085ed9">
 <script>(function(d){var c=d.documentElement.classList;c.add('js');try{if(!matchMedia('(prefers-reduced-motion: reduce)').matches)c.add('motion')}catch(e){}var r=d.documentElement,h=innerHeight;r.style.setProperty('--svh',h+'px');if(innerWidth>=960&&h>=(innerWidth>=1180?600:700)&&'IntersectionObserver'in window)c.add('stage');var q=function(s){return d.querySelector(s)},b=function(){return q('.menu-btn')},n=function(){return q('.nav')},o=function(){var x=b();return!!x&&x.getAttribute('aria-expanded')==='true'},s=function(v){var x=b(),y=n();if(x&&y){x.setAttribute('aria-expanded',String(v));y.classList.toggle('open',v)}};d.addEventListener('click',function(e){var t=e.target,x=b(),y=n();if(!t||!t.closest)return;if(q('base')&&t.closest('.skip')){e.preventDefault();var m=d.getElementById('main');if(m){m.focus();m.scrollIntoView()}return}if(!x||!y)return;if(x.contains(t))s(!o());else if(o()&&!y.contains(t))s(false)});d.addEventListener('keydown',function(e){if(e.key==='Escape'&&o()){s(false);b().focus()}});d.addEventListener('focusout',function(e){var x=b(),y=n(),r=e.relatedTarget;if(o()&&r&&(y.contains(e.target)||x.contains(e.target))&&!y.contains(r)&&!x.contains(r))s(false)})})(document)</script>
-<script defer src="assets/iqc.js?v=e7ae5d1e"></script>
+<script defer src="assets/iqc.js?v=c5a57112"></script>
 </head>
 <body data-doc="IQC-HS-01">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><symbol id="i-ok" viewBox="0 0 16 16"><path d="M2.5 8.5l3.5 3.5 7.5-8" fill="none" stroke="currentColor" stroke-width="2"/></symbol><symbol id="i-x" viewBox="0 0 16 16"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9" fill="none" stroke="currentColor" stroke-width="2"/></symbol><symbol id="i-dash" viewBox="0 0 16 16"><path d="M3.5 8h9" fill="none" stroke="currentColor" stroke-width="2"/></symbol><symbol id="i-open" viewBox="0 0 16 16"><circle cx="8" cy="8" r="4.5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-dasharray="2.4 1.8"/></symbol><symbol id="i-arrow" viewBox="0 0 16 16"><path d="M1.5 8h12M9 3.5L13.5 8 9 12.5" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol><symbol id="i-down" viewBox="0 0 16 16"><path d="M8 1.5v12M3.5 9L8 13.5 12.5 9" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol><symbol id="i-mark" viewBox="0 0 32 32"><circle cx="16" cy="16" r="16" style="fill:var(--plate-0)"/><circle cx="16" cy="16" r="9.5" style="fill:none;stroke:var(--ok);stroke-width:3"/><circle cx="16" cy="16" r="3.75" style="fill:var(--ok)"/></symbol></svg>
@@ -124,7 +124,7 @@
 <p>Each fingerprint is signed with <span class="nw">ECDSA P-256</span> over its 32 bytes. On these pages, records 1 to 8 were signed when the site was built, by a demo key whose private half was then discarded. Its public key is published on the pages that check it. That shows the method, but it is not independent evidence. In use, the public key would be published outside the lab’s system. Demo signatures. In the alpha, one server key signs imported rows; per-analyst signatures are upcoming.</p>
 <p>In the record checker, an edited record’s signature still fails after the history is rewritten, but only because the demo key was discarded. In the alpha, whoever holds the one server key could re-sign an edited record; only a fingerprint anchored outside the lab beforehand would still disagree.</p>
 <p>Where your browser can check signatures, every record on these pages is signed, so a record with no signature fails.</p>
-<p>A digital signature on a record’s bytes is not an electronic signature by a person under <span class="nw">21 CFR Part 11</span>.</p>
+<p>A signature made with a system key on a record’s bytes is neither an electronic signature nor a digital signature as <span class="nw">21 CFR Part 11</span> uses those terms: both identify a person.</p>
 <p class="note"><span class="k">Basis</span>ECDSA, <span class="nw">FIPS 186-5</span>. IEEE P1363 encoding, in its low-S form only. Demo key id 7A15F562…</p>
 </div>
 </section>
@@ -143,7 +143,7 @@
 <p>Anchoring is an upcoming feature. It will write a batch fingerprint, with a time, somewhere the lab does not control, so that a later rewrite of the history shows. On these pages the batch fingerprint is the link of record 8, the newest record in the batch, replayed from 64 zeros. It is stored on the page as the anchored fingerprint (simulated, no network call).</p>
 <p class="hx-p"><span>0a35688a</span><wbr><span>4c3ec82a</span><wbr><span>5e621ced</span><wbr><span>e1f173a6</span><wbr><span>d436ade0</span><wbr><span>e20f159d</span><wbr><span>ca92c2a3</span><wbr><span>711e3dc1</span></p>
 <p>The first network will be Filecoin Calibration (a public test network). The registry code for that network (a smart contract) is written, but nothing on this site or in the console writes to a network, and no shared registry exists yet. Every anchor here is simulated.</p>
-<p>Only a fingerprint will go on the network, never the values. A registry entry would show that a fingerprint existed by a given time. It would not show who the lab is, and it would not keep the records.</p>
+<p>Anchoring will put only a fingerprint on the network, never the values. A registry entry would show that a fingerprint existed by a given time, and the address that wrote it, which links a lab’s anchors to one another; as the registry code is written today, it would also show the first and last record numbers of the batch. It would show no value, and it would not keep the records.</p>
 </div>
 </section>
 <section class="sec sec--side" id="pass-fail" aria-labelledby="s8-h">
@@ -162,8 +162,8 @@
 <div class="body">
 <p>A fingerprint hides nothing that can be guessed. A plain <span class="nw">SHA-256</span> of a few guessable fields (an instrument id, a measurement type, a peak area in a known range, a capture time to the second) can in principle be matched by trying likely values.</p>
 <p>Nothing on this site or in the console writes to a public network. When anchoring becomes available, it will write only a batch fingerprint, never the values. A batch fingerprint of guessable fields can still be tried. So can two anchors one record apart: from the head before and the head after, the one record between them can be found by trying likely values.</p>
-<p><span class="tag tag--in">Upcoming</span> Salted (hiding) commitments in place of plain fingerprints, so that what is published reveals nothing without the salt the lab keeps; as the leaves of a Merkle batch, they would also let a lab show that one record is in an anchored batch without revealing the others. Later, zero-knowledge proofs, so that a lab can show a property, such as “within specification” or “reviewed before release”, without disclosing the value.</p>
-<p>The same principle would hold for storage: nothing readable leaves the lab. An encrypted archive on Filecoin is upcoming; each batch would be encrypted in the lab before upload, with keys that stay in the lab, so the network would hold ciphertext and never results, and content addressing would let anyone who fetches a copy check that it is the one captured.</p>
+<p><span class="tag tag--in">Upcoming</span> Salted (hiding) commitments in place of plain fingerprints, so that what is published reveals nothing without the salt the lab keeps; as the leaves of a Merkle batch, they would also let a lab show that one record is in an anchored batch without revealing the others’ contents. Later, zero-knowledge proofs, so that a lab can show a property, such as “within specification” or “reviewed before release”, without disclosing the value.</p>
+<p>Storage would follow the same rule as anchoring: nothing readable leaves the lab. An encrypted archive on Filecoin is upcoming; each batch would be encrypted in the lab before upload, with keys that stay in the lab, so the network would hold ciphertext and never results, and content addressing would let anyone who fetches a copy check that it is, byte for byte, the ciphertext the lab archived under that address.</p>
 <p><a class="xref" href="roadmap.html#privacy"><span class="id"><span class="nw">IQC-RD-01</span> §2.6</span><span>Privacy on public networks</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
 </div>
 </section>
@@ -181,18 +181,19 @@
 <tr><th scope="row">Sealing at capture (<span class="nw">SiLA 2</span>, <span class="nw">OPC UA LADS</span> adapters)</th><td><span class="tag tag--in">Upcoming</span></td></tr>
 <tr><th scope="row">Measured and derived records</th><td><span class="tag tag--in">Upcoming</span></td></tr>
 <tr><th scope="row">Lineage and recall</th><td><span class="tag tag--in">Upcoming</span></td></tr>
+<tr><th scope="row">Agentic workflows</th><td><span class="tag tag--in">Upcoming</span></td></tr>
 <tr><th scope="row">Merkle batches with salted leaves</th><td><span class="tag tag--in">Upcoming</span></td></tr>
+<tr><th scope="row">Privacy on public networks</th><td><span class="tag tag--in">Upcoming</span></td></tr>
 <tr><th scope="row">Anchoring on a public test network</th><td><span class="tag tag--in">Upcoming</span> Simulated on these pages and in the console.</td></tr>
-<tr><th scope="row">A shared registry</th><td><span class="tag tag--in">Upcoming</span></td></tr>
+<tr><th scope="row">Encrypted archive on Filecoin</th><td><span class="tag tag--in">Upcoming</span></td></tr>
+<tr><th scope="row">Per-analyst signatures</th><td><span class="tag tag--in">Upcoming</span></td></tr>
+<tr><th scope="row">Signatures that cover each record’s position</th><td><span class="tag tag--in">Upcoming</span></td></tr>
 <tr><th scope="row">Reviewer sign-off</th><td><span class="tag tag--in">Upcoming</span></td></tr>
 <tr><th scope="row">Server-side verification in the app</th><td><span class="tag tag--in">Upcoming</span></td></tr>
-<tr><th scope="row">Per-analyst signatures</th><td><span class="tag tag--in">Upcoming</span></td></tr>
 <tr><th scope="row">Sample and method metadata in the seal</th><td><span class="tag tag--in">Upcoming</span></td></tr>
-<tr><th scope="row">Privacy on public networks</th><td><span class="tag tag--in">Upcoming</span></td></tr>
-<tr><th scope="row">Agentic workflows</th><td><span class="tag tag--in">Upcoming</span></td></tr>
-<tr><th scope="row">Encrypted archive on Filecoin</th><td><span class="tag tag--in">Upcoming</span></td></tr>
+<tr><th scope="row">A shared registry</th><td><span class="tag tag--in">Upcoming</span></td></tr>
 <tr><th scope="row">Post-quantum signatures and encryption</th><td><span class="tag tag--in">Upcoming</span></td></tr>
-<tr><th scope="row">Instrument capture, electronic signatures, validation</th><td><b>Not claimed.</b></td></tr>
+<tr><th scope="row">Electronic signatures, validation</th><td><b>Not claimed.</b></td></tr>
 </tbody>
 </table>
 <p><a class="xref" href="roadmap.html#planned"><span class="id"><span class="nw">IQC-RD-01</span> §2</span><span>Upcoming, item by item</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>

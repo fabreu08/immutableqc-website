@@ -1,19 +1,50 @@
-# Resume: repositioning for automated research labs (paused 2026-10-07)
+# Resume: repositioning for automated research labs (finished and reviewed, 2026-10-07)
 
-The founder paused this to switch models. State on branch `claude/new-session-wut618`:
+State on branch `claude/new-session-wut618` (working tree; the last commit is the WIP checkpoint 26149b0):
 
-- `docs/architecture-and-threat-model.md`: the brief. Its writer finished or nearly finished; read it and check it against the brief below (every claim labelled Works today / Upcoming; standards by number; no employer name).
-- Site sources under `site/` and the rebuilt root pages: PARTIALLY changed by a site builder that was stopped mid-work. Treat the working tree as a draft. Run `node site/build.mjs --check` first; if it fails, finish the changes rather than reverting them (the brief below says what the end state is).
-- Not reviewed yet: the planned review (accuracy: auditor + crypto; copy + design) and fix pass did not run.
-- Nothing from this work is live. `main` is the live site. Merge only through a PR after `node site/build.mjs --check` and `node site/tools/check.mjs --perf` pass and the founder says go.
+- **Finished.** Deliverable A (`docs/architecture-and-threat-model.md`, identical copy in `scratchpad/reposition/`) and Deliverable B (the site) are complete, reviewed (accuracy: auditor and cryptography; copy and design) and fixed. See "Review and fix pass" below.
+- **Checks.** `node site/build.mjs --check` and `node site/tools/check.mjs --perf` pass on the working tree (numbers below).
+- **Nothing from this work is live.** `main` is the live site. Merge only through a PR, after both checks pass and the founder says go.
 
-Next steps, in order:
-1. `node site/build.mjs --check`; fix until it passes. Then `node site/tools/check.mjs --perf`.
-2. Finish every site change in the brief that is still missing; keep every lint and extend them for the new copy.
-3. Review (accuracy; copy and design) and fix.
-4. Commit, push the branch, open a PR, show the founder the brief and screenshots, wait for go.
+Next step (the only one left): commit, push the branch, open a PR, show the founder the brief and the screenshots in `scratchpad/reposition/shots/`, and wait for go. The founder's standing rules are in `site/HANDOFF.md`. Never name the founder's employer.
 
-The founder's standing rules are in `site/HANDOFF.md`. Never name the founder's employer.
+## Lead pass (2026-10-07, after the pause)
+
+Done in the working tree: the build check, the missing site changes and a first review; the full review followed (next section).
+- **Site.** Every Deliverable B item is in place (checklist in the lead's report; `site/HANDOFF.md` has a Draft 6 section). Fixed on review: the Why section now ends with the founder's line, its causes are "ordinary software and operations", and a seal shows a value "is still the one that was sealed" (the alpha seals at import, not capture); Where it fits says a change before import is not covered today (it had said "before capture"); Fig. 4's upcoming connector is dashed and labeled "sealed at the orchestrator or driver"; About 5.7 no longer says any change after capture is detected (a rewrite with the key, or a deletion with relinking, shows only against an anchor or with position-covering signatures), and 5.3 says what the encrypted archive would put on Filecoin; Roadmap 2.4 no longer says "could".
+- **Lints.** Section 7e adds a stricter rule (a negated clause no longer excuses a sentence that still names a new item), a list of present-tense claims about the new items, and a self-test of both on sample sentences; new pins for `whyNow`, the Draft 6 row, the Why section's order and ending, Fig. 4's dashed connector, and About 5.3 and 5.7. No lint was loosened.
+- **Brief.** `docs/architecture-and-threat-model.md` (and the scratchpad copy, identical) corrected: present tense only for what works; corrections are on the site and console, not the alpha app, with reason and reference beside the seal; the window before sealing is "before import" today; SiLA 2 adapter placement (in or beside the orchestrator's SiLA client); NSPM-33 scoped to cybersecurity measures; the post-quantum sentence on what stays checkable. About 3,300 words (the brief asked for about 2,000 to 3,000).
+- **joseqc.com paste file** (`scratchpad/build/joseqc-copy.md`) regenerated with the Draft 6 definition and "an encrypted archive on Filecoin"; re-tested on a scratch copy of `2aa4d10` (facts 414, budgets 42/42, rendered lint, harness exit 0).
+
+## Review and fix pass (2026-10-07, finished)
+
+Two reviews (accuracy: auditor and cryptography; copy and design) reported 38 findings (3 high, 15 medium, 20 low). Every finding was checked against the code and the pages. 37 are fixed; 1 is rejected. No lint was loosened: every pinned sentence that changed is pinned again word for word, and the new checks below were added.
+
+**Fixed, site.**
+- *What the upcoming defenses would catch* (high). Signatures that cover each record's position would show a removal, move or copy made *without* the key; a rewrite with the key shows only against an earlier anchor (About 5.7, Roadmap 2.10, the Overview's note). Measured and derived records would expose a value with nothing measured under it, not a wrong number that cites real inputs (a checker would re-run deterministic analyses), and only if agents cannot use the capture key (Roadmap 2.2, Overview 8).
+- *Fig. 4* (high). Below 900 px both flow figures are one column with the Immutable QC branch between node 2 and node 3, so the seal is never drawn after "Models and agents"; Fig. 4 now draws today's path (a solid "Today: an HPLC CSV export" connector from the data pipeline) beside the dashed upcoming seal ("Upcoming: sealed here", from the orchestrator or driver); the box says "receives", not "produces"; labels no longer touch the box at 900 px.
+- *Overview, Why.* Says what a seal shows today and what only the upcoming features would show (a restored backup or a dropped batch against an anchor; a filled-in blank with measured and derived records; lineage); the note scopes a deliberate change to someone without the key and links to "question 5.7 on the About page"; `whyNow` no longer repeats the Scope; the snowball has the mg/mL example.
+- *What would go public.* "Only a fingerprint" is said of anchoring or "by default"; the encrypted archive would add ciphertext (Overview 7, About 5.7, Regulatory 2.5, the console's privacy note). A registry entry would show the writing address and, as the contract is written, the batch's record numbers (How a record is sealed 7, Roadmap 2.7).
+- *Roadmap.* 2.1 the first adapter would seal sample, well or position and method; 2.3 recall reaches only work recorded as derived records; 2.5 chained anchored roots (a dropped batch or restored backup shows), RFC 6962's tree hash kept in RFC 9162, an inclusion check reveals batch size and position; 2.8 content addressing shows the bytes match their address, never "the one captured", and durability needs renewals, more than one provider and the lab's keys; 2.15 AES-256-GCM under the lab's keys, ML-KEM only where a data key goes to someone else's public key, re-anchoring covers signatures.
+- *Elsewhere.* About 5.4 asks about the orchestrator, ELN, CDS and LIMS; About 5.5 and How a record is sealed say "capture at the instrument or orchestrator"; About 5.7 scopes "Detected today" to where the checks run and drops the brief's voice. A system key's signature is neither an electronic nor a digital signature in Part 11's sense (How a record is sealed 5, Regulatory 2.6; "An ECDSA signature" in 2.6 and 3.5). The status table and the Overview's Upcoming list follow the Roadmap's order and names, with the position item; capture is Upcoming only, not also "Not claimed". Regulatory 4.1 and 5.3 link sealing at capture with the Upcoming tag; 5.8 says a Filecoin copy would be one more encrypted copy under supplier controls. Fig. 1's caption: "as an auditor or an AI agent would read it". The Draft 6 history row is accurate and complete.
+
+**Fixed, brief** (`docs/architecture-and-threat-model.md`; scratchpad copy identical). The opening says the same checks cover sabotage and espionage is limited, not detected; the table's sabotage row says what position signatures would and would not show; new rows for an agent that cites real measurements but reports a wrong number, and for a result re-attached to the wrong sample; measured and derived records state the capture-key conditions and device identity; recall needs an index and cites training sets by Merkle root; anchored roots chain; content addressing, Filecoin's piece address, durability and lost keys; canonical field strings (no float round trip, one time format); leaves cover the signature (RFC 4998); RFC 6962 kept in RFC 9162; AES-256-GCM and ML-KEM's real role; Part 11's own meaning of digital signature; what an anchor and the registry contract reveal, and the contract change it needs before a lab anchors; capture time and lost archive keys in Out; SiLA 2 proxy terminates TLS and signs with its own key; LADS result files; "supported by a growing number of devices"; the pitch credits derived records for traceability. 2,998 words (`wc -w`; it was 3,356).
+
+**New checks.** `site/build.mjs` 7f: position-covering signatures are never said to catch a change made with the key; "only a fingerprint" on a network is said of anchoring or "by default"; no "the one captured"; each tested on sample claims. RFC 6962 joins the 7e list of new items. Pins for every corrected sentence, Fig. 4's two connectors, the Overview's Upcoming list and the status table in the Roadmap's order, the registry entry, Part 11's terms and Regulatory 4.1, 5.3 and 5.8. `site/tools/check.mjs` 1b: at 320, 390 and 768 px the Immutable QC branch of Figs. 4 and 5 sits between node 2 and node 3 (today's export runs from node 3 into the box); at 1024 and 1440 px each connector drops from its own node's column; each lane stays a list of four items in Chrome's accessibility tree.
+
+**Rejected.**
+- Copy and design, low: "Story figures are Fig. 2.1 to 2.7 under steps 3.1 to 3.7." Figures are numbered in order of appearance, a decision recorded in `site/HANDOFF.md` (Draft 6), and no Overview figure is numbered after its section (Fig. 3 is in section 4, Figs. 4 and 5 in section 6), so renumbering only the story would make it the exception. Left for the founder (renaming to Fig. 2a to 2g touches build.mjs, check.mjs's accessibility-tree and no-JS checks, and the stage's counter).
+
+**Left (none blocks the PR).**
+- Step 4: commit, push, PR, the founder's go.
+- `contracts/RootRegistry.sol` is unchanged: as written it records the writing address, the batch's first and last record numbers and a batch id, and anyone who sees a pending entry can register the same root first. The site now says what an entry would show; the brief recommends keeping only the root and a time, keying entries by publisher and root, and anchoring from an address that names no lab, before any lab anchors.
+- The story's figure numbering (rejected above) if the founder wants Fig. 2a to 2g.
+- The joseqc.com paste file needs no change (it quotes only the Scope definition, which did not change).
+- Cosmetic: from 900 px to about 1100 px, Fig. 4's two connector labels wrap to two lines and their arrows sit at the right end of the column, away from the text.
+
+**Numbers (working tree, after the fixes).** `node site/build.mjs --check`: 1949 assertions pass. `node site/tools/check.mjs --perf`: all browser checks pass (exit 0): links 279 references, overflow 290 runs with none, flow figures 5 widths with no problem, axe 48 runs with no violation, frames at rest 42 windows with none, the story's stage, phone, keyboard and print checks, budgets (Overview 116.0 KB of 130), the Overview at 390×844 on Slow 4G and CPU 4× at LCP 1640 ms (gate 1692), TBT 0 ms, CLS 0, and the URL bar 16 of 16 stable. Log: `scratchpad/reposition/lead2/check.log`.
+
+**Screenshots** (refreshed and looked at): `scratchpad/reposition/shots/`: the Overview at 1440×900 (top, Why, Where it fits, What would go public) and 390×844 (top, Why), Fig. 4 at 320, 390 and 900 px, Fig. 5 at 390 px, About's questions and How a record is sealed's status table at 1440 px.
 
 ---
 
