@@ -15,7 +15,7 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preload" href="fonts/archivo-c-115-620.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="assets/site.css?v=07085ed9">
+<link rel="stylesheet" href="assets/site.css?v=c93bb831">
 <script>(function(d){var c=d.documentElement.classList;c.add('js');try{if(!matchMedia('(prefers-reduced-motion: reduce)').matches)c.add('motion')}catch(e){}var r=d.documentElement,h=innerHeight;r.style.setProperty('--svh',h+'px');if(innerWidth>=960&&h>=(innerWidth>=1180?600:700)&&'IntersectionObserver'in window)c.add('stage');var q=function(s){return d.querySelector(s)},b=function(){return q('.menu-btn')},n=function(){return q('.nav')},o=function(){var x=b();return!!x&&x.getAttribute('aria-expanded')==='true'},s=function(v){var x=b(),y=n();if(x&&y){x.setAttribute('aria-expanded',String(v));y.classList.toggle('open',v)}};d.addEventListener('click',function(e){var t=e.target,x=b(),y=n();if(!t||!t.closest)return;if(q('base')&&t.closest('.skip')){e.preventDefault();var m=d.getElementById('main');if(m){m.focus();m.scrollIntoView()}return}if(!x||!y)return;if(x.contains(t))s(!o());else if(o()&&!y.contains(t))s(false)});d.addEventListener('keydown',function(e){if(e.key==='Escape'&&o()){s(false);b().focus()}});d.addEventListener('focusout',function(e){var x=b(),y=n(),r=e.relatedTarget;if(o()&&r&&(y.contains(e.target)||x.contains(e.target))&&!y.contains(r)&&!x.contains(r))s(false)})})(document)</script>
 <script defer src="assets/iqc.js?v=c5a57112"></script>
 </head>
@@ -29,13 +29,13 @@
 <button class="menu-btn" type="button" aria-expanded="false" aria-controls="nav-list"><span class="bars" aria-hidden="true"></span>Contents</button>
 <nav class="nav" aria-label="Site">
 <ol class="nav-list" id="nav-list">
-<li><a href="index.html"><span class="id">OV-01</span><span class="t">Overview</span></a></li>
+<li><a href="overview.html"><span class="id">OV-01</span><span class="t">Overview</span></a></li>
 <li><a href="sealed.html"><span class="id">HS-01</span><span class="t">How a record is sealed</span></a></li>
 <li><a href="check.html"><span class="id">CK-01</span><span class="t">Check a record</span></a></li>
 <li><a href="regulatory.html"><span class="id">RM-01</span><span class="t">Regulatory map</span></a></li>
 <li><a href="roadmap.html"><span class="id">RD-01</span><span class="t">Roadmap</span></a></li>
 <li><a href="about.html"><span class="id">AB-01</span><span class="t">About</span></a></li>
-<li class="nav-demo"><a href="dashboard/"><span class="id">Demo</span><span class="t">Alpha console</span><span class="demo">Demo</span></a></li>
+<li class="nav-app"><a href="app/"><span class="id" aria-hidden="true">app/</span><span class="t">App</span></a></li>
 </ol>
 </nav>
 </div>
@@ -45,8 +45,8 @@
 <div class="wrap">
 <dl class="dochead">
 <div><dt>Document</dt><dd><span class="nw">IQC-NF</span></dd></div>
-<div><dt>Revision</dt><dd>Draft 6</dd></div>
-<div><dt>Updated</dt><dd>2026-10-07</dd></div>
+<div><dt>Revision</dt><dd>Draft 7</dd></div>
+<div><dt>Updated</dt><dd>2026-10-13</dd></div>
 <div class="st"><dt>Status</dt><dd>Independent project · Open alpha · Synthetic demo data · No customers yet</dd></div>
 <div class="use"><dt>Use</dt><dd>Informational draft. Not a controlled document; not a regulatory assessment or a validation statement.</dd></div>
 </dl>
@@ -57,9 +57,9 @@
 <div class="body">
 <p class="lead">This address is not one of the pages of Immutable QC. The site was reorganized into a small set of documents; the one you want is probably below.</p>
 <ul class="docs">
-<li><a class="xref" href="index.html"><span class="id"><span class="nw">IQC-OV-01</span></span><span>Overview</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></li>
+<li><a class="xref" href="overview.html"><span class="id"><span class="nw">IQC-OV-01</span></span><span>Overview</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></li>
 <li><a class="xref" href="check.html"><span class="id"><span class="nw">IQC-CK-01</span></span><span>Check a record</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></li>
-<li><a class="xref" href="dashboard/"><span class="id">Demo</span><span>Alpha console</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></li>
+<li><a class="xref" href="app/"><span class="id">app/</span><span>The app</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></li>
 </ul>
 </div>
 </section>
@@ -69,7 +69,7 @@
 <footer class="foot">
 <div class="wrap">
 <p class="ind">Immutable QC is an independent project built on the founder’s own time. It is not affiliated with or endorsed by any employer. Founder: <span class="nw">José A. Fernández Abreu</span> · <a href="https://joseqc.com">joseqc.com</a></p>
-<p class="meta"><span class="m-doc"><span class="nw">IQC-NF</span> · Draft 6 · Updated 2026-10-07 · <a href="about.html#history">Revision history</a></span><span class="m-fonts">Fonts, SIL Open Font License: <a href="fonts/OFL-IBM-Plex-Sans.txt">IBM Plex Sans</a> <a href="fonts/OFL-IBM-Plex-Mono.txt">IBM Plex Mono</a> <a href="fonts/OFL-Archivo.txt">Archivo</a></span></p>
+<p class="meta"><span class="m-doc"><span class="nw">IQC-NF</span> · Draft 7 · Updated 2026-10-13 · <a href="about.html#history">Revision history</a></span><span class="m-fonts">Fonts, SIL Open Font License: <a href="fonts/OFL-IBM-Plex-Sans.txt">IBM Plex Sans</a> <a href="fonts/OFL-IBM-Plex-Mono.txt">IBM Plex Mono</a> <a href="fonts/OFL-Archivo.txt">Archivo</a></span></p>
 </div>
 </footer>
 

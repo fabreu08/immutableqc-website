@@ -1,0 +1,210 @@
+{
+ "_note": "Made by core/test/make-fixtures.mjs. Paths are encoded (ledger format v1, section 3.2). The key in test-key.DO-NOT-USE.jwk is published for tests only.",
+ "format": "immutableqc-ledger",
+ "version": 1,
+ "variants": {
+  "sample": {
+   "folder": "sample",
+   "ledger": "sample/ImmutableQC/ledger.jsonl",
+   "verdict": "pass",
+   "summary": "Pass: all 6 files match their seals, and the ledger is intact (3 notes).",
+   "keyId": "c5e3895eadb5edb4",
+   "ledgerId": "aab589826235356a8357ea6dc279c725",
+   "records": 12,
+   "head": {
+    "n": 12,
+    "h": "9a0ed7c9599325a01f77bc1ad72b3cbee088aa2f30c7f0cbc8bb2352e6692c8e"
+   },
+   "headString": "12:9a0ed7c9599325a01f77bc1ad72b3cbee088aa2f30c7f0cbc8bb2352e6692c8e",
+   "problems": [],
+   "notes": [
+    "sealed-more-than-once",
+    "unwatched",
+    "gaps"
+   ],
+   "counts": {
+    "sealed": 7,
+    "match": 6,
+    "changed": 0,
+    "missing": 0,
+    "removed": 1,
+    "backAfterRemoval": 0,
+    "notSealed": 0,
+    "notChecked": 0
+   },
+   "files": {
+    "instrument.log": {
+     "state": "match",
+     "sha256": "5df5c5a840d11555c2cbf6798972d664041599d7e0c7aade7b47ba8294169967",
+     "bytes": "115"
+    },
+    "run-0914/injection-01.csv": {
+     "state": "match",
+     "sha256": "c3610c6c41059146f5c761b9430c300a0026e05c4e782496f3f069dd23a94535",
+     "bytes": "60"
+    },
+    "run-0914/injection-02.csv": {
+     "state": "match",
+     "sha256": "138ac23e0d65ac5fea0687d336a600c7aa8110f7602e9ffa0d1d6074d43c532f",
+     "bytes": "60"
+    },
+    "run-0914/méthode 50%25.txt": {
+     "state": "match",
+     "sha256": "4a622c41dd1bb8f0f62de28d97b0017af70df454a26c1adef2391ca6a6ce7622",
+     "bytes": "48"
+    },
+    "run-0914/raw/injection-01.dat": {
+     "state": "match",
+     "sha256": "73fdf440c6c07657fc558a22d8e20d586991840b72ec4762b823b04b8a1c3edf",
+     "bytes": "1056"
+    },
+    "run-0914/scratch.csv": {
+     "state": "removed"
+    },
+    "run-0915/injection-01.csv": {
+     "state": "match",
+     "sha256": "1cc19ddc0d27fb3eece766517dd787cb64ddeae3f5366ba95bf653eab2680ce3",
+     "bytes": "60"
+    }
+   }
+  },
+  "tampered-file": {
+   "folder": "tampered-file",
+   "ledger": "tampered-file/ImmutableQC/ledger.jsonl",
+   "verdict": "fail",
+   "summary": "Fail: 2 files changed since they were sealed and 1 file is missing.",
+   "keyId": "c5e3895eadb5edb4",
+   "ledgerId": "aab589826235356a8357ea6dc279c725",
+   "records": 12,
+   "head": {
+    "n": 12,
+    "h": "9a0ed7c9599325a01f77bc1ad72b3cbee088aa2f30c7f0cbc8bb2352e6692c8e"
+   },
+   "headString": "12:9a0ed7c9599325a01f77bc1ad72b3cbee088aa2f30c7f0cbc8bb2352e6692c8e",
+   "problems": [],
+   "notes": [
+    "sealed-more-than-once",
+    "unwatched",
+    "not-sealed",
+    "gaps"
+   ],
+   "counts": {
+    "sealed": 7,
+    "match": 3,
+    "changed": 2,
+    "missing": 1,
+    "removed": 1,
+    "backAfterRemoval": 0,
+    "notSealed": 1,
+    "notChecked": 0
+   },
+   "files": {
+    "instrument.log": {
+     "state": "changed",
+     "sha256": "d98700344a2a2b2778e31db018df474a05e813d88e600083f3ca17185fc5103d",
+     "bytes": "76",
+     "matchesN": 2
+    },
+    "run-0914/injection-01.csv": {
+     "state": "match",
+     "sha256": "c3610c6c41059146f5c761b9430c300a0026e05c4e782496f3f069dd23a94535",
+     "bytes": "60"
+    },
+    "run-0914/injection-02.csv": {
+     "state": "changed",
+     "sha256": "e06223992c35c64cd375a4a4519bccb4768cf5807244ef10bd3c95bb6ef88403",
+     "bytes": "60"
+    },
+    "run-0914/injection-03.csv": {
+     "state": "not sealed",
+     "sha256": "3009bc4a77eb758f6c80e3c64669118d27d288a54e9bff3e376720c942bd4690",
+     "bytes": "60"
+    },
+    "run-0914/méthode 50%25.txt": {
+     "state": "match",
+     "sha256": "4a622c41dd1bb8f0f62de28d97b0017af70df454a26c1adef2391ca6a6ce7622",
+     "bytes": "48"
+    },
+    "run-0914/raw/injection-01.dat": {
+     "state": "missing"
+    },
+    "run-0914/scratch.csv": {
+     "state": "removed"
+    },
+    "run-0915/injection-01.csv": {
+     "state": "match",
+     "sha256": "1cc19ddc0d27fb3eece766517dd787cb64ddeae3f5366ba95bf653eab2680ce3",
+     "bytes": "60"
+    }
+   }
+  },
+  "tampered-ledger": {
+   "folder": "tampered-ledger",
+   "ledger": "tampered-ledger/ImmutableQC/ledger.jsonl",
+   "verdict": "fail",
+   "summary": "Fail: 1 file changed since it was sealed, 1 file is missing and the ledger has 1 problem.",
+   "keyId": "c5e3895eadb5edb4",
+   "ledgerId": "aab589826235356a8357ea6dc279c725",
+   "records": 12,
+   "head": {
+    "n": 6,
+    "h": "a552473e22167785baa0ab9b32c7a9096ed45cc1d4aa6316c7142119843fb052"
+   },
+   "headString": "6:a552473e22167785baa0ab9b32c7a9096ed45cc1d4aa6316c7142119843fb052",
+   "problems": [
+    {
+     "line": 8,
+     "code": "r"
+    }
+   ],
+   "notes": [
+    "not-sealed"
+   ],
+   "counts": {
+    "sealed": 5,
+    "match": 3,
+    "changed": 1,
+    "missing": 1,
+    "removed": 0,
+    "backAfterRemoval": 0,
+    "notSealed": 2,
+    "notChecked": 0
+   },
+   "files": {
+    "instrument.log": {
+     "state": "changed",
+     "sha256": "5df5c5a840d11555c2cbf6798972d664041599d7e0c7aade7b47ba8294169967",
+     "bytes": "115"
+    },
+    "run-0914/injection-01.csv": {
+     "state": "match",
+     "sha256": "c3610c6c41059146f5c761b9430c300a0026e05c4e782496f3f069dd23a94535",
+     "bytes": "60"
+    },
+    "run-0914/injection-02.csv": {
+     "state": "not sealed",
+     "sha256": "e06223992c35c64cd375a4a4519bccb4768cf5807244ef10bd3c95bb6ef88403",
+     "bytes": "60"
+    },
+    "run-0914/méthode 50%25.txt": {
+     "state": "match",
+     "sha256": "4a622c41dd1bb8f0f62de28d97b0017af70df454a26c1adef2391ca6a6ce7622",
+     "bytes": "48"
+    },
+    "run-0914/raw/injection-01.dat": {
+     "state": "match",
+     "sha256": "73fdf440c6c07657fc558a22d8e20d586991840b72ec4762b823b04b8a1c3edf",
+     "bytes": "1056"
+    },
+    "run-0914/scratch.csv": {
+     "state": "missing"
+    },
+    "run-0915/injection-01.csv": {
+     "state": "not sealed",
+     "sha256": "1cc19ddc0d27fb3eece766517dd787cb64ddeae3f5366ba95bf653eab2680ce3",
+     "bytes": "60"
+    }
+   }
+  }
+ }
+}

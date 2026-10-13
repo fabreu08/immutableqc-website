@@ -70,7 +70,7 @@
 <h2 id="s6-h"><span class="no">6</span>Corrections appended with a reason</h2>
 <div class="body">
 <p>A record is never edited in place. A correction is a new record, appended after the newest one, with the corrected value, its own fingerprint, link and signature, the reason for the change and the number of the record it corrects. The original stays as sealed and keeps passing its checks. Records 1 to {{AN}} still match the anchored fingerprint (simulated on these pages); the new head is not yet anchored.</p>
-<p>On these pages and in the console a correction carries the result’s capture time, not the time it was made. The reason, the reference and the time the correction was made sit beside the seal, not inside it, because the alpha’s payload has five fields. The alpha app has no corrections yet.</p>
+<p>On these pages a correction carries the result’s capture time, not the time it was made. The reason, the reference and the time the correction was made sit beside the seal, not inside it, because the alpha’s payload has five fields. The alpha app has no corrections yet.</p>
 <p>A correction made here is signed with a one-time key made in your browser, and its public key travels with the correction. So its signature shows only that the correction has not changed since it was signed, not who may make corrections.</p>
 <p><a class="xref" href="check.html#verifier"><span class="id">IQC-CK-01</span><span>Try a correction on a record</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
 </div>
@@ -80,7 +80,7 @@
 <div class="body">
 <p>Anchoring is an upcoming feature. It will write a batch fingerprint, with a time, somewhere the lab does not control, so that a later rewrite of the history shows. On these pages the batch fingerprint is the link of record {{AN}}, the newest record in the batch, replayed from 64 zeros. It is stored on the page as the anchored fingerprint (simulated, no network call).</p>
 <p class="hx-p">{{ancG}}</p>
-<p>The first network will be {{network}}. The registry code for that network (a smart contract) is written, but nothing on this site or in the console writes to a network, and no shared registry exists yet. Every anchor here is simulated.</p>
+<p>The first network will be {{network}}. The registry code for that network (a smart contract) is written, but nothing on this site or in the app writes to a network, and no shared registry exists yet. Every anchor here is simulated.</p>
 <p>Anchoring will put only a fingerprint on the network, never the values. A registry entry would show that a fingerprint existed by a given time, and the address that wrote it, which links a lab’s anchors to one another; as the registry code is written today, it would also show the first and last record numbers of the batch. It would show no value, and it would not keep the records.</p>
 </div>
 </section>
@@ -99,7 +99,7 @@
 <h2 id="s9-h"><span class="no">9</span>Privacy on public networks</h2>
 <div class="body">
 <p>A fingerprint hides nothing that can be guessed. A plain SHA-256 of a few guessable fields (an instrument id, a measurement type, a peak area in a known range, a capture time to the second) can in principle be matched by trying likely values.</p>
-<p>Nothing on this site or in the console writes to a public network. When anchoring becomes available, it will write only a batch fingerprint, never the values. A batch fingerprint of guessable fields can still be tried. So can two anchors one record apart: from the head before and the head after, the one record between them can be found by trying likely values.</p>
+<p>Nothing on this site or in the app writes to a public network. When anchoring becomes available, it will write only a batch fingerprint, never the values. A batch fingerprint of guessable fields can still be tried. So can two anchors one record apart: from the head before and the head after, the one record between them can be found by trying likely values.</p>
 <p><span class="tag tag--in">Upcoming</span> Salted (hiding) commitments in place of plain fingerprints, so that what is published reveals nothing without the salt the lab keeps; as the leaves of a Merkle batch, they would also let a lab show that one record is in an anchored batch without revealing the others’ contents. Later, zero-knowledge proofs, so that a lab can show a property, such as “within specification” or “reviewed before release”, without disclosing the value.</p>
 <p>Storage would follow the same rule as anchoring: nothing readable leaves the lab. An encrypted archive on Filecoin is upcoming; each batch would be encrypted in the lab before upload, with keys that stay in the lab, so the network would hold ciphertext and never results, and content addressing would let anyone who fetches a copy check that it is, byte for byte, the ciphertext the lab archived under that address.</p>
 <p><a class="xref" href="roadmap.html#privacy"><span class="id">IQC-RD-01 §2.6</span><span>Privacy on public networks</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
@@ -112,17 +112,17 @@
 <caption class="sr-only">What works today, and what is upcoming</caption>
 <thead><tr><th scope="col">Part</th><th scope="col">Status</th></tr></thead>
 <tbody>
-<tr><th scope="row">Five-field SHA-256 fingerprint, linked to the previous record</th><td><b>Today.</b> On these pages, in the alpha console (in your browser) and in the alpha app’s HPLC import.</td></tr>
-<tr><th scope="row">Every check recomputed in your browser</th><td><b>Today.</b> On these pages and in the console.</td></tr>
-<tr><th scope="row">Signatures</th><td><b>Demo.</b> These pages: a build-time key, discarded. The console: a demo key made in your browser. The alpha app: one server key.</td></tr>
-<tr><th scope="row">Corrections appended with a reason</th><td><b>Demo.</b> On these pages and in the console; not in the alpha app.</td></tr>
+<tr><th scope="row">Five-field SHA-256 fingerprint, linked to the previous record</th><td><b>Today.</b> On these pages and in the alpha app’s HPLC import.</td></tr>
+<tr><th scope="row">Every check recomputed in your browser</th><td><b>Today.</b> On these pages.</td></tr>
+<tr><th scope="row">Signatures</th><td><b>Demo.</b> These pages: a build-time key, discarded, and a one-time key made in your browser for a correction in Check a record. The alpha app: one server key.</td></tr>
+<tr><th scope="row">Corrections appended with a reason</th><td><b>Demo.</b> On these pages; not in the alpha app.</td></tr>
 <tr><th scope="row">Sealing at capture (SiLA 2, OPC UA LADS adapters)</th><td><span class="tag tag--in">Upcoming</span></td></tr>
 <tr><th scope="row">Measured and derived records</th><td><span class="tag tag--in">Upcoming</span></td></tr>
 <tr><th scope="row">Lineage and recall</th><td><span class="tag tag--in">Upcoming</span></td></tr>
 <tr><th scope="row">Agentic workflows</th><td><span class="tag tag--in">Upcoming</span></td></tr>
 <tr><th scope="row">Merkle batches with salted leaves</th><td><span class="tag tag--in">Upcoming</span></td></tr>
 <tr><th scope="row">Privacy on public networks</th><td><span class="tag tag--in">Upcoming</span></td></tr>
-<tr><th scope="row">Anchoring on a public test network</th><td><span class="tag tag--in">Upcoming</span> Simulated on these pages and in the console.</td></tr>
+<tr><th scope="row">Anchoring on a public test network</th><td><span class="tag tag--in">Upcoming</span> Simulated on these pages.</td></tr>
 <tr><th scope="row">Encrypted archive on Filecoin</th><td><span class="tag tag--in">Upcoming</span></td></tr>
 <tr><th scope="row">Per-analyst signatures</th><td><span class="tag tag--in">Upcoming</span></td></tr>
 <tr><th scope="row">Signatures that cover each record’s position</th><td><span class="tag tag--in">Upcoming</span></td></tr>

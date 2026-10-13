@@ -1,8 +1,9 @@
 {
   "origin": "https://immutableqc.com/",
-  "revision": "Draft 6",
-  "updated": "2026-10-07",
+  "revision": "Draft 7",
+  "updated": "2026-10-13",
   "history": [
+    { "rev": "Draft 7", "date": "2026-10-13", "change": "The Overview moved from index.html to overview.html, and a new landing page at index.html and the app at app/ replace the alpha console, whose old address now leads to the app." },
     { "rev": "Draft 6", "date": "2026-10-07", "change": "Repositioned for automated research labs: the Scope names the audience; the Overview gains section 2, “Why: one wrong value snowballs”, with the founder’s line, redraws Where it fits for an automated lab (today beside an HPLC CSV export; sealing at the orchestrator or driver, upcoming), moves the regulatory position to “When your process moves into GMP” and renumbers the later sections; the Roadmap adds sealing at capture, measured and derived records, lineage and recall, Merkle batches with salted leaves and post-quantum signatures and encryption, and rewrites Filecoin integration as an encrypted archive on Filecoin, all Upcoming, with the automated-lab items first; How a record is sealed says a pass does not show that a value was ever measured, what a registry entry would show, and that nothing readable leaves the lab; About adds two questions, on the kinds of labs it is for and on sabotage and espionage, and folds “What does a fingerprint cover?” into the question on the orchestrator, ELN, CDS and LIMS." },
     { "rev": "Draft 5", "date": "2026-10-07", "change": "The Overview gains section 2, “How a result becomes a sealed record”, which walks record 6 through seven animated steps (captured, fingerprinted, signed, linked, a change, a correction, and what is upcoming) with every value computed at build; the later sections and figures are renumbered." },
     { "rev": "Draft 4", "date": "2026-10-07", "change": "Adds one upcoming item, signatures that cover each record’s position, so a removed or moved record shows without an anchor; How a record is sealed links to it. Today’s signatures still cover only each record’s own fingerprint, as in the alpha app." },
@@ -23,7 +24,7 @@
     "network": "Filecoin Calibration (a public test network)"
   },
   "pages": [
-    { "file": "index.html", "doc": "IQC-OV-01", "nav": "Overview", "title": "Immutable QC · Tamper-evident records for automated research labs (open alpha)", "description": "Each lab result becomes a sealed record: a SHA-256 fingerprint of five recorded fields, linked to the record before it and signed with a demo key. For automated research labs in biotechnology, microbiology, chemistry and materials science. Open alpha on synthetic demo data; no customers yet.", "body": "overview.html", "preload": ["archivo-c-115-620.woff2", "ibm-plex-sans-latin-400-normal.woff2"] },
+    { "file": "overview.html", "doc": "IQC-OV-01", "nav": "Overview", "title": "Immutable QC · Tamper-evident records for automated research labs (open alpha)", "description": "Each lab result becomes a sealed record: a SHA-256 fingerprint of five recorded fields, linked to the record before it and signed with a demo key. For automated research labs in biotechnology, microbiology, chemistry and materials science. Open alpha on synthetic demo data; no customers yet.", "body": "overview.html", "preload": ["archivo-c-115-620.woff2", "ibm-plex-sans-latin-400-normal.woff2"] },
     { "file": "sealed.html", "doc": "IQC-HS-01", "nav": "How a record is sealed", "title": "How a record is sealed · Immutable QC", "description": "The five sealed fields, the SHA-256 fingerprint, the link rule, demo signatures, corrections with a reason, what a check shows, anchoring (upcoming) and the privacy note.", "body": "sealed.html", "preload": ["archivo-c-115-620.woff2", "ibm-plex-sans-latin-400-normal.woff2"] },
     { "file": "check.html", "doc": "IQC-CK-01", "nav": "Check a record", "title": "Check a record · Immutable QC", "description": "An auditor’s verifier for an eight-record synthetic HPLC sequence. Change a field and your browser recomputes the fingerprint, signature and links as you type.", "body": "check.html", "preload": ["archivo-c-115-620.woff2", "ibm-plex-sans-latin-400-normal.woff2"] },
     { "file": "regulatory.html", "doc": "IQC-RM-01", "nav": "Regulatory map", "title": "Regulatory map · Immutable QC", "description": "Expectation by expectation for 21 CFR Part 11, EU Annex 11, ISO/IEC 17025:2017, ALCOA+, GMP and TNI: the approach, what exists today and what is not covered. A reading aid, not an assessment.", "body": "regulatory.html", "preload": ["archivo-c-115-620.woff2", "ibm-plex-sans-latin-400-normal.woff2"] },
@@ -31,7 +32,7 @@
     { "file": "about.html", "doc": "IQC-AB-01", "nav": "About", "title": "About · Immutable QC", "description": "Who builds Immutable QC, its status, and plain answers to common questions.", "body": "about.html", "preload": ["archivo-c-115-620.woff2", "ibm-plex-sans-latin-400-normal.woff2"] },
     { "file": "404.html", "doc": "IQC-NF", "nav": null, "title": "Page not found · Immutable QC", "description": "This address is not part of the Immutable QC document set.", "body": "404.html", "preload": ["archivo-c-115-620.woff2", "ibm-plex-sans-latin-400-normal.woff2"] }
   ],
-  "console": { "href": "dashboard/", "nav": "Alpha console", "tag": "Demo" },
+  "app": { "href": "app/", "nav": "App", "id": "app/" },
   "fonts": {
     "archivo-c-115-620.woff2": "4dea235e0cf19253b494217b79547876e88fdf2302d81d8e1d97e5a4bb4ddac5",
     "ibm-plex-mono-latin-400-normal.woff2": "08949f728dc52d528e69b1667d15c89a5686a4ee9a296ff90983985f99c380f7",

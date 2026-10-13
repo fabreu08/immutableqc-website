@@ -1,12 +1,16 @@
 #!/usr/bin/env node
-// check.mjs · browser checks for every page of immutableqc.com and the alpha console (dashboard/), with Playwright
-// (Chromium) and axe-core. Serves, gzip on as GitHub Pages does, exactly what the Pages workflow publishes: the
-// allowlist in site/tools/deploy.mjs, assembled into a temporary folder (--repo serves the whole repo root instead).
+// check.mjs · browser checks for every page of immutableqc.com, with Playwright (Chromium) and axe-core. Serves, gzip on
+// as GitHub Pages does, exactly what the Pages workflow publishes: the allowlist in site/tools/deploy.mjs, assembled into
+// a temporary folder (--repo serves the whole repo root instead).
+// Pages (Draft 7, docs/product-v1.md): the document set, built by site/build.mjs (the Overview is overview.html); the
+// landing page (index.html) and the app (app/), written by hand, which get the generic checks for now (links, overflow,
+// axe, CSP violations); and dashboard/, the alpha console's old address, which must send visitors to ../app/.
 //   node site/tools/check.mjs              links (every href/src after JS, the 404 at nested paths), overflow 320–1920,
 //                                          tap targets, smallest text, axe at 375 and 1280, frames at rest (3 s traces),
 //                                          reduced motion and hidden tab, the Overview story (stage steps, fast scroll,
 //                                          keyboard, phone figures, axe and overflow per state, URL bar, print), no-JS
-//                                          text, first-load budgets
+//                                          text, first-load budgets (the document set); links, overflow, axe and CSP
+//                                          (index.html, app/); the redirect (dashboard/)
 //   node site/tools/check.mjs --perf       also CLS / TBT / LCP at 320×568, 390×844 and 412×915 with DevTools' Slow 4G
 //                                          (562.5 ms, 1.44 Mbps) and CPU 4× (median of --runs=3, and of at least 5
 //                                          for the Overview's gate at 390×844), every layout shift
@@ -14,7 +18,7 @@
 //                                          and Courier-based fallback faces unmatched (as on Android); and the URL-bar
 //                                          resize test (390×664 ↔ 390×745); reported, except the Overview at 390×844,
 //                                          which fails over CLS 0.02, TBT 200 ms or Draft 4's LCP + 100 ms
-//   --only=index.html,check.html           a subset of pages       --json=path   write every result as JSON
+//   --only=overview.html,check.html        a subset of pages       --json=path   write every result as JSON
 //   --repo                                 serve the repo root as it is on disk, not the deploy allowlist
 // In CI: npm ci in site/, then npx playwright install --with-deps chromium. Locally the preinstalled Chromium is used.
 import { createRequire } from 'node:module'
@@ -27,17 +31,22 @@ const { chromium } = load('playwright', '/opt/node22/lib/node_modules/playwright
 const AXE = readFileSync(req.resolve('axe-core/axe.min.js'), 'utf8')
 
 const ARGS = Object.fromEntries(process.argv.slice(2).map((a) => { const m = /^--([\w-]+)(?:=(.*))?$/.exec(a); return m ? [m[1], m[2] ?? true] : [a, true] }))
-const ALL = ['index.html', 'sealed.html', 'check.html', 'regulatory.html', 'roadmap.html', 'about.html', '404.html', 'dashboard/']
+// the document set (every check); the hand-written pages (the generic checks only, for now); old addresses that redirect
+const DOCS = ['overview.html', 'sealed.html', 'check.html', 'regulatory.html', 'roadmap.html', 'about.html', '404.html']
+const HAND = ['index.html', 'app/']
+const REDIRECTS = { 'dashboard/': 'app/' }
+const ALL = [...DOCS, ...HAND, ...Object.keys(REDIRECTS)]
 const PAGES = ARGS.only ? String(ARGS.only).split(',') : ALL
+const isDoc = (pg) => DOCS.includes(pg)
+const VIEWS = PAGES.filter((pg) => !(pg in REDIRECTS)) // pages that are opened and checked as they render
+const DOC_PAGES = PAGES.filter(isDoc)
 const WIDTHS = [320, 360, 375, 390, 412, 480, 600, 768, 1024, 1280, 1440, 1920]
 const STATUS = 'Independent project · Open alpha · Synthetic demo data · No customers yet'
-const CONSOLE_STATUS = 'Independent project · Open alpha · Synthetic demo data · No customers yet · Runs only in your browser'
-const BUDGET = { site: { requests: 8, total: 160 * 1024, js: 22 * 1024, fonts: 100 * 1024 }, console: { requests: 10, total: 160 * 1024, fonts: 100 * 1024 } }
+const BUDGET = { site: { requests: 8, total: 160 * 1024, js: 22 * 1024, fonts: 100 * 1024 } }
 // the Overview's own budget since the story (Draft 5), against Draft 4 as measured here (main 4e793fb): LCP 1592 ms at
 // 390×844 with Slow 4G and CPU 4× (median of 3), 13685 bytes of JS as served
 const OVERVIEW = { total: 130 * 1024, js0: 13685, lcp0: 1592, cls: 0.02, tbt: 200 }
-const isConsole = (pg) => pg.startsWith('dashboard')
-const fails = [], R = { overflow: [], taps: {}, minFont: {}, axe: [], rest: [], motion: [], nojs: [], budgets: [], perf: [], urlbar: [] }
+const fails = [], R = { overflow: [], taps: {}, minFont: {}, axe: [], rest: [], motion: [], nojs: [], budgets: [], perf: [], urlbar: [], redirects: [] }
 const fail = (msg) => { fails.push(msg); console.log('  FAIL', msg) }
 
 const served = ARGS.repo ? await serve(0) : await serveDeploy(0)
@@ -74,22 +83,7 @@ const STATES = {
     corrected: async (p) => { await p.fill('#f-value', '1588811'); await p.fill('#reason', 'Dilution factor entered as 10, should be 20 (notebook p. 14)'); await p.click('[data-act=correct]'); await p.waitForTimeout(400) },
     hexreason: async (p) => { await p.fill('#f-value', '1588811'); await p.fill('#reason', HEX_REASON); await p.click('[data-act=correct]'); await p.waitForTimeout(400) },
   },
-  'index.html': { menu: async (p) => { if (await p.locator('.menu-btn').isVisible()) { await p.click('.menu-btn'); await p.waitForTimeout(100) } } },
-  // the console's states (from the console builder's measure.js): every view and every action, each waited for in words
-  'dashboard/': {
-    edited: async (p) => { await p.click('#rec-6'); await p.click('#b-edit'); await p.waitForFunction(() => /changed/.test(document.querySelector('[data-sum-st]').textContent)) },
-    rewritten: async (p) => { await STATES['dashboard/'].edited(p); await p.click('#b-rewrite'); await p.waitForFunction(() => /does not match/.test(document.querySelector('[data-sum-st]').textContent) && !/changed/.test(document.querySelector('[data-sum-st]').textContent)) },
-    corrected: async (p) => { await p.click('#rec-6'); await p.fill('#fix-val', '1508911'); await p.fill('#fix-why', 'Wrong export imported; corrected to the CDS result (simulated)'); await p.click('#b-fix'); await p.waitForFunction(() => /9 of 9/.test(document.querySelector('[data-sum-st]').textContent)) },
-    errors: async (p) => { await p.fill('#add-val', 'abc'); await p.click('#b-add'); await p.click('#rec-6'); await p.fill('#fix-val', ''); await p.click('#b-fix'); await p.waitForSelector('#fix-val[aria-invalid=true]') },
-    recipe: async (p) => { await p.click('#rec-6'); await p.click('#rc-sum'); await p.waitForSelector('#rc[open]') },
-    anchor: async (p) => { await STATES['dashboard/'].corrected(p); await p.click('.tabs a[href="#anchor"]'); await p.click('#b-anchor'); await p.waitForFunction(() => /records 1 to 9\)/.test(document.querySelector('[data-sum-st]').textContent)) },
-    instruments: async (p) => { await p.click('.tabs a[href="#instruments"]'); await p.click('#b-sim-TEMP-01'); await p.waitForFunction(() => /9 of 9/.test(document.querySelector('[data-sum-st]').textContent)) },
-    method: async (p) => { await p.click('.tabs a[href="#method"]'); await p.waitForSelector('#method.on') },
-    hexreason: async (p) => { await p.click('#rec-6'); await p.fill('#fix-val', '1508911'); await p.fill('#fix-why', HEX_REASON); await p.click('#b-fix'); await p.waitForFunction(() => /9 of 9/.test(document.querySelector('[data-sum-st]').textContent)) },
-    simulated: async (p) => { await p.click('#rec-6'); await p.click('#b-edit'); await p.waitForSelector('.sim-r') },
-    // a deleted record, the rest relinked with no key: every record passes, and only the anchor taken earlier disagrees
-    deleted: async (p) => { await p.click('#rec-6'); await p.click('#b-delete'); await p.waitForFunction(() => { const t = document.querySelector('[data-sum-st]').textContent; return /7 of 7 records pass/.test(t) && /simulated anchor does not match/.test(t) && !!document.querySelector('.sim-r') }) },
-  },
+  'overview.html': { menu: async (p) => { if (await p.locator('.menu-btn').isVisible()) { await p.click('.menu-btn'); await p.waitForTimeout(100) } } },
 }
 const runsFor = (pg) => [[pg, null], ...Object.keys(STATES[pg] || {}).map((s) => [pg, s])]
 
@@ -176,10 +170,11 @@ const COUNT_ANIM = () => {
 const text = (p, sel) => p.evaluate((s) => (document.querySelector(s) || document.body).innerText.replace(/\s+/g, ' ').trim(), sel)
 
 // ---------------------------------------------------------------------------------------------- 0. links
-// Every href and src in the rendered DOM (after the scripts ran, so console views count too), resolved as the browser
-// resolves it (the 404 page's <base> included), fetched from the server: each must answer 200, and each #fragment must
-// name an element in its target. Subresources that fail (a font in CSS, say) fail too. The 404 page is also opened at
-// nested missing paths, as GitHub Pages serves it there.
+// Every href and src in the rendered DOM (after the scripts ran, so the views they build count too), resolved as the
+// browser resolves it (the 404 page's <base> included), fetched from the server: each must answer 200, and each
+// #fragment must name an element in its target. Subresources that fail (a font in CSS, say) fail too. The 404 page is
+// also opened at nested missing paths, as GitHub Pages serves it there. An old address (dashboard/) must answer with a
+// page that sends visitors on at once, with no script, and opening it must land on the new one (app/).
 console.log(`checking ${PAGES.join(' ')} at ${BASE}`)
 {
   const ctx = await ctxFor(390, 844), p = await ctx.newPage(), seen = new Map()
@@ -187,9 +182,9 @@ console.log(`checking ${PAGES.join(' ')} at ${BASE}`)
     if (!seen.has(u)) { const r = await ctx.request.get(u); seen.set(u, { status: r.status(), body: /html/.test(r.headers()['content-type'] || '') ? await r.text() : '' }) }
     return seen.get(u)
   }
-  const extra = (PAGES.includes('404.html') ? ['missing/deep/page', 'dashboard/missing'] : []).concat(PAGES.includes('dashboard/') ? ['dashboard'] : [])
+  const extra = PAGES.includes('404.html') ? ['missing/deep/page', 'dashboard/missing'] : []
   let refs = 0
-  for (const pg of PAGES.concat(extra)) {
+  for (const pg of VIEWS.concat(extra)) {
     const bad = []
     const onResp = (r) => { if (r.status() >= 400 && r.url() !== BASE + pg) bad.push(`${r.status()} ${r.url().replace(BASE, '')}`) }
     p.on('response', onResp)
@@ -203,6 +198,9 @@ console.log(`checking ${PAGES.join(' ')} at ${BASE}`)
     }))
     for (const { raw, abs } of found.refs) {
       if (!abs.startsWith(BASE)) continue
+      // an in-page link ("#main") is checked on the page itself (found.self, below): on the 404 page, whose <base href="/">
+      // would send it to the landing page, the inline script keeps it in the page (site/build.mjs, prepaint)
+      if (raw.startsWith('#')) continue
       refs++
       const [u, frag] = abs.split('#')
       const r = await fetchOnce(u)
@@ -214,20 +212,38 @@ console.log(`checking ${PAGES.join(' ')} at ${BASE}`)
     for (const h of found.self) fail(`link: ${pg} ${h} has no target on the page`)
     for (const x of bad) fail(`link: ${pg} subresource ${x}`)
   }
-  // what must never be published answers 404 from the deploy view (the page itself, the 404 page, is the body)
-  if (!ARGS.repo) for (const u of ['site/build.mjs', 'site/HANDOFF.md', 'site/data/site.json', 'contracts/README.md', 'contracts/RootRegistry.sol', 'dashboard/registry-abi.js', 'dashboard/registry-artifact.js', '.github/workflows/pages.yml', '.nojekyll', 'README.md']) {
+  // the old addresses: a small page with a refresh to the new one and a link to it in words, no script; opened, with or
+  // without its trailing slash, it lands on the new address
+  for (const [from, to] of Object.entries(REDIRECTS).filter(([pg]) => PAGES.includes(pg))) {
+    const r = await ctx.request.get(BASE + from), html = await r.text(), at = (u) => new URL(u, BASE + from).href
+    const refresh = (html.match(/<meta http-equiv="refresh" content="0; url=([^"]+)">/) || [])[1]
+    const link = [...html.matchAll(/<a href="([^"]+)">([^<]+)<\/a>/g)].find(([, h]) => at(h) === BASE + to)
+    if (r.status() !== 200 || !refresh || at(refresh) !== BASE + to || !link || /<script/i.test(html)) fail(`redirect: ${from} does not send visitors to ${to} (status ${r.status()}, refresh ${refresh || 'none'}, link ${link ? `"${link[2]}"` : 'none'})`)
+    for (const start of [from, from.replace(/\/$/, '')]) {
+      const q = await ctx.newPage()
+      try { await q.goto(BASE + start, { waitUntil: 'load' }) } catch {} // the refresh may replace the page before it loads
+      try { await q.waitForURL(BASE + to, { timeout: 8000 }) } catch {}
+      const end = q.url()
+      R.redirects.push({ from: start, to: end.replace(BASE, ''), refresh, link: link && link[2] })
+      if (end !== BASE + to) fail(`redirect: opening ${start} ends at ${end.replace(BASE, '') || '/'}, not ${to}`)
+      await q.close()
+    }
+  }
+  // what must never be published answers 404 from the deploy view (the page itself, the 404 page, is the body); the
+  // retired console's script and stylesheet are gone
+  if (!ARGS.repo) for (const u of ['site/build.mjs', 'site/HANDOFF.md', 'site/data/site.json', 'contracts/README.md', 'contracts/RootRegistry.sol', 'dashboard/registry-abi.js', 'dashboard/registry-artifact.js', 'dashboard/console.js', 'dashboard/console.css', '.github/workflows/pages.yml', '.nojekyll', 'README.md', 'docs/product-v1.md', 'agent/package.json', 'agent/bin/iqc.mjs', 'core/test/index.mjs', 'core/test/package.json']) {
     const r = await ctx.request.get(BASE + u)
     if (r.status() !== 404) fail(`deploy: ${u} answers ${r.status()}; it must not be published`)
   }
-  R.links = { pages: PAGES.length + extra.length, refs, targets: seen.size, deploy: ARGS.repo ? null : served.files }
-  console.log(`links: ${refs} same-origin references on ${PAGES.length + extra.length} pages, ${seen.size} distinct targets`)
+  R.links = { pages: VIEWS.length + extra.length, refs, targets: seen.size, redirects: R.redirects.length, deploy: ARGS.repo ? null : served.files }
+  console.log(`links: ${refs} same-origin references on ${VIEWS.length + extra.length} pages, ${seen.size} distinct targets; ${R.redirects.length} redirects opened`)
   await ctx.close()
 }
 
 // ---------------------------------------------------------------------------------------------- 1. overflow, taps, smallest text
 for (const w of WIDTHS) {
   const ctx = await ctxFor(w, 800), p = await ctx.newPage()
-  const runs = PAGES.flatMap(runsFor).concat(w === 320 || w === 1280 ? [['missing/page', null]] : [])
+  const runs = VIEWS.flatMap(runsFor).concat(w === 320 || w === 1280 ? [['missing/page', null]] : [])
   for (const [pg, s] of runs) {
     await p.goto(BASE + pg, { waitUntil: 'load' })
     await p.evaluate(() => document.fonts.ready)
@@ -243,12 +259,13 @@ for (const w of WIDTHS) {
     }
     R.overflow.push({ w, pg, s, ...o })
     if (o.over || o.offenders.length) fail(`overflow at ${w}: ${pg} ${s || ''} scrollWidth ${o.sw} > ${o.vw} ${o.offenders.join(' | ')}`)
-    if ([320, 390, 1280].includes(w)) {
+    // tap targets and the smallest text: the document set (the hand-written pages get the generic checks only, for now)
+    if ([320, 390, 1280].includes(w) && !HAND.includes(pg)) {
       const t = await p.evaluate(tapProbe)
       R.taps[`${w} ${pg} ${s || ''}`] = t
       for (const x of t.filter((x) => !x.inline)) fail(`tap target under 44 px at ${w}: ${pg} ${s || ''} ${x.el} ${x.w}×${x.h}`)
     }
-    if (w === 320) { const m = await p.evaluate(minFontProbe); R.minFont[`${pg} ${s || ''}`] = m; if (m.min < 12) fail(`text under 12 px at 320: ${pg} ${s || ''} ${m.min}px ${m.where}`) }
+    if (w === 320 && !HAND.includes(pg)) { const m = await p.evaluate(minFontProbe); R.minFont[`${pg} ${s || ''}`] = m; if (m.min < 12) fail(`text under 12 px at 320: ${pg} ${s || ''} ${m.min}px ${m.where}`) }
   }
   await ctx.close()
 }
@@ -259,11 +276,11 @@ console.log(`overflow: ${R.overflow.length} runs, ${R.overflow.filter((o) => o.o
 // HPLC CSV export at the data pipeline (node 3); Fig. 5's export at the CDS (node 2). Below 900 px the figure is one
 // column and the Immutable QC branch hangs between node 2 and node 3, never under the last node; from 900 px each
 // connector drops from its own node's column. Each lane stays a list of four items in the accessibility tree.
-if (PAGES.includes('index.html')) {
+if (PAGES.includes('overview.html')) {
   R.flow = []
   for (const w of [320, 390, 768, 1024, 1440]) {
     const ctx = await ctxFor(w, 800), p = await ctx.newPage(), cdp = await ctx.newCDPSession(p)
-    await p.goto(BASE + 'index.html', { waitUntil: 'load' }); await p.evaluate(() => document.fonts.ready)
+    await p.goto(BASE + 'overview.html', { waitUntil: 'load' }); await p.evaluate(() => document.fonts.ready)
     const m = await p.evaluate(() => [...document.querySelectorAll('#fits figure.flow')].map((f) => {
       const r = (e) => { if (!e) return null; const b = e.getBoundingClientRect(); return { t: Math.round(b.top + scrollY), b: Math.round(b.bottom + scrollY), l: Math.round(b.left), r: Math.round(b.right) } }
       const n = [...f.querySelectorAll('.lane > .node')].map(r)
@@ -307,7 +324,7 @@ if (PAGES.includes('index.html')) {
 // ---------------------------------------------------------------------------------------------- 2. axe at 375 and 1280
 for (const w of [375, 1280]) {
   const ctx = await ctxFor(w, 800, { bypassCSP: true }), p = await ctx.newPage()
-  for (const [pg, s] of PAGES.flatMap(runsFor)) {
+  for (const [pg, s] of VIEWS.flatMap(runsFor)) {
     await p.goto(BASE + pg, { waitUntil: 'networkidle' })
     await settle(p)
     if (s) await STATES[pg][s](p)
@@ -323,11 +340,10 @@ console.log(`axe: ${R.axe.length} runs, ${R.axe.reduce((a, x) => a + x.violation
 // ---------------------------------------------------------------------------------------------- 3. frames at rest, motion
 for (const [w, h] of [[390, 844], [1440, 900]]) {
   const ctx = await ctxFor(w, h), p = await ctx.newPage(), cdp = await ctx.newCDPSession(p)
-  for (const pg of PAGES) {
+  for (const pg of DOC_PAGES) {
     await p.goto(BASE + pg, { waitUntil: 'networkidle' })
     await p.waitForTimeout(1200)
     const steps = [['top, after load', async () => {}], ['after scrolling through (one-shot motion played)', async () => settle(p)]]
-    if (pg === 'dashboard/') steps.push(['after an edit (blurred)', async () => { await STATES[pg].edited(p); await p.evaluate(() => document.activeElement.blur()); await p.waitForTimeout(800) }], ['after Rewrite', async () => { await p.click('#b-rewrite'); await p.evaluate(() => document.activeElement.blur()); await p.waitForTimeout(800) }], ['after a correction and an anchor', async () => { await p.click('#b-reset'); await p.waitForTimeout(300); await STATES[pg].anchor(p); await p.evaluate(() => document.activeElement.blur()); await p.waitForTimeout(800) }])
     if (pg === 'check.html') steps.push(['after an edit (blurred)', async () => { await p.fill('#f-value', '1508911'); await p.evaluate(() => document.activeElement.blur()); await p.waitForTimeout(800) }], ['after Rewrite', async () => { await p.click('[data-act=rewrite]'); await p.evaluate(() => document.activeElement.blur()); await p.waitForTimeout(800) }])
     for (const [label, act] of steps) {
       await act()
@@ -343,32 +359,32 @@ for (const [w, h] of [[390, 844], [1440, 900]]) {
   // reduced motion: no WAAPI motion at all; hidden tab (emulated): the record history settles without motion
   const ctx = await ctxFor(390, 844, { reduced: true }), p = await ctx.newPage()
   await p.addInitScript(COUNT_ANIM)
-  for (const pg of PAGES) {
+  for (const pg of DOC_PAGES) {
     await p.goto(BASE + pg, { waitUntil: 'networkidle' }); await settle(p)
-    if (pg === 'check.html' || isConsole(pg)) await STATES[pg].edited(p)
+    if (pg === 'check.html') await STATES[pg].edited(p)
     const n = await p.evaluate(() => window.__anim)
     R.motion.push({ mode: 'reduced motion', pg, animations: n })
     if (n) fail(`reduced motion: ${pg} started ${n} animations`)
   }
   await ctx.close()
-  if (PAGES.includes('index.html')) {
+  if (PAGES.includes('overview.html')) {
     const c2 = await ctxFor(390, 844), q = await c2.newPage()
     await q.addInitScript(() => { Object.defineProperty(Document.prototype, 'hidden', { get: () => true }); Object.defineProperty(Document.prototype, 'visibilityState', { get: () => 'hidden' }) })
     await q.addInitScript(COUNT_ANIM)
-    await q.goto(BASE + 'index.html', { waitUntil: 'networkidle' }); await settle(q)
+    await q.goto(BASE + 'overview.html', { waitUntil: 'networkidle' }); await settle(q)
     const r = await q.evaluate(() => ({ n: window.__anim, st: document.querySelector('[data-hist-st]').textContent, sealed: document.querySelectorAll('.hist tr.ok').length }))
-    R.motion.push({ mode: 'hidden tab (emulated)', pg: 'index.html', animations: r.n, status: r.st, sealedRows: r.sealed })
-    if (r.n || r.sealed !== 8 || !/8 of 8 records pass/.test(r.st)) fail(`hidden tab: index.html animations ${r.n}, sealed rows ${r.sealed}, status "${r.st}"`)
+    R.motion.push({ mode: 'hidden tab (emulated)', pg: 'overview.html', animations: r.n, status: r.st, sealedRows: r.sealed })
+    if (r.n || r.sealed !== 8 || !/8 of 8 records pass/.test(r.st)) fail(`hidden tab: overview.html animations ${r.n}, sealed rows ${r.sealed}, status "${r.st}"`)
     await c2.close()
   }
-  {
+  if (PAGES.includes('overview.html')) {
     const c3 = await ctxFor(1440, 900), q = await c3.newPage()
     await q.addInitScript(COUNT_ANIM)
-    await q.goto(BASE + 'index.html', { waitUntil: 'networkidle' })
+    await q.goto(BASE + 'overview.html', { waitUntil: 'networkidle' })
     const before = await q.evaluate(() => ({ n: window.__anim, sealed: document.querySelectorAll('.hist tr.ok').length }))
     await q.evaluate(() => document.querySelector('.hist').scrollIntoView({ block: 'center' })); await q.waitForTimeout(2500)
     const after = await q.evaluate(() => ({ n: window.__anim, sealed: document.querySelectorAll('.hist tr.ok').length, running: document.getAnimations().length }))
-    R.motion.push({ mode: 'Fig. 3 seal-in', pg: 'index.html', before, after })
+    R.motion.push({ mode: 'Fig. 3 seal-in', pg: 'overview.html', before, after })
     if (after.sealed !== 8 || after.running) fail(`Fig. 3 seal-in: ${JSON.stringify({ before, after })}`)
     await c3.close()
   }
@@ -401,14 +417,14 @@ const figTree = async (cdp) => {
   return out
 }
 const figTreeOk = (t) => t.filter((x) => !x.stage).length === 7 && t.filter((x) => !x.stage).every((x, i) => !x.ignored && x.role === 'figure' && x.name.startsWith(`Fig. 2.${i + 1} · `)) && t.filter((x) => x.stage).every((x) => x.ignored)
-if (PAGES.includes('index.html')) {
+if (PAGES.includes('overview.html')) {
   const S = (R.story = { desk: [], fast: [], keys: [], phone: [], reduced: [], hidden: null, sticky: [], axe: [], overflow: [], urlbar: [], names: [], fit: [], resize: [], estimates: [], cost: null })
   const title = (k) => ST_TITLES[k - 1]
   // 1. wide screens: every step plays in under a second, then nothing moves
   for (const [w, h] of [[1440, 900], [1280, 800]]) {
     const ctx = await ctxFor(w, h), p = await ctx.newPage(), cdp = await ctx.newCDPSession(p)
     await p.addInitScript(COUNT_ANIM)
-    await p.goto(BASE + 'index.html', { waitUntil: 'networkidle' }); await p.evaluate(() => document.fonts.ready)
+    await p.goto(BASE + 'overview.html', { waitUntil: 'networkidle' }); await p.evaluate(() => document.fonts.ready)
     const wide = await p.evaluate(() => document.documentElement.classList.contains('stage') && getComputedStyle(document.querySelector('.step-stage')).position === 'sticky' && [...document.querySelectorAll('.step .sf .sc')].every((f) => getComputedStyle(f).display === 'none'))
     if (!wide) fail(`story at ${w}×${h}: the sticky stage is not shown (or the step plates are not hidden)`)
     // the stage is aria-hidden; each step's figure stays in the tree, named by its caption
@@ -479,7 +495,7 @@ if (PAGES.includes('index.html')) {
   {
     // axe needs its script inline, so this context bypasses the CSP
     const ctx = await ctxFor(1440, 900, { bypassCSP: true }), p = await ctx.newPage()
-    await p.goto(BASE + 'index.html', { waitUntil: 'networkidle' }); await p.addScriptTag({ content: AXE })
+    await p.goto(BASE + 'overview.html', { waitUntil: 'networkidle' }); await p.addScriptTag({ content: AXE })
     for (const k of [1, 2, 4, 5, 6, 7]) {
       await toBand(p, k); await p.waitForTimeout(1500)
       const r = await p.evaluate(async () => (await axe.run(document.querySelector('#story'), { resultTypes: ['violations'] })).violations.map((v) => ({ id: v.id, n: v.nodes.length, t: v.nodes.slice(0, 2).map((n) => n.target.join(' ')) })))
@@ -492,7 +508,7 @@ if (PAGES.includes('index.html')) {
   // least 12 px as rendered
   for (const [w, h] of [[1180, 600], [1440, 600], [960, 700], [1024, 700]]) {
     const ctx = await ctxFor(w, h), p = await ctx.newPage()
-    await p.goto(BASE + 'index.html', { waitUntil: 'networkidle' }); await p.evaluate(() => document.fonts.ready)
+    await p.goto(BASE + 'overview.html', { waitUntil: 'networkidle' }); await p.evaluate(() => document.fonts.ready)
     await toBand(p, 5); await p.waitForTimeout(1300)
     const r = await p.evaluate(() => { const st = document.querySelector('[data-stage]'), b = st.getBoundingClientRect(); return { stage: document.documentElement.classList.contains('stage'), top: Math.round(b.top), bottom: Math.round(b.bottom), zoom: getComputedStyle(st.querySelector('[data-sc]')).zoom } })
     const m = await p.evaluate(minFontProbe, '[data-stage]')
@@ -512,7 +528,7 @@ if (PAGES.includes('index.html')) {
       window.IntersectionObserver = class extends IO { constructor(cb, o) { super(time(cb), o) } }
       window.setTimeout = (f, ms, ...a) => st(time(() => f(...a)), ms)
     })
-    await p.goto(BASE + 'index.html', { waitUntil: 'networkidle' }); await p.evaluate(() => document.fonts.ready)
+    await p.goto(BASE + 'overview.html', { waitUntil: 'networkidle' }); await p.evaluate(() => document.fonts.ready)
     await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 })
     for (const k of [1, 2, 3, 4, 5, 6, 7, 6, 5]) { await toBand(p, k, 3); await p.waitForTimeout(1600) }
     const c = await p.evaluate(() => window.__cost.sort((a, b) => a - b))
@@ -524,7 +540,7 @@ if (PAGES.includes('index.html')) {
   // a desktop window made shorter: --svh follows, and the pinned stage stays whole in the window
   {
     const ctx = await ctxFor(1440, 900), p = await ctx.newPage()
-    await p.goto(BASE + 'index.html', { waitUntil: 'networkidle' }); await p.evaluate(() => document.fonts.ready)
+    await p.goto(BASE + 'overview.html', { waitUntil: 'networkidle' }); await p.evaluate(() => document.fonts.ready)
     await toBand(p, 5); await p.waitForTimeout(1300)
     await p.setViewportSize({ width: 1440, height: 640 }); await p.waitForTimeout(400)
     await toBand(p, 5); await p.waitForTimeout(1300)
@@ -536,7 +552,7 @@ if (PAGES.includes('index.html')) {
   // overflow at every width in a few states: the stage on each step from 960 up, the played figures below
   for (const w of WIDTHS) {
     const ctx = await ctxFor(w, 900), p = await ctx.newPage()
-    await p.goto(BASE + 'index.html', { waitUntil: 'networkidle' }); await p.evaluate(() => document.fonts.ready)
+    await p.goto(BASE + 'overview.html', { waitUntil: 'networkidle' }); await p.evaluate(() => document.fonts.ready)
     for (const k of [2, 5, 6, 7]) {
       await (w >= 960 ? toBand(p, k) : p.evaluate((k) => document.querySelector(`#st-${k} .sf`).scrollIntoView({ block: 'center' }), k)); await p.waitForTimeout(1300)
       const o = await p.evaluate(overflowProbe)
@@ -548,7 +564,7 @@ if (PAGES.includes('index.html')) {
   // the narrowest phone: every figure's text stays inside its plate's content box, in both of its states
   {
     const ctx = await ctxFor(320, 700), p = await ctx.newPage()
-    await p.goto(BASE + 'index.html', { waitUntil: 'networkidle' }); await p.evaluate(() => document.fonts.ready)
+    await p.goto(BASE + 'overview.html', { waitUntil: 'networkidle' }); await p.evaluate(() => document.fonts.ready)
     const out = await p.evaluate(() => {
       const bad = []
       for (const sc of document.querySelectorAll('.step .sf .sc')) {
@@ -575,7 +591,7 @@ if (PAGES.includes('index.html')) {
   for (const [w, h] of [[320, 568], [390, 844], [390, 664]]) {
     const ctx = await ctxFor(w, h), p = await ctx.newPage(), cdp = await ctx.newCDPSession(p)
     await p.addInitScript(COUNT_ANIM)
-    await p.goto(BASE + 'index.html', { waitUntil: 'networkidle' }); await p.evaluate(() => document.fonts.ready)
+    await p.goto(BASE + 'overview.html', { waitUntil: 'networkidle' }); await p.evaluate(() => document.fonts.ready)
     const sticky = await p.evaluate(() => [...document.querySelectorAll('#story *')].filter((e) => /sticky|fixed/.test(getComputedStyle(e).position) && e.getClientRects().length).map((e) => { const r = e.getBoundingClientRect(); return { el: e.className, cover: +(r.height / innerHeight).toFixed(2) } }))
     S.sticky.push({ w, h, sticky })
     for (const x of sticky) if (x.cover > 0.3) fail(`story at ${w}: a sticky element covers ${Math.round(x.cover * 100)}% of the viewport`)
@@ -630,7 +646,7 @@ if (PAGES.includes('index.html')) {
   // 25% of its rendered height, at the widths a phone or tablet shows the figures
   for (const w of [320, 390, 412, 600, 768]) {
     const ctx = await ctxFor(w, 800), p = await ctx.newPage()
-    await p.goto(BASE + 'index.html', { waitUntil: 'networkidle' }); await p.evaluate(() => document.fonts.ready)
+    await p.goto(BASE + 'overview.html', { waitUntil: 'networkidle' }); await p.evaluate(() => document.fonts.ready)
     const est = await p.evaluate(() => [...document.querySelectorAll('.step .sf .sc')].map((sc) => { const e = parseFloat(getComputedStyle(sc).containIntrinsicHeight.replace(/^auto\s*/, '')); sc.style.contentVisibility = 'visible'; const cs = getComputedStyle(sc), box = ['paddingTop', 'paddingBottom', 'borderTopWidth', 'borderBottomWidth'].reduce((a, k) => a + parseFloat(cs[k]), 0); return [e, Math.round(sc.getBoundingClientRect().height - box)] }))
     S.estimates.push({ w, est })
     for (const [i, [e, hh]] of est.entries()) if (!(Math.abs(e - hh) <= 0.25 * hh)) fail(`story at ${w}, figure ${i + 1}: estimated height ${e} px is more than 25% off its rendered ${hh} px (site/build.mjs STP.est)`)
@@ -639,7 +655,7 @@ if (PAGES.includes('index.html')) {
   {
     // axe at 320 on every figure as rendered (forced: off screen the plates are not rendered and axe would read nothing)
     const ctx = await ctxFor(320, 568, { bypassCSP: true }), p = await ctx.newPage()
-    await p.goto(BASE + 'index.html', { waitUntil: 'networkidle' }); await p.addScriptTag({ content: AXE })
+    await p.goto(BASE + 'overview.html', { waitUntil: 'networkidle' }); await p.addScriptTag({ content: AXE })
     await p.evaluate(() => document.querySelectorAll('.step .sf .sc').forEach((sc) => { sc.style.contentVisibility = 'visible' }))
     const r = await p.evaluate(async () => (await axe.run(document.querySelector('#story'), { resultTypes: ['violations'] })).violations.map((v) => ({ id: v.id, n: v.nodes.length, t: v.nodes.slice(0, 2).map((n) => n.target.join(' ')) })))
     S.axe.push({ w: 320, violations: r })
@@ -650,7 +666,7 @@ if (PAGES.includes('index.html')) {
   for (const [w, h] of [[1440, 900], [390, 844]]) {
     const ctx = await ctxFor(w, h, { reduced: true }), p = await ctx.newPage()
     await p.addInitScript(COUNT_ANIM)
-    await p.goto(BASE + 'index.html', { waitUntil: 'networkidle' })
+    await p.goto(BASE + 'overview.html', { waitUntil: 'networkidle' })
     const states = []
     for (let k = 1; k <= 7; k++) {
       if (w >= 960) { await toBand(p, k); await p.waitForTimeout(400); states.push((await stageNow(p)).s) } else { await p.evaluate((k) => document.querySelector(`#st-${k} .sf`).scrollIntoView({ block: 'center' }), k); await p.waitForTimeout(200); states.push(await p.evaluate((k) => document.querySelector(`#st-${k} [data-sc]`).dataset.s, k)) }
@@ -664,7 +680,7 @@ if (PAGES.includes('index.html')) {
     const ctx = await ctxFor(1440, 900), p = await ctx.newPage()
     await p.addInitScript(() => { Object.defineProperty(Document.prototype, 'hidden', { get: () => true }); Object.defineProperty(Document.prototype, 'visibilityState', { get: () => 'hidden' }) })
     await p.addInitScript(COUNT_ANIM)
-    await p.goto(BASE + 'index.html', { waitUntil: 'networkidle' })
+    await p.goto(BASE + 'overview.html', { waitUntil: 'networkidle' })
     const states = []
     for (let k = 1; k <= 7; k++) { await toBand(p, k); await p.waitForTimeout(400); states.push((await stageNow(p)).s) }
     const n = await p.evaluate(() => window.__anim)
@@ -676,7 +692,7 @@ if (PAGES.includes('index.html')) {
   for (const [h1, h2] of [[664, 745], [745, 664]]) {
     const ctx = await ctxFor(390, h1), p = await ctx.newPage()
     await p.addInitScript(() => { window.__sh = 0; try { new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__sh++ }).observe({ type: 'layout-shift', buffered: true }) } catch {} })
-    await p.goto(BASE + 'index.html', { waitUntil: 'networkidle' })
+    await p.goto(BASE + 'overview.html', { waitUntil: 'networkidle' })
     await p.evaluate(() => document.querySelector('#st-4 .sf').scrollIntoView({ block: 'start' })); await p.waitForTimeout(1500)
     const snap = () => p.evaluate(() => ({ y: Math.round(scrollY), doc: document.documentElement.scrollHeight, fig: +(document.querySelector('#st-5 .sf').getBoundingClientRect().top + scrollY).toFixed(2), svh: document.documentElement.style.getPropertyValue('--svh'), stage: document.documentElement.classList.contains('stage'), sh: window.__sh }))
     const a = await snap()
@@ -693,7 +709,7 @@ if (PAGES.includes('index.html')) {
   // step nor the stage's state (the band is fixed in px from the top), nor --svh
   for (const [w, h1, h2] of [[1024, 768, 700], [1024, 700, 768], [1180, 820, 740], [1180, 740, 820]]) {
     const ctx = await browser.newContext({ viewport: { width: w, height: h1 }, hasTouch: true }), p = await ctx.newPage()
-    await p.goto(BASE + 'index.html', { waitUntil: 'networkidle' }); await p.evaluate(() => document.fonts.ready)
+    await p.goto(BASE + 'overview.html', { waitUntil: 'networkidle' }); await p.evaluate(() => document.fonts.ready)
     const [y0, y1] = await p.evaluate(() => { const r = document.querySelector('.step-list').getBoundingClientRect(); return [Math.round(r.top + scrollY - innerHeight / 2), Math.round(r.bottom + scrollY - innerHeight / 2)] })
     const snap = () => p.evaluate(() => ({ s: document.querySelector('[data-stage] [data-sc]').dataset.s, cur: (document.querySelector('.step-a[aria-current="step"]') || {}).textContent || '', svh: document.documentElement.style.getPropertyValue('--svh'), stage: document.documentElement.classList.contains('stage') }))
     let flips = 0, n = 0
@@ -716,7 +732,7 @@ if (PAGES.includes('index.html')) {
   // own state with its plate and its caption shown, and every value in full
   {
     const ctx = await ctxFor(1440, 900), p = await ctx.newPage()
-    await p.goto(BASE + 'index.html', { waitUntil: 'networkidle' })
+    await p.goto(BASE + 'overview.html', { waitUntil: 'networkidle' })
     await toBand(p, 5); await p.waitForTimeout(1300)
     await p.evaluate(() => dispatchEvent(new Event('beforeprint')))
     await p.emulateMedia({ media: 'print' })
@@ -733,27 +749,20 @@ if (PAGES.includes('index.html')) {
   const on = await ctxFor(390, 844), off = await ctxFor(390, 844, { js: false })
   const po = await on.newPage(), pf = await off.newPage()
   const words = (t) => new Set((t.toLowerCase().match(/[a-z0-9][a-z0-9'’.-]{2,}/g) || []).map((w) => w.replace(/[.]+$/, '')))
-  for (const pg of PAGES) {
+  for (const pg of DOC_PAGES) {
     await po.goto(BASE + pg, { waitUntil: 'networkidle' }); await settle(po)
     await pf.goto(BASE + pg, { waitUntil: 'networkidle' })
     const a = await text(po, 'body'), b = await text(pf, 'body')
-    if (isConsole(pg)) {
-      const need = [CONSOLE_STATUS, 'independent project']
-      const miss = need.filter((x) => !b.toLowerCase().includes(x.toLowerCase()))
-      R.nojs.push({ pg, prerendered: miss.length === 0, missing: miss })
-      if (miss.length) fail(`no-JS: ${pg} lacks ${miss.join(' / ')}`)
-      continue
-    }
     const wa = words(a), wb = words(b), missing = [...wa].filter((x) => !wb.has(x))
     const cover = 1 - missing.length / wa.size
     R.nojs.push({ pg, words: wa.size, coverage: +cover.toFixed(3), missing: missing.slice(0, 40) })
     if (cover < 0.95) fail(`no-JS: ${pg} shows only ${(cover * 100).toFixed(1)}% of its words without JavaScript (missing ${missing.slice(0, 12).join(' ')})`)
     if (!b.includes(STATUS)) fail(`no-JS: ${pg} lacks the status line`)
-    if (pg === 'index.html') {
+    if (pg === 'overview.html') {
       // the story without JavaScript: every step's text and its static figure, shown, in that step's state
       const st = await pf.evaluate(() => [...document.querySelectorAll('#story [data-step]')].map((li) => { const f = li.querySelector('.sf'), sc = f && f.querySelector('[data-sc]'); return { k: li.dataset.step, text: li.querySelector('.step-t').innerText.trim().length, fig: !!f && getComputedStyle(f).display !== 'none' && f.getBoundingClientRect().height > 100, s: sc && sc.dataset.s, cap: f ? f.querySelector('figcaption').innerText : '' } }))
       const stage = await pf.evaluate(() => getComputedStyle(document.querySelector('.step-stage')).display)
-      R.nojs.push({ pg: 'index.html #story', steps: st, stage })
+      R.nojs.push({ pg: 'overview.html #story', steps: st, stage })
       if (st.length !== 7 || !st.every((x, i) => x.text > 60 && x.fig && x.s === String(i + 1) && x.cap.startsWith(`Fig. 2.${i + 1}`))) fail(`no-JS: the story's steps and static figures: ${JSON.stringify(st)}`)
       if (stage !== 'none') fail('no-JS: the story stage shows without JavaScript')
     }
@@ -804,8 +813,8 @@ async function firstLoad(pg, { slow = false, w = 390, h = 844, android = false }
   const tbt = m.lt.filter(([s, d]) => s + d > m.fcp).reduce((a, [, d]) => a + Math.max(0, d - 50), 0)
   return { pg, requests: n, third, by, total: Object.values(by).reduce((a, b) => a + b, 0), fcp: Math.round(m.fcp), lcp: Math.round(m.lcp), cls: +m.cls.toFixed(4), tbt: Math.round(tbt), urls: [...reqs.values()].map((r) => r.url.replace(BASE, '')) }
 }
-for (const pg of PAGES) {
-  const r = await firstLoad(pg), B = BUDGET[isConsole(pg) ? 'console' : 'site']
+for (const pg of DOC_PAGES) {
+  const r = await firstLoad(pg), B = BUDGET.site
   R.budgets.push(r)
   const kb = (b) => (b / 1024).toFixed(1)
   console.log(`  ${pg.padEnd(16)} ${r.requests} requests · ${kb(r.total)} KB (html ${kb(r.by.html)} css ${kb(r.by.css)} js ${kb(r.by.js)} fonts ${kb(r.by.font)} other ${kb(r.by.other)}) · third-party ${r.third}`)
@@ -816,28 +825,28 @@ for (const pg of PAGES) {
   if (r.third) fail(`budget: ${pg} makes ${r.third} third-party requests`)
   // the Overview with its story (Draft 5): at most 130 KB, and at most 8 KB more eager JS than Draft 4 (13685 bytes as
   // served, main 4e793fb)
-  if (pg === 'index.html' && r.total > OVERVIEW.total) fail(`budget: index.html ${kb(r.total)} KB > ${kb(OVERVIEW.total)} KB`)
-  if (pg === 'index.html' && r.by.js - OVERVIEW.js0 > 8 * 1024) fail(`budget: index.html eager JS grew by ${kb(r.by.js - OVERVIEW.js0)} KB (> 8 KB)`)
+  if (pg === 'overview.html' && r.total > OVERVIEW.total) fail(`budget: overview.html ${kb(r.total)} KB > ${kb(OVERVIEW.total)} KB`)
+  if (pg === 'overview.html' && r.by.js - OVERVIEW.js0 > 8 * 1024) fail(`budget: overview.html eager JS grew by ${kb(r.by.js - OVERVIEW.js0)} KB (> 8 KB)`)
 }
 
 // ---------------------------------------------------------------------------------------------- 6. --perf: CLS / TBT / LCP, late fonts, URL bar
 if (ARGS.perf) {
   const med = (a) => [...a].sort((x, y) => x - y)[(a.length - 1) >> 1]
   const RUNS = +(ARGS.runs || 3)
-  for (const [w, h, android] of [[320, 568], [390, 844], [412, 915], [320, 568, true]]) for (const pg of PAGES) {
+  for (const [w, h, android] of [[320, 568], [390, 844], [412, 915], [320, 568, true]]) for (const pg of DOC_PAGES) {
     // the Overview's own gate at 390×844 takes the median of at least 5 runs, so one slow run cannot decide it
-    const runs = [], gate = pg === 'index.html' && w === 390 && !android
+    const runs = [], gate = pg === 'overview.html' && w === 390 && !android
     for (let i = 0; i < (gate ? Math.max(RUNS, 5) : RUNS); i++) runs.push(await firstLoad(pg, { slow: true, w, h, android }))
     const r = { pg, size: `${w}×${h}`, fonts: android ? 'no Arial/Liberation/Courier' : 'shipped', lcp: med(runs.map((x) => x.lcp)), tbt: med(runs.map((x) => x.tbt)), cls: Math.max(...runs.map((x) => x.cls)), fcp: med(runs.map((x) => x.fcp)), runs: runs.map((x) => [x.lcp, x.tbt, x.cls]) }
     R.perf.push(r)
     console.log(`  slow ${r.size}${android ? ' android-fonts' : ''} ${pg.padEnd(16)} LCP ${r.lcp} ms · FCP ${r.fcp} ms · TBT ${r.tbt} ms · CLS max ${r.cls}`)
-    if (pg === 'index.html' && w === 390 && !android) {
-      if (r.cls > OVERVIEW.cls) fail(`perf: index.html at 390×844 CLS ${r.cls} > ${OVERVIEW.cls}`)
-      if (r.tbt >= OVERVIEW.tbt) fail(`perf: index.html at 390×844 TBT ${r.tbt} ms >= ${OVERVIEW.tbt} ms`)
-      if (r.lcp > OVERVIEW.lcp0 + 100) fail(`perf: index.html at 390×844 LCP ${r.lcp} ms, more than 100 ms over Draft 4's ${OVERVIEW.lcp0} ms`)
+    if (pg === 'overview.html' && w === 390 && !android) {
+      if (r.cls > OVERVIEW.cls) fail(`perf: overview.html at 390×844 CLS ${r.cls} > ${OVERVIEW.cls}`)
+      if (r.tbt >= OVERVIEW.tbt) fail(`perf: overview.html at 390×844 TBT ${r.tbt} ms >= ${OVERVIEW.tbt} ms`)
+      if (r.lcp > OVERVIEW.lcp0 + 100) fail(`perf: overview.html at 390×844 LCP ${r.lcp} ms, more than 100 ms over Draft 4's ${OVERVIEW.lcp0} ms`)
     }
   }
-  for (const pg of PAGES) for (const [h1, h2] of [[664, 745], [745, 664]]) {
+  for (const pg of DOC_PAGES) for (const [h1, h2] of [[664, 745], [745, 664]]) {
     const ctx = await ctxFor(390, h1), p = await ctx.newPage()
     await p.addInitScript(() => { window.__sh = 0; try { new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__sh++ }).observe({ type: 'layout-shift', buffered: true }) } catch {} })
     await p.goto(BASE + pg, { waitUntil: 'networkidle' }); await settle(p)

@@ -9,6 +9,28 @@ permissions:
   contents: read
 
 jobs:
+  unit-tests:
+    name: Unit tests (core and agent, node --test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+      # docs/product-v1.md, section 8. Node 22 reads a folder given to --test as a module path, so each test folder has a
+      # package.json whose main loads its tests (core/test does). agent/test joins once it exists.
+      - name: Run node --test core/test agent/test
+        run: |
+          if [ -d agent/test ]; then
+            node --test core/test agent/test
+          else
+            echo "agent/test does not exist yet: running core/test only"
+            node --test core/test
+          fi
+
   build-check:
     name: Build check (asserts, lints, output up to date)
     runs-on: ubuntu-latest
@@ -43,7 +65,7 @@ jobs:
       - name: Install Chromium for Playwright
         working-directory: site
         run: npx playwright install --with-deps chromium
-      - name: Run the browser checks over every page and dashboard/, served as the Pages workflow publishes them
+      - name: Run the browser checks over every page, the app and dashboard/, served as the Pages workflow publishes them
         run: node site/tools/check.mjs --json=site-check-results.json
       - name: Keep the results
         if: always()

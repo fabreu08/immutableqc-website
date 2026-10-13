@@ -6,10 +6,12 @@
 //                                  whenever the sequence changes: the build refuses to re-sign changed data silently.
 //   node site/build.mjs --og       also render og.png and apple-touch-icon.png with Playwright (dev only; committed)
 // Sources: site/data (sequence, signatures, copy), site/partials + site/pages (HTML), site/src (CSS, JS, SHA-256).
-// Output (repo root): index.html sealed.html check.html regulatory.html roadmap.html about.html 404.html, assets/,
+// Output (repo root): overview.html sealed.html check.html regulatory.html roadmap.html about.html 404.html, assets/,
 // favicon.svg, og.png, apple-touch-icon.png; fonts/ is committed and pinned by hash. Every hash and number in the HTML is
 // computed here and cross-checked three ways (node:crypto, the pure-JS SHA-256 the page falls back to, and the page's
-// own replay() on Node's WebCrypto). The lint covers the written pages and the alpha console (dashboard/) too.
+// own replay() on Node's WebCrypto). Since Draft 7 (docs/product-v1.md) index.html is the hand-written landing page, an
+// input this build lints and never writes; section 7g lints it with the app (app/), the shared design assets (ui/), the
+// format's implementation (core/) and the one-file agent (download/iqc.mjs), and the redirect page dashboard/index.html.
 import { createHash, generateKeyPairSync, sign, verify, createPublicKey, webcrypto } from 'node:crypto'
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, mkdtempSync, rmSync } from 'node:fs'
 import { join, dirname, relative } from 'node:path'
@@ -792,15 +794,19 @@ function nowrap(html) {
 }
 const pagesHTML = {}
 const navPages = site.pages.filter((p) => p.nav)
+// index.html is the hand-written landing page (docs/product-v1.md, section 6): never a page of this build
+ok('pages: no generated page is index.html (the landing page is written by hand, and linted in section 7g)', site.pages.every((p) => p.file !== 'index.html'))
+eq('pages: the Overview is overview.html', site.pages[0].file + ' ' + site.pages[0].doc, 'overview.html IQC-OV-01')
 for (const pg of site.pages) {
+  // the documents, then the app (it works on real files, so it carries no Demo tag); its id column shows the path
   const nav = navPages.map((p) => `<li><a href="${p.file}"${p.file === pg.file ? ' aria-current="page"' : ''}><span class="id">${p.doc.slice(4)}</span><span class="t">${p.nav}</span></a></li>`)
-    .concat(`<li class="nav-demo"><a href="${site.console.href}"><span class="id">${site.console.tag}</span><span class="t">${site.console.nav}</span><span class="demo">${site.console.tag}</span></a></li>`).join('\n')
+    .concat(`<li class="nav-app"><a href="${site.app.href}"><span class="id" aria-hidden="true">${site.app.id}</span><span class="t">${site.app.nav}</span></a></li>`).join('\n')
   const preloads = pg.preload.map((f) => `<link rel="preload" href="fonts/${f}" as="font" type="font/woff2" crossorigin>\n`).join('')
-  const is404 = pg.file === '404.html', url = site.origin + (pg.file === 'index.html' ? '' : pg.file)
+  const is404 = pg.file === '404.html', url = site.origin + pg.file
   const meta = is404 ? '<meta name="robots" content="noindex">\n' : [
     `<link rel="canonical" href="${url}">`,
     '<meta property="og:type" content="website">', '<meta property="og:site_name" content="Immutable QC">',
-    `<meta property="og:title" content="${esc(pg.file === 'index.html' ? 'Immutable QC' : pg.title)}">`, `<meta property="og:description" content="${esc(pg.description)}">`,
+    `<meta property="og:title" content="${esc(pg.title)}">`, `<meta property="og:description" content="${esc(pg.description)}">`,
     `<meta property="og:url" content="${url}">`, `<meta property="og:image" content="${site.origin}og.png">`,
     '<meta property="og:image:width" content="1200">', '<meta property="og:image:height" content="630">',
     '<meta property="og:image:alt" content="Immutable QC card with the ring-and-dot mark and the status line: Independent project · Open alpha · Synthetic demo data · No customers yet">', '<meta name="twitter:card" content="summary_large_image">',
@@ -812,25 +818,11 @@ for (const pg of site.pages) {
   pagesHTML[pg.file] = html
   put(pg.file, html)
 }
-// the console page (dashboard/, written by hand) gets stamped here: content-hashed URLs for its stylesheet and script, as
-// the site's pages have, so a returning visitor never mixes a new page with an old cached script; and its CSP, with the
-// hash of its one inline script.
+// the alpha console is retired (Draft 7, docs/product-v1.md section 2): dashboard/index.html is a small hand-written page
+// that sends visitors to ../app/ (linted with the other hand-written pages in section 7g); its script and stylesheet are
+// gone (git history keeps them), and dashboard/registry-*.js stay in the repo, never published
 const DASH = join(OUT, 'dashboard')
-let DASH_HTML = null
-if (existsSync(join(DASH, 'index.html'))) {
-  const src0 = readFileSync(join(DASH, 'index.html'), 'utf8')
-  const inl = [...src0.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1])
-  ok('dashboard/index.html: exactly one inline script', inl.length === 1)
-  const dcss = readFileSync(join(DASH, 'console.css')), djs = readFileSync(join(DASH, 'console.js'))
-  DASH_HTML = src0
-    .replace(/href="console\.css(?:\?v=[0-9a-f]*)?"/, `href="console.css?v=${HB(dcss).slice(0, 8)}"`)
-    .replace(/src="console\.js(?:\?v=[0-9a-f]*)?"/, `src="console.js?v=${HB(djs).slice(0, 8)}"`)
-    .replace(/<meta http-equiv="Content-Security-Policy" content="[^"]*">/, `<meta http-equiv="Content-Security-Policy" content="${cspFor(inl[0] || '')}">`)
-  ok('dashboard/index.html: console.css and console.js load by content hash', DASH_HTML.includes(`console.css?v=${HB(dcss).slice(0, 8)}"`) && DASH_HTML.includes(`console.js?v=${HB(djs).slice(0, 8)}"`))
-  ok('dashboard/index.html: a CSP with the hash of its inline script, before any script', DASH_HTML.includes(`content="${cspFor(inl[0] || '')}"`) && DASH_HTML.indexOf('Content-Security-Policy') < DASH_HTML.indexOf('<script'))
-  ok('dashboard/index.html: no inline event handlers and no <style>', !/<[a-z][^>]*\son[a-z]+=/i.test(DASH_HTML) && !/<style[\s>]/i.test(DASH_HTML))
-  put('dashboard/index.html', DASH_HTML)
-}
+ok('dashboard: the alpha console is retired (no console.js or console.css; git history keeps them)', !existsSync(join(DASH, 'console.js')) && !existsSync(join(DASH, 'console.css')))
 
 // ------------------------------------------------------------------------------------------------ 6. og card + touch icon
 // Rendered with Playwright only on --og (they are committed); every build checks them against site/data/og.json.
@@ -873,7 +865,8 @@ const pngSize = (b) => (b.length > 24 && b.readUInt32BE(0) === 0x89504e47 ? [b.r
 }
 
 // ------------------------------------------------------------------------------------------------ 7. lint the output
-// Banned everywhere: the marketing pages, the console's HTML and every string literal in the shipped JavaScript.
+// Banned everywhere: the document pages, the hand-written pages and every string literal in the shipped JavaScript (the
+// hand-written pages and scripts in section 7g).
 const BANNED = [/cannot be altered/i, /\bimmutab(le|ility)\b/i, /guarantee/i, /compliance[- ]ready/i, /\bcompliant\b/i, /\bproofs?\b/i,
   /unbreakable/i, /trustless/i, /revolutionar/i, /(?<!no )\bcustomers?\b(?! yet)/i, /\bpilots?\b/i, /\btrading\b/i, /\bprices?\b/i, /\bstak(e|es|ed|ing)\b/i,
   /\bwallets?\b/i, /\btokens?\b/i, /token sale/i, /\bIQC token/i, /\bNFTs?\b/i, /\bmint(s|ed|ing)?\b/i, /\bcrypto\b/i, /cryptocurrenc/i,
@@ -895,6 +888,8 @@ const jsText = jsStrings(js).join('\n')
 for (const re of BANNED) ok(`assets/iqc.js strings: no banned wording ${re}`, !re.test(scrub(jsText)))
 ok('assets/iqc.js strings: no "tokeniz", no "intelligence explosion", no "Filecoin Calibration"', !/tokeni[sz]|intelligence explosion|Filecoin Calibration/i.test(jsText))
 const EMAIL = /[\w.+-]+@[\w-]+\.[a-z]{2,}/i
+// US spelling (the list grew in Draft 7 with the new pages and scripts; every word it held before is still here)
+const US_SPELL = /\b(?:labell(?:ed|ing)|modell(?:ed|ing)|computeris(?:e|ed|ation)|organis(?:ation|e|ed|ing)|behaviour|colour|licence|analys(?:e|ed|ing)|normalis(?:e|ed|es|ing|ation)|serialis(?:e|ed|es|ing|ation)|initialis(?:e|ed|es|ing|ation)|recognis(?:e|ed|es|ing)|optimis(?:e|ed|es|ing|ation)|centre|artefacts?)\b/i
 const tally = { ie: [], fc: [] }
 for (const [file, html] of Object.entries(pagesHTML)) {
   const t = textOf(html), tg = textOf(html, true)
@@ -903,6 +898,7 @@ for (const [file, html] of Object.entries(pagesHTML)) {
   const tok = count(t, /tokeni[sz]/gi)
   ok(`${file}: "tokeniz" at most once, and only as the H1`, tok <= 1 && (tok === 0 || /<h1>Tokenized lab data\.<\/h1>/.test(html)))
   tally.ie.push(...Array(count(t, /intelligence explosion/gi)).fill(file))
+  ok(`${file}: no founder’s line (since Draft 7 it lives on the landing page, index.html)`, count(t, /intelligence explosion/gi) === 0)
   tally.fc.push(...Array(count(t, /Filecoin Calibration/gi)).fill(file))
   ok(`${file}: no email address`, !EMAIL.test(t) && !/mailto:/i.test(html))
   ok(`${file}: status line present`, tg.includes(C.status))
@@ -911,8 +907,9 @@ for (const [file, html] of Object.entries(pagesHTML)) {
   ok(`${file}: header block says Revision ${site.revision} · Updated ${site.updated}`, html.includes(`<dt>Revision</dt><dd>${site.revision}</dd>`) && html.includes(`<dt>Updated</dt><dd>${site.updated}</dd>`))
   ok(`${file}: one h1, a skip link, main, nav and footer`, count(html, /<h1[\s>]/g) === 1 && html.includes('href="#main"') && /<main id="main"/.test(html) && /<nav /.test(html) && /<footer class="foot"/.test(html))
   const navHrefs = [...html.match(/<ol class="nav-list"[\s\S]*?<\/ol>/)[0].matchAll(/href="([^"]+)"/g)].map((m) => m[1])
-  eq(`${file}: nav links every document and the alpha console`, navHrefs.join(' '), 'index.html sealed.html check.html regulatory.html roadmap.html about.html dashboard/')
-  ok(`${file}: the console is marked as a demo in the nav`, /<a href="dashboard\/"><span class="id">Demo<\/span><span class="t">Alpha console<\/span><span class="demo">Demo<\/span><\/a>/.test(html))
+  eq(`${file}: nav links every document, then the app`, navHrefs.join(' '), 'overview.html sealed.html check.html regulatory.html roadmap.html about.html app/')
+  ok(`${file}: the nav's last item is the app, with no Demo tag (it works on real files)`, html.includes('<li class="nav-app"><a href="app/"><span class="id" aria-hidden="true">app/</span><span class="t">App</span></a></li>\n</ol>') && !/class="(?:nav-)?demo"|Alpha console/.test(html))
+  ok(`${file}: the brand links the landing page, index.html`, html.includes('<a class="brand" href="index.html">'))
   ok(`${file}: no root-relative or protocol-relative paths`, !/(?:href|src)="\/(?!\/)|(?:href|src)="\/\//.test(html.replace('<base href="/">', '')))
   ok(`${file}: a <base> only on the 404 page`, (file === '404.html') === html.includes('<base href="/">'))
   const ext = [...html.matchAll(/(?:href|src)="(https?:[^"]+)"/g)].map((m) => m[1])
@@ -934,7 +931,7 @@ for (const [file, html] of Object.entries(pagesHTML)) {
   ok(`${file}: the only inline script is the one the CSP allows`, [...html.matchAll(/<script(?![^>]*\ssrc=)([^>]*)>([\s\S]*?)<\/script>/g)].every(([, a, b]) => /type="application\/json"/.test(a) || b === prepaint))
   ok(`${file}: no inline event handlers and no <style>`, !/<[a-z][^>]*\son[a-z]+=/i.test(html) && !/<style[\s>]/i.test(html))
   // copy rules: US spelling, no software slang for "becomes available", the alpha app's capture time as it is
-  ok(`${file}: US spelling`, !/\b(?:labelled|labelling|modelled|modelling|computerised|organisation|behaviour|colour|licence|analysed)\b/i.test(textOf(html, true)))
+  ok(`${file}: US spelling`, !US_SPELL.test(textOf(html, true)))
   ok(`${file}: no "ship"/"ships" for a feature or a key`, !/\bship(?:s|ped|ping)?\b/i.test(textOf(html, true)))
   ok(`${file}: the capture time is never said to come from the export`, !/comes? from the (?:CSV )?export/i.test(textOf(html, true)))
   // headings are flex rows: after the number, one item only (bare text, or one element), so no space is lost between items
@@ -949,65 +946,15 @@ for (const [file, html] of Object.entries(pagesHTML)) {
     ok(`${file}: ${tag} "${inner.replace(/<[^>]+>/g, '').slice(0, 40)}" is one flex item after its number`, !(text && el) && el <= 1)
   }
 }
-// the console (dashboard/, owned by its own build): its HTML text and every string in the JavaScript it ships
-const dashText = []
-if (DASH_HTML) {
-  const dh = DASH_HTML, t = textOf(dh)
-  dashText.push(t)
-  for (const re of BANNED) ok(`dashboard/index.html: no banned wording ${re}`, !re.test(scrub(t)))
-  ok('dashboard/index.html: no third-party requests (no remote stylesheet, script, font or image)', !/<(?:link|script|img|iframe|source)\b[^>]*\s(?:href|src)="(?:https?:)?\/\//.test(dh) && !/fonts\.(googleapis|gstatic)/.test(dh))
-  ok('dashboard/index.html: footer independence line', textOf(dh, true).replace(/'/g, '’').includes(C.independence))
-  ok('dashboard/index.html: status line prerendered', /Independent project · Open alpha · Synthetic demo data · No customers yet · Runs only in your browser/.test(textOf(dh, true)))
-  ok('dashboard/index.html: no email address', !EMAIL.test(t))
-  ok('dashboard/index.html: "tokeniz" at most once', count(t, /tokeni[sz]/gi) <= 1)
-  tally.ie.push(...Array(count(t, /intelligence explosion/gi)).fill('dashboard/index.html'))
-  const loaded = [...dh.matchAll(/<script[^>]+src="([^"?#]+)/g)].map((m) => m[1]).filter((s) => !/^https?:/.test(s))
-  for (const f of readdirSync(DASH).filter((f) => f.endsWith('.js'))) {
-    const strs = jsStrings(readFileSync(join(DASH, f), 'utf8')).join('\n')
-    dashText.push(strs)
-    const shipped = loaded.includes(f) || loaded.includes(`./${f}`)
-    for (const re of BANNED) ok(`dashboard/${f}${shipped ? '' : ' (not loaded)'} strings: no banned wording ${re}`, !re.test(scrub(strs)))
-    ok(`dashboard/${f} strings: no email address`, !EMAIL.test(strs))
-    tally.ie.push(...Array(count(strs, /intelligence explosion/gi)).fill(`dashboard/${f}`))
-  }
-  ok('dashboard: no registry scripts loaded', !loaded.some((s) => /registry-/.test(s)))
-  // its links and assets resolve from dashboard/ (the site's pages, favicon and fonts one level up), and it uses the one mark
-  for (const [, u0] of dh.matchAll(/(?:href|src)="([^"]*)"/g)) {
-    if (/^[a-z]+:/i.test(u0)) continue
-    const [u, frag] = u0.split('#')
-    if (!u) { ok(`dashboard/index.html: in-page link #${frag} has a target`, dh.includes(`id="${frag}"`)); continue }
-    const rel = relative(OUT, join(DASH, u.replace(/\?.*$/, ''))).replace(/\\/g, '/')
-    const file = !rel || rel.endsWith('/') || existsSync(join(OUT, rel)) && !/\.\w+$/.test(rel) ? join(rel, 'index.html').replace(/\\/g, '/') : rel
-    ok(`dashboard/index.html: link target exists: ${u0}`, !rel.startsWith('..') && (file in out || existsSync(join(OUT, file))))
-    if (frag) ok(`dashboard/index.html: link ${u0} has a target`, file in pagesHTML && pagesHTML[file].includes(`id="${frag}"`))
-  }
-  if (existsSync(join(DASH, 'console.css'))) {
-    const urls = [...readFileSync(join(DASH, 'console.css'), 'utf8').matchAll(/url\(\s*['"]?([^'")]+)/g)].map((m) => m[1])
-    ok(`dashboard/console.css: every url() resolves (${urls.length})`, urls.every((u) => existsSync(join(DASH, u))))
-    ok('dashboard/console.css: its fonts are the site’s pinned fonts, at ../fonts/', urls.filter((u) => /\.woff2$/.test(u)).length > 0 && urls.filter((u) => /\.woff2$/.test(u)).every((u) => /^\.\.\/fonts\/[\w.-]+\.woff2$/.test(u) && u.slice(9) in site.fonts))
-  }
-  // one sequence site-wide: the console seeds its demo lab with the site's eight records and starts from the site's anchor
-  if (existsSync(join(DASH, 'console.js'))) {
-    const cj = readFileSync(join(DASH, 'console.js'), 'utf8')
-    const rowsC = [...cj.matchAll(/\['(\d\d)', '(SST|Sample)', '([^']+)', '([^']+)', '(\d+)', '([\d.]+)', '([^']+)'\]/g)].map((m) => m.slice(1).join('|'))
-    eq('dashboard/console.js: seeds the site’s sequence, record for record', rowsC.join('\n'), SEQ.records.map((x) => [x.inj, x.kind, x.sample, x.desc, x.value, x.rt, x.capturedAt].join('|')).join('\n'))
-    eq('dashboard/console.js: starts from the site’s anchored fingerprint', (cj.match(/SITE_ANCHOR = '([0-9a-f]{64})'/) || [])[1], anchor)
-    eq('dashboard/console.js: names the site’s sequence', (cj.match(/SEQ_ID = '([^']+)'/) || [])[1], SEQ.sequence)
-  }
-  const markOf = (h) => (h.match(/<symbol id="i-mark"[\s\S]*?<\/symbol>/) || [''])[0]
-  ok('dashboard: the ring-and-dot mark is the site’s, symbol for symbol', markOf(dh) !== '' && markOf(dh) === markOf(rd('partials/sprite.html')))
-  ok('dashboard: the favicon is the site’s', /<link rel="icon" href="\.\.\/favicon\.svg"/.test(dh))
-}
-ok(`"intelligence explosion" exactly once across all output pages, on the Overview (found: ${tally.ie.join(', ') || 'none'})`, tally.ie.length === 1 && tally.ie[0] === 'index.html')
-ok(`"Filecoin Calibration" exactly once across the marketing pages, on How a record is sealed (found: ${tally.fc.join(', ') || 'none'})`, tally.fc.length === 1 && tally.fc[0] === 'sealed.html')
 
 // ------------------------------------------------------------------------------------------------ 7b. present tense only for what works
 // Founder decision (step 3b): anything that does not work yet is an upcoming feature, under one label, "Upcoming".
-// Present tense only for what works today on these pages and in the console: the SHA-256 fingerprint of the five sealed
-// fields, the chain from 64 zeros, the demo signatures, corrections appended with a reason, every check recomputed in
-// the browser, and the alpha app's HPLC CSV import signed by one server key. Anchoring on a public network is upcoming,
-// and every anchor shown is simulated. These lints read every sentence a visitor can meet: page text, <template> words,
-// titles, meta descriptions and labels, the og card, the console's HTML and every string in the JavaScript either ships.
+// Present tense only for what works today on these pages: the SHA-256 fingerprint of the five sealed fields, the chain
+// from 64 zeros, the demo signatures, corrections appended with a reason, every check recomputed in the browser, and the
+// alpha app's HPLC CSV import signed by one server key. Anchoring on a public network is upcoming, and every anchor shown
+// is simulated. These lints read every sentence a visitor can meet: page text, <template> words, titles, meta
+// descriptions and labels, the og card and every string in the JavaScript the pages ship. (Until Draft 7 they read the
+// alpha console too; it is retired. The hand-written pages and scripts of v1 have their own version in section 7g.)
 const STATUS_LINE = 'Independent project · Open alpha · Synthetic demo data · No customers yet'
 eq('copy: the status line, exactly (nothing on the site touches a network)', C.status, STATUS_LINE)
 const ENT = (t) => t.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&shy;/g, '')
@@ -1034,7 +981,7 @@ const NET = /\bnetworks?\b|\bregistr(?:y|ies)\b|blockchain|Filecoin|on-?chain/i
 const NET_OK = /\bupcoming\b|\bwill\b|\bwould\b|\bonce\b|\bshould\b|\bsimulated\b|\bno network calls?\b|\bnothing\b|\bnever\b|\bnot yet\b|\bin use\b/i
 const NET_NAMES = /privacy on public networks/gi // a topic's name, not a claim; the sentences about it are checked
 // 3. nothing about the product is called broken or "not working"; the demo's own verdicts ("link 6→7 broken", its Broken
-// status word) live in <template> words and the console's scripts, and are the only "broken" a visitor reads
+// status word) live in <template> words, and are the only "broken" a visitor reads on these pages
 const NOT_WORKING = /\b(?:do|does) not work\b|\b(?:don|doesn)[’']t work\b|\bnot working\b|\bnot work(?:ing)? yet\b|\bnon-?functional\b|\bdead (?:button|link)s?\b|\bbroken in\b/i
 const VERDICTS = (s) => s.replace(/\blinks? (?:\d+→\d+(?:, )?)+ broken\b/g, '').replace(/\blink (?:from \d+ to \d+|to the next record) broken\b/g, '')
 // 4. one label for what is not built yet
@@ -1059,23 +1006,16 @@ lintProse('assets/iqc.js strings', proseOfJS(jsStrings(js)))
 lintProse('og card', proseOf(ogHTML))
 lintBroken('og card', proseOf(ogHTML))
 ok('og card: the status line, exactly, and no "Public test network"', ENT(ogHTML.replace(/<[^>]+>/g, '')).replace(/\s+/g, ' ').includes(STATUS_LINE) && !/test network/i.test(ogHTML))
-if (DASH_HTML) {
-  const dh = DASH_HTML
-  lintProse('dashboard/index.html', proseOf(dh))
-  lintBroken('dashboard/index.html', proseOf(dh))
-  ok('dashboard/index.html: no status-style "Public test network"', !/Public test network/.test(dh))
-  for (const f of readdirSync(DASH).filter((f) => f === 'console.js')) lintProse(`dashboard/${f} strings`, proseOfJS(jsStrings(readFileSync(join(DASH, f), 'utf8'))))
-}
 
 // ------------------------------------------------------------------------------------------------ 7e. the automated-lab items are upcoming
 // Founder decisions (Draft 6, 2026-10-07): automated research labs first. Sealing at capture (SiLA 2, OPC UA LADS
 // adapters), measured and derived records, lineage and recall, Merkle batches with salted leaves and inclusion checks,
 // an encrypted archive on Filecoin (and the storage tiers) and post-quantum signatures and encryption are all Upcoming;
 // none exists in code. So every sentence a visitor can meet that names one of them says upcoming, conditional, simulated
-// or absent: page text, template words, titles, descriptions and labels, the og card, the console and the shipped
-// JavaScript. Filecoin and an archive are never called permanent, forever or unchangeable (deals are renewed), and
-// "proof" stays banned (section 7: inclusion checks, not inclusion proofs). Every "IQC-RD-01 §2.n" reference, on the
-// pages and in the console, carries the Roadmap's own number for the item it links to.
+// or absent: page text, template words, titles, descriptions and labels, the og card and the shipped JavaScript.
+// Filecoin and an archive are never called permanent, forever or unchangeable (deals are renewed), and "proof" stays
+// banned (section 7: inclusion checks, not inclusion proofs). Every "IQC-RD-01 §2.n" reference on the pages carries the
+// Roadmap's own number for the item it links to.
 const NEW_FEAT = /\bseal(?:s|ed|ing)? (?:(?:each |every |a |the )?results? )?(?:at|where|when) (?:capture|the orchestrator|the driver|the instrument|the source|it is produced|they are produced)\b|\bsealing here\b|\badapters?\b|\bderived records?\b|\bmeasured records?\b|\blineage\b|\brecall\b|\bMerkle\b|\binclusion checks?\b|\bselective disclosure\b|\barchives?\b|\bFilecoin\b|\bquantum\b|\bML-DSA\b|\bML-KEM\b|\bSLH-DSA\b|\bFIPS 20[345]\b|\bRFC 9162\b|\bRFC 6962\b|\bRFC 4998\b|\balgorithm (?:agility|id)\b|\bhybrid signatures?\b|\bstorage tiers?\b|\bSiLA\b|\bOPC UA\b|\bLADS\b|\bciphertext\b|\bre-anchor/i
 const NEW_OK = /\bupcoming\b|\bwill\b|\bwould\b|\bonce\b|\bshould\b|\bcould\b|\bnot yet\b|\bnothing\b|\bnever\b|\bnot\b|\bno\b|\bcannot\b|\bsimulated\b|\bthe plan\b/i
 const NEW_OK_STRICT = /\bupcoming\b|\bwill\b|\bwould\b|\bonce\b|\bnot yet\b|\buntil\b|\bsimulated\b|\bthe plan\b/i
@@ -1102,7 +1042,6 @@ const lintNew = (where, sents) => {
 for (const [file, html] of Object.entries(pagesHTML)) lintNew(`${file} (its text and template words)`, proseOf(html))
 lintNew('assets/iqc.js strings', proseOfJS(jsStrings(js)))
 lintNew('og card', proseOf(ogHTML))
-if (DASH_HTML) { lintNew('dashboard/index.html', proseOf(DASH_HTML)); lintNew('dashboard/console.js strings', proseOfJS(jsStrings(readFileSync(join(DASH, 'console.js'), 'utf8')))) }
 {
   // the 7e lints catch what they are for: sample claims that must fail, and upcoming wording that must pass
   const flagged = (s) => (NEW_FEAT.test(unneg(s)) && !NEW_OK_STRICT.test(s)) || NEW_NOW.some((re) => re.test(s))
@@ -1116,8 +1055,7 @@ if (DASH_HTML) { lintNew('dashboard/index.html', proseOf(DASH_HTML)); lintNew('d
   let n = 0
   const refs = (where, html, re) => { for (const [, id, no] of html.matchAll(re)) { n++; ok(`${where}: IQC-RD-01 §${no} is the Roadmap’s own number for #${id} (${rmap[id] || 'no such item'})`, rmap[id] === no) } }
   for (const [file, html] of Object.entries(pagesHTML)) refs(file, html, /href="roadmap\.html#([\w-]+)"><span class="id">(?:<span class="nw">)?IQC-RD-01(?:<\/span>)? §(2\.\d+)<\/span>/g)
-  if (DASH_HTML) refs('dashboard/index.html', DASH_HTML, /href="\.\.\/roadmap\.html#([\w-]+)">IQC-RD-01 §(2\.\d+)/g)
-  ok(`roadmap references: every "IQC-RD-01 §2.n" on the pages and in the console was checked (${n})`, n >= 4)
+  ok(`roadmap references: every "IQC-RD-01 §2.n" on the pages was checked (${n}; the console's one went with it in Draft 7)`, n >= 3)
 }
 
 // ------------------------------------------------------------------------------------------------ 7f. what the upcoming defenses would and would not catch
@@ -1129,6 +1067,7 @@ if (DASH_HTML) { lintNew('dashboard/index.html', proseOf(DASH_HTML)); lintNew('d
 //    ciphertext there too. So a sentence that says only a fingerprint would go on a network names anchoring, or says
 //    "by default".
 // 3. Content addressing shows that fetched bytes match their address, not that they are the result as captured.
+let L7F = null
 {
   const POSN = /signatures? that cover(?:s)? (?:each record’s |each record's |its |their )?position|position-covering signatures?|cover(?:s|ing)? (?:each record’s )?position\b/i
   const WITH_KEY = /\bwith the (?:signing |server )?key\b|\bwho(?:ever)? holds? (?:the |it\b)|\bkey holder\b/i
@@ -1144,7 +1083,7 @@ if (DASH_HTML) { lintNew('dashboard/index.html', proseOf(DASH_HTML)); lintNew('d
   for (const [file, html] of Object.entries(pagesHTML)) lint7f(`${file} (its text and template words)`, proseOf(html))
   lint7f('assets/iqc.js strings', proseOfJS(jsStrings(js)))
   lint7f('og card', proseOf(ogHTML))
-  if (DASH_HTML) { lint7f('dashboard/index.html', proseOf(DASH_HTML)); lint7f('dashboard/console.js strings', proseOfJS(jsStrings(readFileSync(join(DASH, 'console.js'), 'utf8')))) }
+  L7F = lint7f // section 7g applies the same three to the hand-written pages and scripts
   // the 7f lints catch what they are for, and pass the corrected wording
   const f7 = (s) => keyPos(s) || fpOnly(s) || captured(s)
   const mustFail = ['A history rewritten with the key would show through signatures that cover each record’s position.', 'A change made with the key would show through signatures that cover position.', 'Only a fingerprint would go on a public network.', 'Only a fingerprint will go on a network, never the values.', 'Content addressing would let anyone check that a copy is the one captured.']
@@ -1159,10 +1098,10 @@ if (DASH_HTML) { lintNew('dashboard/index.html', proseOf(DASH_HTML)); lintNew('d
 // the Module 4 reference. Anywhere, the Regulatory map included, a clause number may appear only if it is one of the
 // founder's confirmed list, and only on its own subject: 21 CFR 11.10(a), 11.10(e), 11.50 and 11.70, and EU Annex 11
 // clauses 9 and 14. Every other expectation names its standard and says what it expects in plain words.
+const REMOVED_CLAUSES = [[/7\.11\.3/, 'ISO/IEC 17025:2017 7.11.3'], [/Chapter\s*4\b|\b4\.9\b/i, 'EU GMP Chapter 4, 4.9'], [/\bV1\s*M\s*\d|\bModule\s*\d/i, 'TNI module'], [/\b4\.13\b/, 'TNI 4.13']]
 {
-  const REMOVED = [[/7\.11\.3/, 'ISO/IEC 17025:2017 7.11.3'], [/Chapter\s*4\b|\b4\.9\b/i, 'EU GMP Chapter 4, 4.9'], [/\bV1\s*M\s*\d|\bModule\s*\d/i, 'TNI module'], [/\b4\.13\b/, 'TNI 4.13']]
+  const REMOVED = REMOVED_CLAUSES
   const everywhere = [...Object.entries(pagesHTML).map(([f, h]) => [f, textOf(h)]), ['og card', textOf(ogHTML)]]
-  if (DASH_HTML) everywhere.push(['dashboard/index.html', textOf(DASH_HTML)], ['dashboard/console.js strings', jsStrings(readFileSync(join(DASH, 'console.js'), 'utf8')).join('\n')])
   everywhere.push(['assets/iqc.js strings', jsText])
   for (const [where, t] of everywhere) for (const [re, name] of REMOVED) ok(`${where}: removed clause number absent: ${name}`, !re.test(t))
   const rg = pagesHTML['regulatory.html']
@@ -1187,27 +1126,176 @@ if (DASH_HTML) { lintNew('dashboard/index.html', proseOf(DASH_HTML)); lintNew('d
   ok('regulatory: Not covered, never "Not yet", as the label for what is not done', /<dt>Not covered<\/dt>/.test(rg) && !/<dt>Not yet<\/dt>/.test(rg) && rg.includes('Not covered lists what Immutable QC does not do'))
 }
 
+// ------------------------------------------------------------------------------------------------ 7g. the hand-written pages and shipped scripts (v1)
+// docs/product-v1.md, sections 2, 6 and 7 (Draft 7). The landing page (index.html), the app (app/), their design assets
+// (ui/), the format's one implementation (core/) and the one-file agent (download/iqc.mjs) are written by hand, not by
+// this build, and ship under the document set's rules: the banned wording (the pages' text also against the stricter site
+// list), the vendor-name ban, no email address, US spelling, no third-party request, a Content-Security-Policy before
+// anything loads, no inline event handler, and present tense only for what works. So does dashboard/index.html, the alpha
+// console's old address, which now sends visitors to the app. Scripts are read as their string literals
+// (site/tools/jsstrings.mjs, as the console was), module specifiers ('node:crypto') left out. index.html and
+// app/index.html must exist; a file the spec names that is not written yet is skipped, named in one pending assertion.
+//
+// What v1 does not do (section 1) carries the one label "Upcoming" in any copy: anchoring heads on a public network,
+// Merkle batches, an encrypted archive, per-person signatures, extracting values from inside files (per-result records),
+// lineage, sealing inside the vendor's software, a Windows installer or service, an npm package, post-quantum
+// signatures. 7b's and 7e's lists were written for the document set's construction (a five-field record, sealed at
+// import), where "sealed at the instrument" or "the app writes" were claims to stop; in v1 the agent does run on the
+// instrument PC and the app does write a report, so these pages get v1's own list, tested on sample claims below, with
+// 7b's "not working" and label rules and 7f's three as they are. "Broken" stays allowed here: the ledger's verdicts use it.
+const V1_FEAT = /\banchor(?:s|ed|ing)?\b|\bpublic (?:test )?networks?\b|\bblockchains?\b|\bon-?chain\b|\bregistr(?:y|ies)\b|\bMerkle\b|\bencrypted archives?\b|\bFilecoin\b|\bper-(?:person|analyst|user) signatures?\b|\bper-result records?\b|\bextract(?:s|ed|ing|ion of)? (?:the )?values\b|\blineage\b|\bseal(?:s|ed|ing)?(?: \w+)? at capture\b|\binside the (?:vendor|instrument)(?:’s|'s)? software\b|\bWindows (?:installer|service)\b|\binstallers?\b|\bnpm (?:package|install)\b|\bpost-quantum\b|\bquantum\b|\bML-DSA\b|\bSLH-DSA\b|\bML-KEM\b/i
+// read with the negated clauses removed (unneg, section 7b): "Nothing is uploaded" is not a claim; "…; it is anchored" is
+const V1_NOW = [
+  /(?<!\b(?:will|would|could|should|might|may|to|not) be )\b(?:is|are|was|were|gets?|got) anchored\b/i,
+  /(?<!\b(?:will|would|could|should|might|may|to) )\banchors (?:the|each|every|its|your|a) /i,
+  /\b(?:is|are|was|were) (?:written|published|sent|uploaded|stored|copied) (?:on|to) (?:a |the |our |any )?(?:public )?(?:test )?(?:network|blockchain|registry|cloud|server)\b/i,
+  /\b(?:is|are) (?:archived|stored|kept|uploaded|encrypted) (?:on|to|in) Filecoin\b|\bFilecoin (?:holds|stores|keeps)\b/i,
+  /\b(?:signs|signed|seals|sealed) (?:\w+ ){0,3}with (?:ML-DSA|SLH-DSA|ML-KEM|a post-quantum)\b|\buses (?:ML-DSA|SLH-DSA|ML-KEM|Merkle|a Merkle|Filecoin)\b/i,
+  /\b(?:computes|traces|tracks|shows|follows) (?:its |the |a |every )?lineage\b/i,
+  /\bnpm (?:install|i) (?:-g )?\S/i,
+]
+const NOT_V1 = (s) => !/\?$/.test(s) && V1_FEAT.test(unneg(s)) && !NEW_OK_STRICT.test(s)
+const NOW_V1 = (s) => V1_NOW.some((re) => re.test(unneg(s)))
+const lintV1 = (where, sents) => {
+  bad(where, sents, 'every sentence that names something v1 does not do (anchoring, a public network, a registry, Merkle batches, an encrypted archive, per-person signatures, per-result records, lineage, sealing inside the vendor’s software, an installer or service, an npm package, post-quantum signatures) says upcoming, will/would, once, not yet, until or simulated', NOT_V1)
+  bad(where, sents, 'no present-tense claim that anchoring, an upload, the archive, post-quantum signatures, lineage or an npm package works today', NOW_V1)
+  bad(where, sents, 'nothing called "not working" or "does not work"', (s) => NOT_WORKING.test(s))
+  bad(where, sents, 'one label for what is not built: "Upcoming" (no "on the roadmap", "planned", "coming soon")', (s) => /\bon the roadmap\b|\bplanned\b|\bcoming soon\b/i.test(s))
+  L7F(where, sents)
+}
+{
+  // the v1 lints catch what they are for, and pass what v1 says of itself
+  const flagged = (s) => NOT_V1(s) || NOW_V1(s)
+  const mustFail = ['The agent anchors the head on a public network.', 'Each head is anchored on a public network every hour.', 'Install it with npm install immutableqc.', 'Ledgers are signed with ML-DSA.', 'The app shows the lineage of every value.', 'Merkle batches keep the values private.', 'A Windows installer sets it up as a service.', 'Your files are uploaded to a server for checking.', 'Nothing is uploaded; the head is anchored on a public network.', 'Per-person signatures identify who changed a file.', 'Every file is sealed at capture.']
+  const mustPass = ['Anchoring heads on a public network is upcoming.', 'No npm package, no installer: one file you run with Node.js.', 'Nothing is uploaded: your browser reads the files.', 'Upcoming: a Windows installer and service, and an npm package.', 'Per-person signatures would follow.', 'The agent never anchors anything; anchoring on a public network is upcoming.', 'Every file is sealed as the instrument software writes it.', 'It works on network shares, where file events do not.', 'The app writes a self-contained audit report.', 'A changed file is flagged in the audit.', 'Is my data put on a blockchain?']
+  ok(`7g lints: every sample claim is caught (${mustFail.filter((x) => !flagged(x)).join(' | ') || 'all caught'})`, mustFail.every(flagged))
+  ok(`7g lints: what v1 says of itself passes (${mustPass.filter(flagged).join(' | ') || 'all pass'})`, !mustPass.some(flagged))
+}
+const V1_STATUS = 'Independent project · Open alpha · No customers yet'
+const APOS = (t) => t.replace(/'/g, '’')
+const HAND = { pages: {}, scripts: {}, styles: {}, pending: [] }
+{
+  const walk = (d) => (!existsSync(join(OUT, d)) ? [] : readdirSync(join(OUT, d), { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : 1))
+    .flatMap((e) => (e.isDirectory() ? (/^(?:test|node_modules)$|^\./.test(e.name) ? [] : walk(`${d}/${e.name}`)) : [`${d}/${e.name}`])))
+  const found = ['app', 'ui', 'core'].flatMap(walk)
+  // the files the spec names (section 2), besides the two pages
+  const SPEC = ['app/app.mjs', 'app/app.css', 'app/hash-worker.mjs', 'core/immutableqc.mjs', 'ui/theme.css', 'ui/landing.css', 'ui/landing.mjs', 'download/iqc.mjs']
+  for (const f of ['index.html', 'app/index.html', 'dashboard/index.html']) ok(`${f}: present, written by hand (never by this build)`, existsSync(join(OUT, f)) && !(f in out))
+  for (const f of [...new Set(['index.html', 'app/index.html', 'dashboard/index.html', ...found.filter((f) => /\.html$/.test(f))])]) if (existsSync(join(OUT, f))) HAND.pages[f] = readFileSync(join(OUT, f), 'utf8')
+  for (const f of [...found.filter((f) => /\.m?js$/.test(f)), 'download/iqc.mjs']) if (existsSync(join(OUT, f))) HAND.scripts[f] = readFileSync(join(OUT, f), 'utf8')
+  for (const f of found.filter((f) => /\.css$/.test(f))) HAND.styles[f] = readFileSync(join(OUT, f), 'utf8')
+  HAND.pending = SPEC.filter((f) => !existsSync(join(OUT, f)))
+  ok(`v1 lint: pending, skipped until written (docs/product-v1.md, section 2): ${HAND.pending.join(', ') || 'none; every file the spec names is linted'}`, true)
+}
+{
+  const cspDirs = (c) => Object.fromEntries(c.split(';').map((d) => d.trim().split(/\s+/)).filter((d) => d[0]).map(([k, ...v]) => [k.toLowerCase(), v]))
+  const SRC_OK = /^(?:'self'|'none'|'sha(?:256|384|512)-[A-Za-z0-9+/=]+'|'unsafe-inline'|data:|blob:)$/
+  const LOADS = /<(?:script|link|style|img|iframe|object|embed|video|audio|source|track|picture)\b/i
+  const remoteURL = (u) => /^\s*(?:[a-z][\w+.-]*:)?\/\//i.test(u) || (/^\s*[a-z][\w+.-]*:/i.test(u) && !/^\s*(?:data|blob):/i.test(u))
+  for (const [f, html] of Object.entries(HAND.pages)) {
+    const t = textOf(html), tg = textOf(html, true), body = html.replace(/<script type="application\/(?:ld\+)?json"[\s\S]*?<\/script>/g, '')
+    for (const re of [...BANNED, ...BANNED_SITE]) ok(`${f}: no banned wording ${re}`, !re.test(scrub(t)) && !re.test(scrub(tg)))
+    ok(`${f}: no email address`, !EMAIL.test(t) && !/mailto:/i.test(html))
+    ok(`${f}: US spelling`, !US_SPELL.test(tg))
+    for (const [re, name] of REMOVED_CLAUSES) ok(`${f}: removed clause number absent: ${name}`, !re.test(t))
+    tally.ie.push(...Array(count(t, /intelligence explosion/gi)).fill(f))
+    tally.fc.push(...Array(count(t, /Filecoin Calibration/gi)).fill(f))
+    lintV1(`${f} (its text)`, proseOf(html))
+    // the CSP: one, in the head, before anything that loads; no origin but the site's own (no host, scheme or wildcard
+    // source but data: and blob:); script-src with no inline code but by hash and no eval; every inline script and style
+    // allowed by its hash
+    const metas = [...html.matchAll(/<meta http-equiv="Content-Security-Policy" content="([^"]*)">/gi)].map((m) => m[1])
+    const at = html.search(/<meta http-equiv="Content-Security-Policy"/i), load = html.search(LOADS)
+    ok(`${f}: one CSP meta, in the head, before any script, stylesheet or other request`, metas.length === 1 && count(html, /Content-Security-Policy/gi) === 1 && at > 0 && at < html.indexOf('</head>') && (load < 0 || at < load))
+    const D = cspDirs(metas[0] || ''), odd = Object.values(D).flat().filter((x) => !SRC_OK.test(x))
+    ok(`${f}: the CSP starts from default-src 'none' (or 'self') and allows no other origin${odd.length ? ` (${odd.join(' ')})` : ''}`, ["'none'", "'self'"].includes((D['default-src'] || []).join(' ')) && odd.length === 0 && !D['report-uri'] && !D['report-to'])
+    const scr = D['script-src-elem'] || D['script-src'] || D['default-src'] || [], sty = D['style-src-elem'] || D['style-src'] || D['default-src'] || []
+    ok(`${f}: the CSP runs no inline code but by hash, no eval and no script from data: or blob:`, ![...scr, ...(D['script-src'] || []), ...(D['script-src-attr'] || [])].some((x) => /^(?:'unsafe-inline'|'unsafe-eval'|'unsafe-hashes'|'wasm-unsafe-eval'|data:|blob:)$/.test(x)))
+    for (const [, a, code] of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)) if (!/\ssrc=/.test(a) && !/type="application\/(?:ld\+)?json"/.test(a)) ok(`${f}: an inline script is allowed by its hash in the CSP`, scr.includes(SRC_HASH(code)))
+    for (const [, code] of html.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)) ok(`${f}: an inline <style> is allowed by its hash in the CSP`, sty.includes(SRC_HASH(code)) || sty.includes("'unsafe-inline'"))
+    if (f.startsWith('app/')) ok(`${f}: connect-src 'none', so nothing can be uploaded (docs/product-v1.md, section 5)`, (D['connect-src'] || []).join(' ') === "'none'")
+    ok(`${f}: no inline event handlers and no javascript: URLs`, !/<[a-z][^>]*\son[a-z]+\s*=/i.test(html) && !/(?:href|src|action)\s*=\s*["']?\s*javascript:/i.test(html))
+    // no third-party request: everything the page loads (src, srcset, poster, data, a <link> that loads, url() in its
+    // CSS, a refresh) is relative, or data:/blob:; links to other sites use https
+    const loads = [...body.matchAll(/<(?!a\b)[a-z][\w-]*\b[^>]*?\s(?:src|srcset|poster|data|action|formaction)="([^"]*)"/gi)].map((m) => m[1])
+      .concat([...body.matchAll(/<link\b([^>]*)>/gi)].filter(([, a]) => !/\srel="(?:canonical|alternate|author|license|me)"/.test(a)).map(([, a]) => (a.match(/\shref="([^"]*)"/) || [, ''])[1]))
+      .concat([...body.matchAll(/url\(\s*['"]?([^'")]+)/gi)].map((m) => m[1]), [...body.matchAll(/<meta http-equiv="refresh" content="[^"]*?url=([^"]+)"/gi)].map((m) => m[1]))
+    const remote = loads.filter(remoteURL)
+    ok(`${f}: no third-party requests (everything it loads is the site’s own${remote.length ? `; found ${remote.slice(0, 3).join(' ')}` : ''})`, remote.length === 0)
+    ok(`${f}: links to other sites use https`, [...body.matchAll(/<a\b[^>]*\shref="([^"]*)"/gi)].every(([, u]) => !/^(?:[a-z][\w+.-]*:)?\/\//i.test(u) || /^https:\/\//.test(u)))
+  }
+  // the landing page and the app (section 7): their own status line (they work on real files), the independence line
+  // and joseqc.com in the footer, and a link to the document set ("Docs")
+  const IX = HAND.pages['index.html'] || '', AP = HAND.pages['app/index.html'] || '', DB = HAND.pages['dashboard/index.html'] || ''
+  for (const [f, html, docs] of [['index.html', IX, 'overview.html'], ['app/index.html', AP, '../overview.html']]) {
+    const tg = textOf(html, true), foot = html.slice(Math.max(0, html.lastIndexOf('<footer')))
+    ok(`${f}: the status line, exactly ("${V1_STATUS}": real files, so not "Synthetic demo data")`, tg.includes(V1_STATUS) && !/Synthetic demo data/i.test(tg))
+    ok(`${f}: the footer carries the independence line and links joseqc.com`, /^<footer\b/.test(foot) && APOS(textOf(foot, true)).includes(C.independence) && /<a\b[^>]*\shref="https:\/\/joseqc\.com\/?"/.test(foot))
+    ok(`${f}: links the document set (${docs})`, html.includes(`href="${docs}"`))
+  }
+  ok('index.html: links the app', /href="app\/[^"]*"/.test(IX))
+  ok('index.html: the hand-written landing page, not the old generated Overview', !/data-doc="IQC-OV-01"|id="iqc-seq"|class="dochead"/.test(IX))
+  ok('index.html: the founder’s line once, verbatim', count(textOf(IX), /intelligence explosion/gi) === 1 && APOS(textOf(IX)).includes(C.founderLine))
+  if (/href="download\/iqc\.mjs"/.test(IX) && existsSync(join(OUT, 'download/iqc.mjs'))) ok('index.html: the SHA-256 of download/iqc.mjs is printed beside its link', textOf(IX).includes(HB(readFileSync(join(OUT, 'download/iqc.mjs')))))
+  // the alpha console's old address: no script, straight on to ../app/, with a visible link for a browser that does not
+  // follow a refresh
+  ok('dashboard/index.html: no script', !/<script\b/i.test(DB))
+  ok('dashboard/index.html: sends visitors to ../app/ at once, with the visible link "The alpha console has moved to the app"', /<meta http-equiv="refresh" content="0; url=\.\.\/app\/">/.test(DB) && /<a href="\.\.\/app\/">The alpha console has moved to the app<\/a>/.test(DB))
+  ok(`dashboard/index.html: not indexed, and tiny (${Buffer.byteLength(DB)} bytes <= 2 KB)`, DB.includes('<meta name="robots" content="noindex">') && Buffer.byteLength(DB) <= 2048)
+  // the scripts: their strings, against the same rules; the browser's scripts (app/, ui/, core/) also make no request
+  const noSpec = (src) => src.replace(/\b(from|import)(\s*\(?\s*)(['"])[^'"\n]*\3/g, '$1$2$3$3').replace(/\brequire(\s*\(\s*)(['"])[^'"\n]*\2/g, 'require$1$2$2')
+  const NETAPI = /\bfetch\s*\(|\bXMLHttpRequest\b|\bWebSocket\b|\bEventSource\b|\bsendBeacon\b|\bimportScripts\s*\(|\bRTCPeerConnection\b|\bWebTransport\b/
+  const HOST_OK = /^(?:www\.)?(?:immutableqc\.com|joseqc\.com|w3\.org|nodejs\.org)$/i
+  for (const [f, src] of Object.entries(HAND.scripts)) {
+    const strs = jsStrings(noSpec(src)), st = strs.join('\n')
+    for (const re of BANNED) ok(`${f} strings: no banned wording ${re}`, !re.test(scrub(st)))
+    ok(`${f} strings: no email address`, !EMAIL.test(st))
+    ok(`${f} strings: US spelling`, !US_SPELL.test(st))
+    tally.ie.push(...Array(count(st, /intelligence explosion/gi)).fill(f))
+    tally.fc.push(...Array(count(st, /Filecoin Calibration/gi)).fill(f))
+    lintV1(`${f} strings`, proseOfJS(strs))
+    if (/^(?:app|ui|core)\//.test(f)) {
+      const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`\\])\/\/[^\n]*/g, '$1')
+      ok(`${f}: no network API (fetch, XMLHttpRequest, WebSocket, EventSource, sendBeacon)`, !NETAPI.test(code))
+      ok(`${f}: imports no module from another site`, !/\b(?:from|import)\s*\(?\s*(['"])\s*(?:[a-z][\w+.-]*:)?\/\//i.test(src))
+      const hosts = [...new Set([...st.matchAll(/\b(?:https?|wss?):\/\/([\w.-]+)/gi)].map((m) => m[1]).filter((h) => !HOST_OK.test(h)))]
+      ok(`${f} strings: no address on another site but joseqc.com, nodejs.org and the w3.org namespaces${hosts.length ? ` (found ${hosts.join(', ')})` : ''}`, hosts.length === 0)
+      ok(`${f} strings: no inline event handler in the markup it writes`, !/<[a-z][^>]*\son[a-z]+\s*=/i.test(st))
+    }
+  }
+  if (HAND.scripts['core/immutableqc.mjs']) ok('core/immutableqc.mjs strings: the report it writes has no script (docs/product-v1.md, section 3.9)', !/<script\b/i.test(jsStrings(HAND.scripts['core/immutableqc.mjs']).join('\n')))
+  for (const [f, c] of Object.entries(HAND.styles)) ok(`${f}: no third-party requests (no remote url() or @import)`, !/url\(\s*['"]?\s*(?:[a-z][\w+.-]*:)?\/\//i.test(c) && !/@import\s+(?:url\()?\s*['"]?\s*(?:[a-z][\w+.-]*:)?\/\//i.test(c))
+}
+tally.ie.push(...Array(count(textOf(ogHTML), /intelligence explosion/gi)).fill('og card'))
+// the founder's line, once on the whole site: since Draft 7 on the landing page (docs/product-v1.md, section 7)
+ok(`"intelligence explosion" exactly once across everything the site publishes, on the landing page index.html (found: ${tally.ie.join(', ') || 'none'})`, tally.ie.length === 1 && tally.ie[0] === 'index.html')
+ok(`"Filecoin Calibration" exactly once across the site, on How a record is sealed (found: ${tally.fc.join(', ') || 'none'})`, tally.fc.length === 1 && tally.fc[0] === 'sealed.html')
+
 // ------------------------------------------------------------------------------------------------ 7d. what GitHub Pages publishes
 // Founder decision (step 3b): Pages publishes only the built site, through GitHub Actions (.github/workflows/pages.yml),
-// from the one allowlist in site/tools/deploy.mjs. Everything a page or the console links to must be on it.
+// from the one allowlist in site/tools/deploy.mjs. Everything a page links to must be on it.
 {
   const D = await import(pathToFileURL(join(HERE, 'tools/deploy.mjs')).href)
-  const pub = new Set(D.FILES)
+  const pub = new Set([...D.FILES, ...D.LATER.filter((f) => existsSync(join(OUT, f)))])
   for (const [d, re] of Object.entries(D.DIRS)) {
     for (const p of Object.keys(out).filter((p) => p.startsWith(`${d}/`))) pub.add(p)
     if (existsSync(join(OUT, d))) for (const f of readdirSync(join(OUT, d))) if (re.test(f)) pub.add(`${d}/${f}`)
   }
-  ok('deploy: every page the build writes is on the allowlist', site.pages.every((p) => D.FILES.includes(p.file)) && D.FILES.filter((f) => /^[\w-]+\.html$/.test(f)).length === site.pages.length)
+  // the root pages: the document set the build writes, and the landing page written by hand (Draft 7)
+  ok('deploy: every page the build writes is on the allowlist, and so is the landing page index.html', site.pages.every((p) => D.FILES.includes(p.file)) && D.FILES.includes('index.html') && D.FILES.filter((f) => /^[\w-]+\.html$/.test(f)).length === site.pages.length + 1)
+  ok('deploy: the app, its design assets, the format’s implementation and the one-file agent are published as the spec says (docs/product-v1.md, section 2)', D.FILES.includes('app/index.html') && 'app' in D.DIRS && 'ui' in D.DIRS && D.LATER.includes('core/immutableqc.mjs') && D.LATER.includes('download/iqc.mjs'))
+  ok('deploy: the alpha console is off the allowlist; its old address is the redirect page only', D.FILES.includes('dashboard/index.html') && !D.FILES.some((f) => /^dashboard\/(?!index\.html$)/.test(f)))
+  ok(`deploy: pending, published once written: ${D.pending(OUT).join(', ') || 'none'}`, true)
   ok('deploy: every file the build writes is on the allowlist', Object.keys(out).every((p) => pub.has(p)))
   ok('deploy: the og card, touch icon, favicon and CNAME are on it', ['og.png', 'apple-touch-icon.png', 'favicon.svg', 'CNAME'].every((f) => pub.has(f)))
-  ok('deploy: nothing from site/, contracts/, .github/, no registry script, no .md, no dotfile', [...pub].every((f) => !/^(site|contracts|\.github)\/|^dashboard\/registry-|\.md$|(^|\/)\./i.test(f)))
+  ok('deploy: nothing from site/, contracts/, .github/, agent/, docs/ or a test/ folder, from core/ only immutableqc.mjs, no registry script, no .md, no dotfile', [...pub].every((f) => !/^(site|contracts|\.github|agent|docs)\/|(^|\/)test\/|^core\/(?!immutableqc\.mjs$)|^dashboard\/registry-|\.md$|(^|\/)\./i.test(f)))
   let ok2 = true
   try { D.manifest(OUT) } catch (e) { ok2 = false; console.error(e.message) }
   ok('deploy: the allowlist assembles from the repo as committed (site/tools/deploy.mjs manifest)', ok2 || !CHECK)
   const linked = (from, html) => [...html.matchAll(/(?:href|src)="([^"#?]*)/g)].map((m) => m[1]).filter((u) => u && !/^[a-z]+:/i.test(u) && u !== '/')
     .map((u) => { const p = relative(OUT, join(OUT, from, u)).replace(/\\/g, '/'); return !p || u.endsWith('/') ? join(p, 'index.html').replace(/\\/g, '/') : p })
   for (const [file, html] of Object.entries(pagesHTML)) for (const p of linked('', html.replace('<base href="/">', ''))) ok(`deploy: ${file} links ${p}, which is published`, pub.has(p))
-  if (DASH_HTML) for (const p of linked('dashboard', DASH_HTML)) ok(`deploy: dashboard/index.html links ${p}, which is published`, pub.has(p))
+  for (const [file, html] of Object.entries(HAND.pages)) for (const p of linked(dirname(file), html)) ok(`deploy: ${file} links ${p}, which is published`, pub.has(p))
   const wf = existsSync(join(OUT, '.github/workflows/pages.yml')) ? readFileSync(join(OUT, '.github/workflows/pages.yml'), 'utf8') : ''
   const has = (name, re) => ok(`pages.yml: ${name}`, re.test(wf))
   has('runs on push to main and by hand', /\non:\n  push:\n    branches: \[main\]\n  workflow_dispatch:\n/)
@@ -1222,6 +1310,12 @@ if (DASH_HTML) { lintNew('dashboard/index.html', proseOf(DASH_HTML)); lintNew('d
   has('the build job runs node site/build.mjs --check, then assembles _site/ from the allowlist and uploads it', /run: node site\/build\.mjs --check\n[\s\S]*?run: node site\/tools\/deploy\.mjs _site\n\s+- uses: actions\/upload-pages-artifact@[0-9a-f]{40} # v[\d.]+\n\s+with:\n\s+path: _site\/\n/)
   has('the deploy job needs the build and uses actions/deploy-pages in the github-pages environment', /\n  deploy:\n[\s\S]*needs: build\n[\s\S]*environment:\n\s+name: github-pages\n[\s\S]*uses: actions\/deploy-pages@[0-9a-f]{40} # v[\d.]+\n/)
   ok('pages.yml: publishes only _site/ (no other upload path, no checkout of the repo root as the artifact)', count(wf, /path:/g) === 1)
+  {
+    // docs/product-v1.md, section 8: the unit and integration tests run in CI on Node 22, agent/test once it exists
+    const sc = existsSync(join(OUT, '.github/workflows/site-check.yml')) ? readFileSync(join(OUT, '.github/workflows/site-check.yml'), 'utf8') : ''
+    const job = (sc.match(/\n  unit-tests:\n[\s\S]*?(?=\n  [\w-]+:\n|$)/) || [''])[0]
+    ok('site-check.yml: a unit-tests job runs node --test core/test agent/test on Node 22, and core/test alone until agent/test exists', /node-version: 22\n/.test(job) && /if \[ -d agent\/test \]; then\n\s+node --test core\/test agent\/test\n\s+else\n[\s\S]*?\n\s+node --test core\/test\n\s+fi\n/.test(job))
+  }
   for (const f of ['pages.yml', 'site-check.yml']) {
     const w = existsSync(join(OUT, '.github/workflows', f)) ? readFileSync(join(OUT, '.github/workflows', f), 'utf8') : ''
     const uses = [...w.matchAll(/uses: (\S+)(.*)/g)]
@@ -1234,34 +1328,41 @@ if (DASH_HTML) { lintNew('dashboard/index.html', proseOf(DASH_HTML)); lintNew('d
 // page content the brief asks for, asserted
 const T = Object.fromEntries(Object.entries(pagesHTML).map(([f, h]) => [f, textOf(h, true)]))
 ok('document control: every page says it is informational, not a controlled document', Object.values(pagesHTML).every((h) => h.includes('<div class="use"><dt>Use</dt><dd>Informational draft. Not a controlled document')))
-const ov = pagesHTML['index.html'], ck = pagesHTML['check.html']
-ok('index: definition directly under the H1', /<h1>Tokenized lab data\.<\/h1>[\s\S]{0,200}<h2 id="s1-h"><span class="no">1<\/span>Scope<\/h2>\s*<div class="body">\s*<p class="lead">Each result becomes a sealed record/.test(ov))
-ok('index: the definition never implies a fingerprint reveals nothing', T['index.html'].includes('only a fingerprint will go on the network, never the values.') && !/values stay with the lab/.test(T['index.html']))
+const ov = pagesHTML['overview.html'], ck = pagesHTML['check.html']
+ok('overview: definition directly under the H1', /<h1>Tokenized lab data\.<\/h1>[\s\S]{0,200}<h2 id="s1-h"><span class="no">1<\/span>Scope<\/h2>\s*<div class="body">\s*<p class="lead">Each result becomes a sealed record/.test(ov))
+ok('overview: the definition never implies a fingerprint reveals nothing', T['overview.html'].includes('only a fingerprint will go on the network, never the values.') && !/values stay with the lab/.test(T['overview.html']))
 ok('copy: the Scope definition says what works (fingerprint of five fields, signed, linked), names the audience and the snowball, and states anchoring as upcoming', C.definition.startsWith('Each result becomes a sealed record: a SHA-256 fingerprint of five of its recorded fields, signed and linked to the record before it, so a later change shows. Built for automated research labs in biotechnology, microbiology, chemistry and materials science, where results arrive faster than people can review them and models train on them. ') && /Anchoring batches on a public network is an upcoming feature/.test(C.definition) && !/can be anchored|test network/i.test(C.definition))
 ok('copy: the Overview title and description name automated research labs', /automated research labs/.test(site.pages[0].title) && /automated research labs in biotechnology, microbiology, chemistry and materials science/.test(site.pages[0].description))
 ok('copy: why now, in the founder’s terms (most bad data is not malicious; faster than review; models train on it)', C.whyNow.startsWith('Most bad data is not malicious. ') && /faster than people can review them/.test(C.whyNow) && /models train on them/.test(C.whyNow))
 eq('copy: why now, exactly (Overview section 2’s lead; it adds to the Scope definition, not repeats it)', C.whyNow, 'Most bad data is not malicious. But when results arrive faster than people can review them, and models train on them and choose the next experiment, an ordinary mistake travels before anyone sees it.')
+ok('document control: Draft 7 (2026-10-13) has its history row, first, one sentence: the Overview moved to overview.html; a new landing page and the app at app/ replace the alpha console', (() => { const r = site.history.find((x) => x.rev === 'Draft 7'); return !!r && site.history[0] === r && r.date === '2026-10-13' && r.change.split(/(?<=[.!?])\s+(?=[A-Z“])/).length === 1 && ['The Overview moved from index.html to overview.html', 'a new landing page at index.html', 'the app at app/', 'replace the alpha console'].every((w) => r.change.includes(w)) })())
+eq('document control: the revision and date (Draft 7)', `${site.revision} ${site.updated}`, 'Draft 7 2026-10-13')
+// the alpha console is retired (Draft 7): the app takes its place in the Overview's Today list and in the document set,
+// and no page names the console but the revision history
+ok('overview, today: the app takes the alpha console’s place (it audits a folder in your browser; nothing is uploaded), and the document set links it', ov.includes('<li><span class="k">App · in your browser</span><span>Drop a data folder and your browser re-reads every file') && T['overview.html'].includes('Nothing is uploaded.') && /<a class="xref" href="app\/"><span class="id">app\/<\/span><span>The app<\/span>/.test(ov))
+ok(`pages: the alpha console is named only in the revision history (${Object.entries(pagesHTML).filter(([, h]) => /\bconsole\b/i.test(textOf(h.replace(/<section class="sec sec--side" id="history"[\s\S]*?<\/section>/, ''), true))).map(([f]) => f).join(', ') || 'none elsewhere'})`, Object.values(pagesHTML).every((h) => !/\bconsole\b/i.test(textOf(h.replace(/<section class="sec sec--side" id="history"[\s\S]*?<\/section>/, ''), true)) && !/href="dashboard\//.test(h)))
 ok('document control: Draft 6 (2026-10-07) has its history row, one sentence on the repositioning for automated research labs', (() => { const r = site.history.find((x) => x.rev === 'Draft 6'); return !!r && r.date === '2026-10-07' && /^Repositioned for automated research labs: /.test(r.change) && r.change.split(/(?<=[.!?])\s+(?=[A-Z“])/).length === 1 && ['Why: one wrong value snowballs', 'When your process moves into GMP', 'sealing at capture', 'measured and derived records', 'lineage and recall', 'Merkle batches with salted leaves', 'encrypted archive on Filecoin', 'post-quantum signatures and encryption', 'How a record is sealed', 'What does a fingerprint cover?'].every((w) => r.change.includes(w)) && !/the Scope names the audience and the snowball/.test(r.change) })())
-ok('copy: every page description and the console’s keep anchoring out of the present tense', site.pages.every((p) => !/\banchor/i.test(p.description) || /upcoming/i.test(p.description)))
+ok('copy: every page description keeps anchoring out of the present tense', site.pages.every((p) => !/\banchor/i.test(p.description) || /upcoming/i.test(p.description)))
 ok('copy: a description that says "signed" says demo, since it is read without the page around it', site.pages.every((p) => !/\bsigned\b/i.test(p.description) || /\bdemo\b/i.test(p.description)))
-ok('index: regulatory line present, verbatim, once, in 6.1 "When your process moves into GMP": after Fig. 5, before "What would go public", followed by the Regulatory map link', (() => { const t = T['index.html'], at = t.indexOf(C.regulatory); return count(t, new RegExp(C.regulatory.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) === 1 && at > t.indexOf('When your process moves into GMP') && at > t.indexOf('Fig. 5') && at < t.indexOf('What would go public') && /<h3 id="gmp"><span class="no">6\.1<\/span>When your process moves into GMP<\/h3>/.test(ov) && /<p class="reg">[\s\S]*?<\/p>\s*<p><a class="xref" href="regulatory\.html"><span>Read the regulatory map<\/span>/.test(ov) && !/Regulatory position/.test(t) })())
-ok('index and check: demo-signature line present', T['index.html'].includes(C.demoSig) && T['check.html'].includes(C.demoSig))
-ok('index: says tamper-evident', /tamper-evident/.test(T['index.html']))
-ok('index: Fig. 1 shows the full fingerprint, previous link, link and signature head', ov.includes(g(S.r)) && ov.includes(g(S.prev)) && ov.includes(g(S.h)) && ov.includes(S.sig.slice(0, 16)))
-ok('index: Fig. 1 carries the signature and public key it checks', ov.includes(`data-sig="${S.sig}"`) && ov.includes(`data-pub="${PUB}"`))
-ok('index: Fig. 1, why (the snowball), the story (Fig. 2.1 to 2.7), Fig. 3 record history, then today, where it fits (Fig. 4, then 6.1 GMP with Fig. 5), what would go public, agents, the document set', (() => { const t = T['index.html']; const at = ['Fig. 1', 'Why: one wrong value snowballs', 'How a result becomes a sealed record', ...STP.titles.map((_, i) => `Fig. 2.${i + 1}`), 'Record history', 'Fig. 3', 'Today, upcoming and not claimed', 'Where it fits', 'Fig. 4', 'When your process moves into GMP', 'Fig. 5', 'What would go public', 'Agentic workflows', 'The document set'].map((s) => t.indexOf(s)); return at.every((v, i) => v > 0 && (i === 0 || v > at[i - 1])) && !/Fig\. 6/.test(t) })())
-eq('index: sections numbered 1 to 9, why second, the story third', [...ov.matchAll(/<h2 id="s(\d)-h"><span class="no">(\d)<\/span>/g)].map((m) => m[1] + m[2]).join(' '), '11 22 33 44 55 66 77 88 99')
-ok('index: section 2 (Why) directly after Scope, and the story (section 3) directly after it', /<h2 id="s1-h"><span class="no">1<\/span>Scope<\/h2>[\s\S]*?<\/section>\s*<\/div>\s*(?:<figure class="fig"[\s\S]*?<\/figure>\s*<\/div>\s*)?<section class="sec sec--side" id="why" aria-labelledby="s2-h">\s*<h2 id="s2-h"><span class="no">2<\/span>Why: one wrong value snowballs<\/h2>[\s\S]*?<\/section>\s*<section class="sec story" id="story" aria-labelledby="s3-h" data-story>\s*<h2 id="s3-h"><span class="no">3<\/span>How a result becomes a sealed record<\/h2>/.test(ov))
-// section 2, Why: the ordinary causes, the snowball, and the founder's line as its pull quote
+ok('overview: regulatory line present, verbatim, once, in 6.1 "When your process moves into GMP": after Fig. 5, before "What would go public", followed by the Regulatory map link', (() => { const t = T['overview.html'], at = t.indexOf(C.regulatory); return count(t, new RegExp(C.regulatory.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) === 1 && at > t.indexOf('When your process moves into GMP') && at > t.indexOf('Fig. 5') && at < t.indexOf('What would go public') && /<h3 id="gmp"><span class="no">6\.1<\/span>When your process moves into GMP<\/h3>/.test(ov) && /<p class="reg">[\s\S]*?<\/p>\s*<p><a class="xref" href="regulatory\.html"><span>Read the regulatory map<\/span>/.test(ov) && !/Regulatory position/.test(t) })())
+ok('overview and check: demo-signature line present', T['overview.html'].includes(C.demoSig) && T['check.html'].includes(C.demoSig))
+ok('overview: says tamper-evident', /tamper-evident/.test(T['overview.html']))
+ok('overview: Fig. 1 shows the full fingerprint, previous link, link and signature head', ov.includes(g(S.r)) && ov.includes(g(S.prev)) && ov.includes(g(S.h)) && ov.includes(S.sig.slice(0, 16)))
+ok('overview: Fig. 1 carries the signature and public key it checks', ov.includes(`data-sig="${S.sig}"`) && ov.includes(`data-pub="${PUB}"`))
+ok('overview: Fig. 1, why (the snowball), the story (Fig. 2.1 to 2.7), Fig. 3 record history, then today, where it fits (Fig. 4, then 6.1 GMP with Fig. 5), what would go public, agents, the document set', (() => { const t = T['overview.html']; const at = ['Fig. 1', 'Why: one wrong value snowballs', 'How a result becomes a sealed record', ...STP.titles.map((_, i) => `Fig. 2.${i + 1}`), 'Record history', 'Fig. 3', 'Today, upcoming and not claimed', 'Where it fits', 'Fig. 4', 'When your process moves into GMP', 'Fig. 5', 'What would go public', 'Agentic workflows', 'The document set'].map((s) => t.indexOf(s)); return at.every((v, i) => v > 0 && (i === 0 || v > at[i - 1])) && !/Fig\. 6/.test(t) })())
+eq('overview: sections numbered 1 to 9, why second, the story third', [...ov.matchAll(/<h2 id="s(\d)-h"><span class="no">(\d)<\/span>/g)].map((m) => m[1] + m[2]).join(' '), '11 22 33 44 55 66 77 88 99')
+ok('overview: section 2 (Why) directly after Scope, and the story (section 3) directly after it', /<h2 id="s1-h"><span class="no">1<\/span>Scope<\/h2>[\s\S]*?<\/section>\s*<\/div>\s*(?:<figure class="fig"[\s\S]*?<\/figure>\s*<\/div>\s*)?<section class="sec sec--side" id="why" aria-labelledby="s2-h">\s*<h2 id="s2-h"><span class="no">2<\/span>Why: one wrong value snowballs<\/h2>[\s\S]*?<\/section>\s*<section class="sec story" id="story" aria-labelledby="s3-h" data-story>\s*<h2 id="s3-h"><span class="no">3<\/span>How a result becomes a sealed record<\/h2>/.test(ov))
+// section 2, Why: the ordinary causes, the snowball, and the note on deliberate changes, which ends it (the founder's line,
+// its pull quote until Draft 7, moved to the landing page)
 {
   const why = (ov.match(/<section class="sec sec--side" id="why"[\s\S]*?<\/section>/) || [''])[0], wt = textOf(why, true)
-  ok('index, why: opens with the whyNow copy as its lead', why.includes(`<p class="lead">${esc(C.whyNow)}</p>`))
-  ok('index, why: the ordinary causes, as a compact list (script, sync, crash, backup, migration, outage, a model that filled in a blank)', count(why, /<ul class="causes">[\s\S]*?<\/ul>/g) === 1 && ['script that “fixed” the units', 'sync conflict', 'crash halfway through a write', 'backup restored from last week', 'migration that rounded values', 'outage that dropped a batch', 'model that filled in a blank'].every((w) => (why.match(/<ul class="causes">[\s\S]*?<\/ul>/) || [''])[0].includes(w)) && count(why, /<li>/g) === 7)
-  ok('index, why: the snowball (analysis, model, next experiment) with a lab example, then what a seal shows today and what only the upcoming features would show', wt.includes('it feeds an analysis, the analysis feeds a model, and the model picks the next experiment, so a concentration a script wrote in mg/mL where the pipeline expects µg/mL can end up in a dose-response fit, a training set and tomorrow’s plates.') && wt.includes('Today a seal shows a value changed after it was sealed; upcoming, a restored backup or a dropped batch would show against an anchor, a filled-in blank with measured and derived records, and lineage would find every analysis, model and decision recorded as using a wrong value.'))
-  ok('index, why: three to five sentences besides the list', (() => { const n = textOf(why.replace(/<ul class="causes">[\s\S]*?<\/ul>/, ' ').replace(/<blockquote[\s\S]*?<\/blockquote>/, ' ').replace(/<p class="note">[\s\S]*?<\/p>/, ' '), true).trim().split(/(?<=[.!?])\s+(?=[A-Z“])/).length; return n >= 3 && n <= 5 })())
-  ok('index, why: a deliberate change by someone without the key fails the same checks; a rewrite with the key, or a deletion with relinking, passes each record’s checks; a link to About 5.7 that says where it leads; a note before the pull quote', why.includes('<p class="note"><span class="k">Deliberate changes</span>A value changed on purpose after sealing, by someone without the signing key, fails the same checks as one changed by accident. A history rewritten with the key, or a record deleted and the rest relinked (which needs no key), passes each record’s checks; <a href="about.html#q7">question 5.7 on the About page</a> says what would show it, and what is not covered.</p>') && /<\/p>\s*<blockquote class="pull">/.test(why.slice(why.indexOf('<p class="note">'))))
-  ok('index, why: the causes are ordinary software and operations, and a seal shows a value is still the one sealed (not "captured": the alpha seals at import)', wt.includes('A wrong value usually comes from ordinary software and operations:') && wt.includes('Today a seal shows a value changed after it was sealed;') && !/still what was captured|A sealed record shows whether/.test(wt))
-  ok('index, why: the section ends with the founder’s line (the pull quote is the last block of its body)', /<blockquote class="pull">[\s\S]*?<\/blockquote>\s*<\/div>\s*<\/section>$/.test(why))
+  ok('overview, why: opens with the whyNow copy as its lead', why.includes(`<p class="lead">${esc(C.whyNow)}</p>`))
+  ok('overview, why: the ordinary causes, as a compact list (script, sync, crash, backup, migration, outage, a model that filled in a blank)', count(why, /<ul class="causes">[\s\S]*?<\/ul>/g) === 1 && ['script that “fixed” the units', 'sync conflict', 'crash halfway through a write', 'backup restored from last week', 'migration that rounded values', 'outage that dropped a batch', 'model that filled in a blank'].every((w) => (why.match(/<ul class="causes">[\s\S]*?<\/ul>/) || [''])[0].includes(w)) && count(why, /<li>/g) === 7)
+  ok('overview, why: the snowball (analysis, model, next experiment) with a lab example, then what a seal shows today and what only the upcoming features would show', wt.includes('it feeds an analysis, the analysis feeds a model, and the model picks the next experiment, so a concentration a script wrote in mg/mL where the pipeline expects µg/mL can end up in a dose-response fit, a training set and tomorrow’s plates.') && wt.includes('Today a seal shows a value changed after it was sealed; upcoming, a restored backup or a dropped batch would show against an anchor, a filled-in blank with measured and derived records, and lineage would find every analysis, model and decision recorded as using a wrong value.'))
+  ok('overview, why: three to five sentences besides the list', (() => { const n = textOf(why.replace(/<ul class="causes">[\s\S]*?<\/ul>/, ' ').replace(/<blockquote[\s\S]*?<\/blockquote>/, ' ').replace(/<p class="note">[\s\S]*?<\/p>/, ' '), true).trim().split(/(?<=[.!?])\s+(?=[A-Z“])/).length; return n >= 3 && n <= 5 })())
+  ok('overview, why: a deliberate change by someone without the key fails the same checks; a rewrite with the key, or a deletion with relinking, passes each record’s checks; a link to About 5.7 that says where it leads', why.includes('<p class="note"><span class="k">Deliberate changes</span>A value changed on purpose after sealing, by someone without the signing key, fails the same checks as one changed by accident. A history rewritten with the key, or a record deleted and the rest relinked (which needs no key), passes each record’s checks; <a href="about.html#q7">question 5.7 on the About page</a> says what would show it, and what is not covered.</p>'))
+  ok('overview, why: the causes are ordinary software and operations, and a seal shows a value is still the one sealed (not "captured": the alpha seals at import)', wt.includes('A wrong value usually comes from ordinary software and operations:') && wt.includes('Today a seal shows a value changed after it was sealed;') && !/still what was captured|A sealed record shows whether/.test(wt))
+  ok('overview, why: the section ends with the note on deliberate changes (the last block of its body; no pull quote since Draft 7)', /<p class="note"><span class="k">Deliberate changes<\/span>[^<]*<a href="about\.html#q7">[^<]*<\/a>[^<]*<\/p>\s*<\/div>\s*<\/section>$/.test(why) && !/<blockquote/.test(why))
 }
 {
   // the story (Overview section 3 since Draft 6; its figures stay Fig. 2.1 to 2.7, numbered in order of appearance): seven steps in order, each with its static figure in its own state; one stage
@@ -1325,21 +1426,21 @@ ok('index: section 2 (Why) directly after Scope, and the story (section 3) direc
   ok('story: the inline script and iqc.js use the same stage thresholds (960 px wide, and 600 px tall from 1180 px wide, else 700)', prepaint.includes('innerWidth>=960&&h>=(innerWidth>=1180?600:700)') && src.includes('w >= 960 && h >= (w >= 1180 ? 600 : 700)'))
   ok('story: no animation in the CSS; motion is iqc.js’s finite WAAPI only', !/animation|transition/.test((css.match(/\.sc\{[\s\S]*?(?=\.flow\{)/) || [''])[0]))
 }
-ok('index: Fig. 3 rows are the same sequence (value, capture time, fingerprint per record)', (() => { const tb = ov.match(/<table class="hist"[\s\S]*?<\/table>/)[0]; return recs.every((x) => tb.includes(`<th scope="row" role="rowheader" class="c-n">${x.n}</th>`) && tb.includes(`<time datetime="${x.f.capturedAt}">`) && tb.includes(`data-v>${x.f.value}</td>`) && tb.includes(`<code>${x.r.slice(0, 8)}</code>`)) && count(tb, /<tr role="row" data-n=/g) === N })())
-ok('index: Fig. 3 links to Check a record, read-only', /data-history[\s\S]*?href="check\.html#verifier"/.test(ov) && !/<input|<button/.test(ov.match(/<figure class="fig fig--hist"[\s\S]*?<\/figure>/)[0]))
-ok('index: the founder’s line once, verbatim, as the pull quote of section 2 (Why), before the story, and nowhere else', count(T['index.html'], /intelligence explosion/g) === 1 && /<section class="sec sec--side" id="why" aria-labelledby="s2-h">[\s\S]*?<blockquote class="pull"><p>In an intelligence explosion, human review can’t keep up with every result; records have to verify themselves\.<\/p><footer>[\s\S]*?, founder<\/footer><\/blockquote>[\s\S]*?<\/section>\s*<section class="sec story"/.test(ov) && count(ov, /<blockquote class="pull">/g) === 1 && !/intelligence explosion/.test(ov.slice(ov.indexOf('id="agents"'))))
+ok('overview: Fig. 3 rows are the same sequence (value, capture time, fingerprint per record)', (() => { const tb = ov.match(/<table class="hist"[\s\S]*?<\/table>/)[0]; return recs.every((x) => tb.includes(`<th scope="row" role="rowheader" class="c-n">${x.n}</th>`) && tb.includes(`<time datetime="${x.f.capturedAt}">`) && tb.includes(`data-v>${x.f.value}</td>`) && tb.includes(`<code>${x.r.slice(0, 8)}</code>`)) && count(tb, /<tr role="row" data-n=/g) === N })())
+ok('overview: Fig. 3 links to Check a record, read-only', /data-history[\s\S]*?href="check\.html#verifier"/.test(ov) && !/<input|<button/.test(ov.match(/<figure class="fig fig--hist"[\s\S]*?<\/figure>/)[0]))
+ok('overview: no founder’s line and no pull quote since Draft 7 (the line lives on the landing page, index.html; section 7g counts it)', count(T['overview.html'], /intelligence explosion/gi) === 0 && !/<blockquote/.test(ov))
 ok('copy: the founder’s line, exactly', C.founderLine === 'In an intelligence explosion, human review can’t keep up with every result; records have to verify themselves.')
 // where it fits: Fig. 4 is the automated lab (sealing at the orchestrator or driver, upcoming; today beside the export), Fig. 5 the GMP lab
 {
   const fits = (ov.match(/<section class="sec" id="fits"[\s\S]*?<\/section>/) || [''])[0], figs = fits.match(/<figure class="flow[ "][\s\S]*?<\/figure>/g) || [], ft = figs.map((f) => textOf(f, true))
-  ok('index: where it fits holds two flow figures, Fig. 4 then Fig. 5, each named by its caption', figs.length === 2 && /aria-labelledby="f4-c"/.test(figs[0]) && /<b>Fig\. 4<\/b>/.test(figs[0]) && /aria-labelledby="f5-c"/.test(figs[1]) && /<b>Fig\. 5<\/b>/.test(figs[1]))
-  ok('index, Fig. 4: Instrument, Orchestrator or driver (SiLA 2, OPC UA LADS), Data pipeline, Models and agents; Immutable QC sealing where the result is produced, upcoming; today beside the export', ['Instrument', 'Orchestrator or driver', 'SiLA 2', 'OPC UA LADS', 'Data pipeline', 'Models and agents', 'Upcoming: sealed here', 'Today: an HPLC CSV export', 'Today: imports an HPLC CSV export, then fingerprints, links and signs each peak area.', 'Upcoming: would seal each result as the orchestrator or driver receives it', 'Upcoming: agents would check the sealed history before use', 'Where Immutable QC would sit in an automated lab', 'Today it imports an HPLC CSV export (solid line)'].every((w) => ft[0].includes(w)) && count(figs[0], /<li class="node/g) === 4 && figs[0].includes('<span class="tag">Alpha</span>') && /^<figure class="flow flow--fits"/.test(figs[0]) && count(figs[0], /<p class="iqc-in iqc-in--up">/g) === 1 && count(figs[0], /<p class="iqc-in iqc-in--today">/g) === 1 && count(figs[0], /class="iqc-in/g) === 2 && figs[0].indexOf('iqc-in--up') < figs[0].indexOf('iqc-in--today') && !/iqc-in--(?:up|today)|flow--fits/.test(figs[1]) && !/where the orchestrator or driver produces it|reads each result/.test(ft[0]))
-  ok('index, Fig. 5: Instrument, CDS, LIMS, QA review and the CSV export, as before', ['Instrument', 'CDS', 'LIMS', 'QA review', 'CSV export from the CDS', 'Upcoming: QA review would check the sealed history', 'Where Immutable QC sits in a GMP lab'].every((w) => ft[1].includes(w)) && count(figs[1], /<li class="node/g) === 4)
-  ok('index, where it fits: the body names the orchestrator, the drivers and the pipeline, says sealing there is upcoming, that today it sits beside the export, and that a change before import is not covered today (before capture, once sealing moves there)', ['scheduler or orchestrator', 'device drivers', 'data pipeline', 'Sealing each result in the orchestrator or driver, as the instrument produces it, over SiLA 2 or OPC UA LADS, is upcoming.', 'Today, Immutable QC sits beside an HPLC CSV export', 'Today a change made before import is not covered; with sealing at capture, only a change made before capture would be.'].every((w) => textOf(fits, true).includes(w)))
-  ok('index, today: the Upcoming item names every new upcoming feature', (() => { const li = (ov.match(/<li><span class="k"><span class="tag tag--in">Upcoming<\/span><\/span><span>[\s\S]*?<\/li>/) || [''])[0]; return ['Sealing at capture (SiLA 2 and OPC UA LADS adapters)', 'measured and derived records', 'lineage and recall', 'Merkle batches with salted leaves and inclusion checks', 'an encrypted archive on Filecoin', 'post-quantum signatures', 'agentic workflows'].every((w) => textOf(li, true).includes(w)) })())
-  ok('index, agents: measured and derived records, and the one-line rule, with links to both roadmap items', ['only a record sealed at capture, by the instrument’s or orchestrator’s key, would count as measured', 'either traces back to a measurement or it does not', 'or that it was ever measured'].every((w) => T['index.html'].includes(w)) && /id="agents"[\s\S]*?href="roadmap\.html#agents"[\s\S]*?href="roadmap\.html#derived"/.test(ov))
+  ok('overview: where it fits holds two flow figures, Fig. 4 then Fig. 5, each named by its caption', figs.length === 2 && /aria-labelledby="f4-c"/.test(figs[0]) && /<b>Fig\. 4<\/b>/.test(figs[0]) && /aria-labelledby="f5-c"/.test(figs[1]) && /<b>Fig\. 5<\/b>/.test(figs[1]))
+  ok('overview, Fig. 4: Instrument, Orchestrator or driver (SiLA 2, OPC UA LADS), Data pipeline, Models and agents; Immutable QC sealing where the result is produced, upcoming; today beside the export', ['Instrument', 'Orchestrator or driver', 'SiLA 2', 'OPC UA LADS', 'Data pipeline', 'Models and agents', 'Upcoming: sealed here', 'Today: an HPLC CSV export', 'Today: imports an HPLC CSV export, then fingerprints, links and signs each peak area.', 'Upcoming: would seal each result as the orchestrator or driver receives it', 'Upcoming: agents would check the sealed history before use', 'Where Immutable QC would sit in an automated lab', 'Today it imports an HPLC CSV export (solid line)'].every((w) => ft[0].includes(w)) && count(figs[0], /<li class="node/g) === 4 && figs[0].includes('<span class="tag">Alpha</span>') && /^<figure class="flow flow--fits"/.test(figs[0]) && count(figs[0], /<p class="iqc-in iqc-in--up">/g) === 1 && count(figs[0], /<p class="iqc-in iqc-in--today">/g) === 1 && count(figs[0], /class="iqc-in/g) === 2 && figs[0].indexOf('iqc-in--up') < figs[0].indexOf('iqc-in--today') && !/iqc-in--(?:up|today)|flow--fits/.test(figs[1]) && !/where the orchestrator or driver produces it|reads each result/.test(ft[0]))
+  ok('overview, Fig. 5: Instrument, CDS, LIMS, QA review and the CSV export, as before', ['Instrument', 'CDS', 'LIMS', 'QA review', 'CSV export from the CDS', 'Upcoming: QA review would check the sealed history', 'Where Immutable QC sits in a GMP lab'].every((w) => ft[1].includes(w)) && count(figs[1], /<li class="node/g) === 4)
+  ok('overview, where it fits: the body names the orchestrator, the drivers and the pipeline, says sealing there is upcoming, that today it sits beside the export, and that a change before import is not covered today (before capture, once sealing moves there)', ['scheduler or orchestrator', 'device drivers', 'data pipeline', 'Sealing each result in the orchestrator or driver, as the instrument produces it, over SiLA 2 or OPC UA LADS, is upcoming.', 'Today, Immutable QC sits beside an HPLC CSV export', 'Today a change made before import is not covered; with sealing at capture, only a change made before capture would be.'].every((w) => textOf(fits, true).includes(w)))
+  ok('overview, today: the Upcoming item names every new upcoming feature', (() => { const li = (ov.match(/<li><span class="k"><span class="tag tag--in">Upcoming<\/span><\/span><span>[\s\S]*?<\/li>/) || [''])[0]; return ['Sealing at capture (SiLA 2 and OPC UA LADS adapters)', 'measured and derived records', 'lineage and recall', 'Merkle batches with salted leaves and inclusion checks', 'an encrypted archive on Filecoin', 'post-quantum signatures', 'agentic workflows'].every((w) => textOf(li, true).includes(w)) })())
+  ok('overview, agents: measured and derived records, and the one-line rule, with links to both roadmap items', ['only a record sealed at capture, by the instrument’s or orchestrator’s key, would count as measured', 'either traces back to a measurement or it does not', 'or that it was ever measured'].every((w) => T['overview.html'].includes(w)) && /id="agents"[\s\S]*?href="roadmap\.html#agents"[\s\S]*?href="roadmap\.html#derived"/.test(ov))
 }
-ok('index and check: embedded data matches the computed chain', ['index.html', 'check.html'].every((f) => { const d = JSON.parse(pagesHTML[f].match(/<script type="application\/json" id="iqc-seq">([\s\S]*?)<\/script>/)[1]); return d.anchor === anchor && d.pub === PUB && d.records.every((x, i) => x.r === recs[i].r && x.h === recs[i].h && x.prev === recs[i].prev && x.sig === recs[i].sig) }))
+ok('overview and check: embedded data matches the computed chain', ['overview.html', 'check.html'].every((f) => { const d = JSON.parse(pagesHTML[f].match(/<script type="application\/json" id="iqc-seq">([\s\S]*?)<\/script>/)[1]); return d.anchor === anchor && d.pub === PUB && d.records.every((x, i) => x.r === recs[i].r && x.h === recs[i].h && x.prev === recs[i].prev && x.sig === recs[i].sig) }))
 // the commands as a reader copies them: the text, without the <wbr> and spans that only let a long line break
 const cmdText = (h) => [...h.matchAll(/<span class="p">([\s\S]*?)<\/span>\n|<pre class="rc-p"><code>([\s\S]*?)<\/code><\/pre>/g)].map((m) => ENT((m[1] ?? m[2]).replace(/<[^>]+>/g, '')))
 ok('check: recipe prerendered for the selected record and exactly right', (() => { const c = cmdText(ck); return c.length === 2 && c[0] === `printf '%s' '${S.p}' | sha256sum` && c[1] === `printf '%s' '${S.prev}${S.r}${S.n}' | sha256sum` && H(S.p) === S.r && H(`${S.prev}${S.r}${S.n}`) === S.h })())
@@ -1349,8 +1450,8 @@ ok('check: agent JSON names the anchor as simulated, labelled Upcoming', T['chec
 ok('check: SST line matches the computed RSD', T['check.html'].includes(`peak-area RSD ${rsd.toFixed(2)}%`))
 ok('check: the explanation follows the rule (only the link into the next record breaks)', T['check.html'].includes('breaks only the link into the next record'))
 ok('check: status words never say "verified" (in GMP that means a second person checked)', !/verified/i.test(ck.match(/<template id="iqc-words">[\s\S]*?<\/template>/)[0]) && !/verified at build/.test(ck))
-ok('sealed: the privacy note, the reason in plain words, two anchors one record apart, and what anchoring would write', ['A plain SHA-256 of a few guessable fields', 'can in principle be matched by trying likely values', 'Nothing on this site or in the console writes to a public network. When anchoring becomes available, it will write only a batch fingerprint, never the values', 'two anchors one record apart', 'zero-knowledge proofs', 'Salted (hiding) commitments'].every((w) => T['sealed.html'].includes(w)))
-ok('sealed: anchoring is upcoming, the registry code is written, every anchor here is simulated, no shared registry', ['Anchoring is an upcoming feature', 'The registry code for that network (a smart contract) is written, but nothing on this site or in the console writes to a network', 'no shared registry exists yet', 'Every anchor here is simulated'].every((w) => T['sealed.html'].includes(w)) && /<h2 id="s7-h"><span class="no">7<\/span><span>Anchoring a batch <span class="tag">Upcoming<\/span>/.test(pagesHTML['sealed.html']))
+ok('sealed: the privacy note, the reason in plain words, two anchors one record apart, and what anchoring would write', ['A plain SHA-256 of a few guessable fields', 'can in principle be matched by trying likely values', 'Nothing on this site or in the app writes to a public network. When anchoring becomes available, it will write only a batch fingerprint, never the values', 'two anchors one record apart', 'zero-knowledge proofs', 'Salted (hiding) commitments'].every((w) => T['sealed.html'].includes(w)))
+ok('sealed: anchoring is upcoming, the registry code is written, every anchor here is simulated, no shared registry', ['Anchoring is an upcoming feature', 'The registry code for that network (a smart contract) is written, but nothing on this site or in the app writes to a network', 'no shared registry exists yet', 'Every anchor here is simulated'].every((w) => T['sealed.html'].includes(w)) && /<h2 id="s7-h"><span class="no">7<\/span><span>Anchoring a batch <span class="tag">Upcoming<\/span>/.test(pagesHTML['sealed.html']))
 ok('sealed: what a pass and a fail do and do not show', ['A pass shows', 'A pass does not show', 'A fail shows', 'A fail does not show'].every((w) => T['sealed.html'].includes(w)))
 ok('sealed: a pass does not show that no record was removed; only an anchor fixes a record’s place', T['sealed.html'].includes('That no record was removed') && T['sealed.html'].includes('only an anchor fixes its place in the history') && !/sits where it was sealed/.test(T['sealed.html']))
 ok('about and regulatory: a removed record with every later link rewritten is said to need no key', T['about.html'].includes('Deleting a record and relinking the ones after it needs no key') && T['regulatory.html'].includes('which needs no key') && !/so a missing one shows/.test(T['regulatory.html']))
@@ -1360,8 +1461,8 @@ ok('sealed and regulatory: a system key’s signature is neither an electronic n
 ok('sealed, status table: capture is Upcoming, not also Not claimed', /<tr><th scope="row">Electronic signatures, validation<\/th><td><b>Not claimed\.<\/b><\/td><\/tr>/.test(pagesHTML['sealed.html']) && !/Instrument capture/i.test(T['sealed.html']))
 ok('regulatory: capture is linked to Sealing at capture with the Upcoming tag, never a bare "instrument capture"', count(pagesHTML['regulatory.html'], /<a href="roadmap\.html#capture">[Ss]ealing at capture<\/a> <span class="tag">Upcoming<\/span>/g) === 2 && !/instrument capture|Capture at the instrument/i.test(T['regulatory.html']))
 ok('regulatory, Enduring: a Filecoin copy would be an extra encrypted copy; the lab’s validated archive stays the record', T['regulatory.html'].includes('for GMP retention the lab’s validated archive stays the record, and a Filecoin copy would be one more encrypted copy, whose storage providers would need the supplier controls EU Annex 11 expects'))
-ok('index, what would go public: one batch fingerprint by default, and the encrypted archive’s ciphertext only if a lab chooses it', T['index.html'].includes('Once anchoring becomes available, by default one batch fingerprint will go on it for a whole run of records.') && T['index.html'].includes('Only if a lab chooses the encrypted archive, also upcoming: its records as ciphertext, encrypted in the lab with keys that stay there, never readable on the network.'))
-ok('index, agents: a derived number that cites real measurements but is wrong would still pass', T['index.html'].includes('A derived number that cites real measurements but was computed or copied wrongly would still pass; a checker would re-run the analysis from its cited inputs where it is deterministic.'))
+ok('overview, what would go public: one batch fingerprint by default, and the encrypted archive’s ciphertext only if a lab chooses it', T['overview.html'].includes('Once anchoring becomes available, by default one batch fingerprint will go on it for a whole run of records.') && T['overview.html'].includes('Only if a lab chooses the encrypted archive, also upcoming: its records as ciphertext, encrypted in the lab with keys that stay there, never readable on the network.'))
+ok('overview, agents: a derived number that cites real measurements but is wrong would still pass', T['overview.html'].includes('A derived number that cites real measurements but was computed or copied wrongly would still pass; a checker would re-run the analysis from its cited inputs where it is deterministic.'))
 ok('sealed: a pass does not show that the value was ever measured (an invented value sealed would pass); measured and derived records are upcoming', ['That the value was ever measured: a pass shows that a record has not changed since it was sealed, not that an instrument produced it', 'invented and then sealed would pass too', 'measured and derived records, which would tell the two apart, are upcoming'].every((w) => T['sealed.html'].includes(w)))
 ok('sealed, privacy: the storage principle (nothing readable leaves the lab), the encrypted archive as upcoming, and salted leaves of a Merkle batch', ['Storage would follow the same rule as anchoring: nothing readable leaves the lab.', 'An encrypted archive on Filecoin is upcoming', 'the ciphertext the lab archived under that address', 'encrypted in the lab before upload, with keys that stay in the lab', 'ciphertext and never results', 'as the leaves of a Merkle batch'].every((w) => T['sealed.html'].includes(w)))
 ok('sealed, status table: every new upcoming item is a row labeled Upcoming, and Filecoin is the encrypted archive', (() => { const h = pagesHTML['sealed.html'].replace(/<span class="nw">([^<]*)<\/span>/g, '$1'); return ['Sealing at capture (SiLA 2, OPC UA LADS adapters)', 'Measured and derived records', 'Lineage and recall', 'Merkle batches with salted leaves', 'Encrypted archive on Filecoin', 'Post-quantum signatures and encryption'].every((w) => h.includes(`<th scope="row">${w}</th><td><span class="tag tag--in">Upcoming</span>`)) && !/Filecoin integration/.test(T['sealed.html']) && !/Filecoin integration/.test(T['regulatory.html']) })())
@@ -1377,7 +1478,7 @@ ok('sealed, status table: every new upcoming item is a row labeled Upcoming, and
   {
     const li = textOf((ov.match(/<li><span class="k"><span class="tag tag--in">Upcoming<\/span><\/span><span>[\s\S]*?<\/li>/) || [''])[0], true).toLowerCase()
     const at = UPCOMING.map(([id]) => li.indexOf(KEY[id]))
-    ok(`index, today: the Upcoming item names every roadmap item, in the Roadmap’s order (${UPCOMING.filter((_, i) => at[i] < 0).map(([id]) => id).join(', ') || 'all named'})`, at.every((v, i) => v >= 0 && (i === 0 || v > at[i - 1])))
+    ok(`overview, today: the Upcoming item names every roadmap item, in the Roadmap’s order (${UPCOMING.filter((_, i) => at[i] < 0).map(([id]) => id).join(', ') || 'all named'})`, at.every((v, i) => v >= 0 && (i === 0 || v > at[i - 1])))
     const rows = [...pagesHTML['sealed.html'].replace(/<span class="nw">([^<]*)<\/span>/g, '$1').matchAll(/<tr><th scope="row">([^<]*)<\/th><td><span class="tag tag--in">Upcoming<\/span>/g)].map((m) => m[1].toLowerCase())
     ok(`sealed, status table: one Upcoming row per roadmap item, in the Roadmap’s order (${rows.length})`, rows.length === UPCOMING.length && UPCOMING.every(([id], i) => rows[i].includes(KEY[id])))
   }
@@ -1403,7 +1504,7 @@ ok('sealed, status table: every new upcoming item is a row labeled Upcoming, and
   ok(`about: 5 to 7 questions (${qs})`, qs >= 5 && qs <= 7)
   eq('about: exactly seven questions since Draft 6, in order (labs, buy or hold, blockchain, CDS/LIMS, GMP today, database edits, sabotage and espionage)', [...pagesHTML['about.html'].matchAll(/<h3 id="q(\d)"><span class="no">5\.(\d)<\/span>([^<]*)<\/h3>/g)].map((m) => `${m[1]}${m[2]} ${m[3]}`).join(' | '), ['What kinds of labs is this for?', 'Do I need to buy or hold anything?', 'Is my data put on a blockchain?', 'Does it replace my orchestrator, ELN, CDS, LIMS or audit trail?', 'Can I use it for GMP records today?', 'What if someone edits the database directly?', 'What about sabotage and espionage?'].map((q, i) => `${i + 1}${i + 1} ${q}`).join(' | '))
   ok('about: "What kinds of labs is this for?" names the four fields, the lab types, the founder’s background and GMP as the expansion path', ab.includes('What kinds of labs is this for? Automated research labs first: biotechnology, microbiology, chemistry and materials science') && ['self-driving labs', 'robotic workcells', 'cloud labs', 'AI-first research companies', 'CROs that hand automated data to clients', 'materials science, chemistry and microbiology', 'Regulated QC labs are the expansion path, not the opening'].every((w) => ab.includes(w)))
-  ok('about: "What about sabotage and espionage?" says most bad data is not malicious, what is detected and not, and that nothing readable leaves the lab', ab.includes('What about sabotage and espionage? Most bad data is not malicious') && ['Sabotage is the minority case', 'Detected today, wherever the checks are run (these pages, the console, or the recipe in How a record is sealed; checking in the alpha app is upcoming): a sealed value changed after sealing by anyone without the signing key', 'A history rewritten with the key would show only against an anchor taken earlier. A record deleted, moved or copied, with the rest relinked, needs no key today; it would show against an earlier anchor too, and through signatures that cover each record’s position when done by anyone without the key. Both are upcoming.', 'Not detected: anything before sealing', 'swapped sample', 'miscalibrated instrument', 'compromised robot software', 'In the alpha app, records are sealed at import; sealing at capture (upcoming) would narrow that window, not close it.', 'Espionage is not detected: a seal makes a change show, not a copy.', 'nothing readable leaves the lab', 'Anchoring would put only a fingerprint on a public network, and once salted (upcoming) it would reveal no value; values would leave only encrypted in the lab, with keys that stay there, and only if the lab chooses the encrypted archive (upcoming).', 'Protecting the records, the keys and the people who hold them stays with the lab; Immutable QC would be one part of that, not a security program.'].every((w) => ab.includes(w)) && !/one risk to discuss with a lab|it would reveal nothing/.test(ab) && !/Detected: any change/.test(ab) && count(pagesHTML['about.html'].match(/<h3 id="q7">[\s\S]*?<\/div>/)[0], /<p>/g) === 4)
+  ok('about: "What about sabotage and espionage?" says most bad data is not malicious, what is detected and not, and that nothing readable leaves the lab', ab.includes('What about sabotage and espionage? Most bad data is not malicious') && ['Sabotage is the minority case', 'Detected today, wherever the checks are run (these pages or the recipe in How a record is sealed; checking in the alpha app is upcoming): a sealed value changed after sealing by anyone without the signing key', 'A history rewritten with the key would show only against an anchor taken earlier. A record deleted, moved or copied, with the rest relinked, needs no key today; it would show against an earlier anchor too, and through signatures that cover each record’s position when done by anyone without the key. Both are upcoming.', 'Not detected: anything before sealing', 'swapped sample', 'miscalibrated instrument', 'compromised robot software', 'In the alpha app, records are sealed at import; sealing at capture (upcoming) would narrow that window, not close it.', 'Espionage is not detected: a seal makes a change show, not a copy.', 'nothing readable leaves the lab', 'Anchoring would put only a fingerprint on a public network, and once salted (upcoming) it would reveal no value; values would leave only encrypted in the lab, with keys that stay there, and only if the lab chooses the encrypted archive (upcoming).', 'Protecting the records, the keys and the people who hold them stays with the lab; Immutable QC would be one part of that, not a security program.'].every((w) => ab.includes(w)) && !/one risk to discuss with a lab|it would reveal nothing/.test(ab) && !/Detected: any change/.test(ab) && count(pagesHTML['about.html'].match(/<h3 id="q7">[\s\S]*?<\/div>/)[0], /<p>/g) === 4)
   ok('about: "Is my data put on a blockchain?" says what anchoring would put on a network by default, and that the encrypted archive (upcoming) would hold records only encrypted in the lab', ab.includes('By default it will put only one batch fingerprint') && ab.includes('A lab that chooses the encrypted archive, also upcoming, would store its records on Filecoin too, encrypted in the lab first and never readable there.') && !/At most it will put/.test(ab))
   ok('about: the fingerprint’s five fields still answered (merged into the orchestrator, ELN, CDS and LIMS question, which names today’s place beside the export and the upcoming one in or beside the orchestrator)', ab.includes('Does it replace my orchestrator, ELN, CDS, LIMS or audit trail? No. Today it sits beside an HPLC CSV export; upcoming, it would sit in or beside the orchestrator and hand each sealed result on unchanged.') && ab.includes('no capture at the instrument or orchestrator') && !/no instrument capture/.test(ab) && ab.includes('the fingerprint covers five fields: instrument, measurement type, value, unit and capture time'))
   ok('about: why it exists speaks to automated labs first, then regulated ones', ab.includes('In an automated lab, results arrive faster than anyone can review them') && ab.includes('In a regulated lab, work that is not documented is treated as not done'))
@@ -1414,12 +1515,12 @@ ok('sealed, status table: every new upcoming item is a row labeled Upcoming, and
 }
 ok('regulatory: every framework, expectation by expectation, with approach, today and not covered', ['21 CFR Part 11', 'EU GMP Annex 11', 'ISO/IEC 17025:2017', 'ALCOA+', 'GMP records', 'TNI'].every((w) => T['regulatory.html'].includes(w)) && (() => { const cl = pagesHTML['regulatory.html'].match(/<article class="cl"[\s\S]*?<\/article>/g) || []; return cl.length >= 20 && cl.every((a) => /<dt>(Approach)<\/dt>/.test(a) && /<dt>Today<\/dt>/.test(a) && /<dt>Not covered<\/dt>/.test(a)) })())
 ok('regulatory: every Upcoming tag on the map follows one of the roadmap items, linked to it', (() => { const rg = pagesHTML['regulatory.html'].replace(/<p class="note">[\s\S]*?<\/p>/, ''); const tags = count(rg, /<span class="tag">Upcoming<\/span>/g); const linked = count(rg, /<a href="roadmap\.html#(?:capture|derived|lineage|agents|merkle|privacy|anchoring|filecoin|signatures|position|review|verification|metadata|registry|pq)">[^<]+<\/a>[^<]{0,80}<span class="tag">Upcoming<\/span>/g); return tags > 0 && tags === linked })())
-ok('404: short, with links home', T['404.html'].includes('Page not found') && /href="index\.html"/.test(pagesHTML['404.html']))
+ok('404: short, with links home (the landing page), to the Overview and to the app', T['404.html'].includes('Page not found') && /href="index\.html"/.test(pagesHTML['404.html']) && /<a class="xref" href="overview\.html"><span class="id">(?:<span class="nw">)?IQC-OV-01(?:<\/span>)?<\/span><span>Overview<\/span>/.test(pagesHTML['404.html']) && /<a class="xref" href="app\/"><span class="id">app\/<\/span><span>The app<\/span>/.test(pagesHTML['404.html']) && !/dashboard\//.test(pagesHTML['404.html']))
 // Fig. 1, Fig. 3, the seven story figures and the stage
-ok('pages: "Simulated · demo data" label on every plate', T['index.html'].split('Simulated · demo data').length === 3 + STP.titles.length + 1 && count(ov, /<div class="plate[ "]/g) === 2 + STP.titles.length + 1 && T['check.html'].includes('Simulated · demo data'))
+ok('pages: "Simulated · demo data" label on every plate', T['overview.html'].split('Simulated · demo data').length === 3 + STP.titles.length + 1 && count(ov, /<div class="plate[ "]/g) === 2 + STP.titles.length + 1 && T['check.html'].includes('Simulated · demo data'))
 ok('words: every key the scripts read exists in the page templates', (() => {
   const keys = (f) => new Set([...pagesHTML[f].matchAll(/data-k="([\w.]+)"/g)].map((m) => m[1]))
-  const ck2 = keys('check.html'), ov2 = keys('index.html')
+  const ck2 = keys('check.html'), ov2 = keys('overview.html')
   const used = [...js.matchAll(/say\((?:`([\w.]+)`|'([\w.]+)')/g)].map((m) => m[1] || m[2]).filter((k) => !k.includes('${'))
   const missing = used.filter((k) => !ck2.has(k) && !ov2.has(k))
   const dyn = ['s.reset', 's.rewrite', 's.correct', 's.correct.none', 'm.fp.ok', 'm.fp.bad', 'm.sig.ok', 'm.sig.bad', 'm.sig.na', 'm.sig.none', 'm.link.ok', 'm.link.bad',
@@ -1446,7 +1547,7 @@ ok(`budget: eager JS ${(gz(Buffer.from(js)) / 1024).toFixed(1)} KB gz <= 22 KB`,
 // the Overview story (Draft 5) may add at most 8 KB gz of eager JS to Draft 4's bundle (13464 bytes gz, main 4e793fb), and
 // keeps the Overview's first load at or under 130 KB gz
 ok(`budget: the story adds ${((gz(Buffer.from(js)) - 13464) / 1024).toFixed(1)} KB gz of eager JS (<= 8 KB)`, gz(Buffer.from(js)) - 13464 <= 8 * 1024)
-ok(`budget: index.html first load ${(sizes['index.html'].total / 1024).toFixed(1)} KB gz <= 130 KB`, sizes['index.html'].total <= 130 * 1024)
+ok(`budget: overview.html first load ${(sizes['overview.html'].total / 1024).toFixed(1)} KB gz <= 130 KB`, sizes['overview.html'].total <= 130 * 1024)
 ok('budget: the story’s figures are inline SVG and HTML only (no <img>, no <picture>, no external URL)', !/<(?:img|picture|iframe|video|canvas)\b/.test((ov.match(/<section class="sec story"[\s\S]*?<\/section>/) || [''])[0]) && !/https?:/.test((ov.match(/<section class="sec story"[\s\S]*?<\/section>/) || [''])[0]))
 ok(`budget: fonts ${(fontsUsed / 1024).toFixed(1)} KB <= 100 KB`, fontsUsed <= 100 * 1024)
 

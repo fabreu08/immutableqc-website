@@ -24,7 +24,7 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preload" href="fonts/archivo-c-115-620.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="assets/site.css?v=07085ed9">
+<link rel="stylesheet" href="assets/site.css?v=c93bb831">
 <script>(function(d){var c=d.documentElement.classList;c.add('js');try{if(!matchMedia('(prefers-reduced-motion: reduce)').matches)c.add('motion')}catch(e){}var r=d.documentElement,h=innerHeight;r.style.setProperty('--svh',h+'px');if(innerWidth>=960&&h>=(innerWidth>=1180?600:700)&&'IntersectionObserver'in window)c.add('stage');var q=function(s){return d.querySelector(s)},b=function(){return q('.menu-btn')},n=function(){return q('.nav')},o=function(){var x=b();return!!x&&x.getAttribute('aria-expanded')==='true'},s=function(v){var x=b(),y=n();if(x&&y){x.setAttribute('aria-expanded',String(v));y.classList.toggle('open',v)}};d.addEventListener('click',function(e){var t=e.target,x=b(),y=n();if(!t||!t.closest)return;if(q('base')&&t.closest('.skip')){e.preventDefault();var m=d.getElementById('main');if(m){m.focus();m.scrollIntoView()}return}if(!x||!y)return;if(x.contains(t))s(!o());else if(o()&&!y.contains(t))s(false)});d.addEventListener('keydown',function(e){if(e.key==='Escape'&&o()){s(false);b().focus()}});d.addEventListener('focusout',function(e){var x=b(),y=n(),r=e.relatedTarget;if(o()&&r&&(y.contains(e.target)||x.contains(e.target))&&!y.contains(r)&&!x.contains(r))s(false)})})(document)</script>
 <script defer src="assets/iqc.js?v=c5a57112"></script>
 </head>
@@ -38,13 +38,13 @@
 <button class="menu-btn" type="button" aria-expanded="false" aria-controls="nav-list"><span class="bars" aria-hidden="true"></span>Contents</button>
 <nav class="nav" aria-label="Site">
 <ol class="nav-list" id="nav-list">
-<li><a href="index.html"><span class="id">OV-01</span><span class="t">Overview</span></a></li>
+<li><a href="overview.html"><span class="id">OV-01</span><span class="t">Overview</span></a></li>
 <li><a href="sealed.html"><span class="id">HS-01</span><span class="t">How a record is sealed</span></a></li>
 <li><a href="check.html"><span class="id">CK-01</span><span class="t">Check a record</span></a></li>
 <li><a href="regulatory.html" aria-current="page"><span class="id">RM-01</span><span class="t">Regulatory map</span></a></li>
 <li><a href="roadmap.html"><span class="id">RD-01</span><span class="t">Roadmap</span></a></li>
 <li><a href="about.html"><span class="id">AB-01</span><span class="t">About</span></a></li>
-<li class="nav-demo"><a href="dashboard/"><span class="id">Demo</span><span class="t">Alpha console</span><span class="demo">Demo</span></a></li>
+<li class="nav-app"><a href="app/"><span class="id" aria-hidden="true">app/</span><span class="t">App</span></a></li>
 </ol>
 </nav>
 </div>
@@ -54,8 +54,8 @@
 <div class="wrap">
 <dl class="dochead">
 <div><dt>Document</dt><dd><span class="nw">IQC-RM-01</span></dd></div>
-<div><dt>Revision</dt><dd>Draft 6</dd></div>
-<div><dt>Updated</dt><dd>2026-10-07</dd></div>
+<div><dt>Revision</dt><dd>Draft 7</dd></div>
+<div><dt>Updated</dt><dd>2026-10-13</dd></div>
 <div class="st"><dt>Status</dt><dd>Independent project · Open alpha · Synthetic demo data · No customers yet</dd></div>
 <div class="use"><dt>Use</dt><dd>Informational draft. Not a controlled document; not a regulatory assessment or a validation statement.</dd></div>
 </dl>
@@ -66,7 +66,7 @@
 <div class="body">
 <p class="reg">Built toward the audit-trail expectations of <span class="nw">21 CFR Part 11</span>, <span class="nw">EU Annex 11</span> and <span class="nw">ISO/IEC 17025:2017</span>. Not validated. No electronic signatures yet. Not a substitute for your computerized-system validation or SOPs.</p>
 <p>For each expectation: what it asks, in plain words; how Immutable QC approaches it; what exists today; and what it does not cover. A clause number is given only where it is confirmed; elsewhere the standard is named and the expectation paraphrased. This is a reading aid, not a claim that anything here meets an expectation. Check each one against your own copy of the text and the edition you work to.</p>
-<p class="note"><span class="k">Legend</span>Today means the open alpha: these pages, the alpha console (a demo in your browser) or the alpha app (not public), as stated. Not covered lists what Immutable QC does not do; items tagged <span class="tag">Upcoming</span> are listed in the Roadmap, and the rest are not. All demo data is synthetic.</p>
+<p class="note"><span class="k">Legend</span>Today means the open alpha: these pages or the alpha app (not public), as stated. Not covered lists what Immutable QC does not do; items tagged <span class="tag">Upcoming</span> are listed in the Roadmap, and the rest are not. All demo data is synthetic.</p>
 </div>
 </section>
 <section class="sec" id="part11" aria-labelledby="s2-h">
@@ -75,13 +75,13 @@
 <article class="cl" aria-labelledby="c-2-1"><h3 id="c-2-1"><span class="no">2.1</span><span>Validation; discerning altered records <span class="cl-id">§11.10(a)</span></span></h3><dl>
 <div><dt>Expectation</dt><dd>Systems are validated for accuracy, reliability, consistent intended performance and the ability to discern invalid or altered records.</dd></div>
 <div><dt>Approach</dt><dd>Each record carries a <span class="nw">SHA-256</span> fingerprint of its sealed fields, a link to the record before it and a signature, so an altered record fails its own checks and breaks the link into the next record.</dd></div>
-<div><dt>Today</dt><dd>The checks run on these pages and in the console demo, on synthetic data. The alpha app fingerprints, links and signs each imported peak area.</dd></div>
+<div><dt>Today</dt><dd>The checks run on these pages, on synthetic data. The alpha app fingerprints, links and signs each imported peak area.</dd></div>
 <div><dt>Not covered</dt><dd>Validation of any kind; Immutable QC is not validated. <a href="roadmap.html#verification">Server-side verification in the app</a> <span class="tag">Upcoming</span></dd></div>
 </dl></article>
 <article class="cl" aria-labelledby="c-2-2"><h3 id="c-2-2"><span class="no">2.2</span>Protection of records for retrieval</h3><dl>
 <div><dt>Expectation</dt><dd>Records are protected so they can be retrieved accurately and readily throughout the retention period.</dd></div>
 <div><dt>Approach</dt><dd>Fingerprints show whether a retrieved record still reads as it was sealed. They do not keep the record.</dd></div>
-<div><dt>Today</dt><dd>Nothing beyond the check itself. The console keeps its synthetic lab in your browser only.</dd></div>
+<div><dt>Today</dt><dd>Nothing beyond the check itself.</dd></div>
 <div><dt>Not covered</dt><dd>Storage, backup, retention and archiving.</dd></div>
 </dl></article>
 <article class="cl" aria-labelledby="c-2-3"><h3 id="c-2-3"><span class="no">2.3</span>Limiting system access</h3><dl>
@@ -93,13 +93,13 @@
 <article class="cl" aria-labelledby="c-2-4"><h3 id="c-2-4"><span class="no">2.4</span><span>Audit trails <span class="cl-id">§11.10(e)</span></span></h3><dl>
 <div><dt>Expectation</dt><dd>Secure, computer-generated, time-stamped audit trails independently record the date and time of operator entries and actions that create, modify or delete records. Changes do not obscure what was recorded before.</dd></div>
 <div><dt>Approach</dt><dd>A correction is a new record with a reason; the original stays readable and keeps passing. A record changed after sealing fails its checks. A removed record, or a history rewritten to hide a change, shows only against a fingerprint anchored beforehand (anchoring is upcoming; simulated on these pages).</dd></div>
-<div><dt>Today</dt><dd>Corrections with a reason on these pages and in the console demo. The reason and the correction time sit beside the seal, not inside it.</dd></div>
+<div><dt>Today</dt><dd>Corrections with a reason on these pages. The reason and the correction time sit beside the seal, not inside it.</dd></div>
 <div><dt>Not covered</dt><dd>Operator identity. A trusted time source: in the alpha app the capture time is an injection time typed at import, or the server’s clock if none is given, the same for every peak in a file. Corrections in the alpha app.</dd></div>
 </dl></article>
 <article class="cl" aria-labelledby="c-2-5"><h3 id="c-2-5"><span class="no">2.5</span>Controls for open systems</h3><dl>
 <div><dt>Expectation</dt><dd>Additional measures, such as document encryption and appropriate digital signature standards, ensure record authenticity, integrity and, where needed, confidentiality.</dd></div>
 <div><dt>Approach</dt><dd><span class="nw">ECDSA P-256</span> signatures (<span class="nw">FIPS 186-5</span>) over each record’s fingerprint. When anchoring becomes available, only a fingerprint will go on a public network, never the values; values would leave the lab only encrypted, and only if the lab chooses the encrypted archive (upcoming).</dd></div>
-<div><dt>Today</dt><dd>Demo keys only: a build-time key on these pages, a key made in your browser in the console, one server key in the alpha app.</dd></div>
+<div><dt>Today</dt><dd>Demo keys only: a build-time key on these pages, a one-time key made in your browser for a correction in Check a record, and one server key in the alpha app.</dd></div>
 <div><dt>Not covered</dt><dd>Managed keys and encryption. <a href="roadmap.html#signatures">Per-analyst signatures</a> <span class="tag">Upcoming</span> <a href="roadmap.html#privacy">Privacy on public networks</a>, with salted commitments in place of plain fingerprints <span class="tag">Upcoming</span></dd></div>
 </dl></article>
 <article class="cl" aria-labelledby="c-2-6"><h3 id="c-2-6"><span class="no">2.6</span><span>Signature manifestations and linking <span class="cl-id">§11.50, §11.70</span></span></h3><dl>
@@ -137,7 +137,7 @@
 <article class="cl" aria-labelledby="c-3-3"><h3 id="c-3-3"><span class="no">3.3</span><span>Audit trails <span class="cl-id">§9</span></span></h3><dl>
 <div><dt>Expectation</dt><dd>Based on risk, the system records GMP-relevant changes and deletions; for a change or deletion the reason is documented. Audit trails are available, intelligible and regularly reviewed.</dd></div>
 <div><dt>Approach</dt><dd>Corrections are appended with a required reason; the original stays. A deleted record, or a history rewritten to hide a change, shows only against a fingerprint anchored beforehand (anchoring is upcoming; simulated on these pages).</dd></div>
-<div><dt>Today</dt><dd>On these pages and in the console demo, with the reason and the correction time beside the seal, not inside it.</dd></div>
+<div><dt>Today</dt><dd>On these pages, with the reason and the correction time beside the seal, not inside it.</dd></div>
 <div><dt>Not covered</dt><dd>Who made the change; review of the audit trail; corrections in the alpha app. <a href="roadmap.html#review">Reviewer sign-off</a> <span class="tag">Upcoming</span></dd></div>
 </dl></article>
 <article class="cl" aria-labelledby="c-3-4"><h3 id="c-3-4"><span class="no">3.4</span>Security</h3><dl>
@@ -172,7 +172,7 @@
 <article class="cl" aria-labelledby="c-4-2"><h3 id="c-4-2"><span class="no">4.2</span>Amendments to technical records</h3><dl>
 <div><dt>Expectation</dt><dd>Amendments can be tracked to previous versions or original observations. The original and amended data are both kept, with the date of the change, what was changed and who made it.</dd></div>
 <div><dt>Approach</dt><dd>A correction is appended as a new record that names the record it corrects; the original is kept as sealed.</dd></div>
-<div><dt>Today</dt><dd>On these pages and in the console demo. The correction carries the result’s capture time, not the time it was made, which sits beside the seal.</dd></div>
+<div><dt>Today</dt><dd>On these pages. The correction carries the result’s capture time, not the time it was made, which sits beside the seal.</dd></div>
 <div><dt>Not covered</dt><dd>Who made the change. The reason and the correction time are not sealed; sealing them is part of <a href="roadmap.html#metadata">sample and method metadata in the seal</a> <span class="tag">Upcoming</span></dd></div>
 </dl></article>
 <article class="cl" aria-labelledby="c-4-3"><h3 id="c-4-3"><span class="no">4.3</span>Validation of the information system</h3><dl>
@@ -197,7 +197,7 @@
 <div class="clauses clauses--alcoa">
 <article class="cl" aria-labelledby="c-5-1"><h3 id="c-5-1"><span class="no">5.1</span>Attributable</h3><dl>
 <div><dt>Approach</dt><dd>A signature ties the record to the key that signed it.</dd></div>
-<div><dt>Today</dt><dd>In the alpha app one server key signs each imported row, which identifies the system, not a person. These pages and the console use demo keys.</dd></div>
+<div><dt>Today</dt><dd>In the alpha app one server key signs each imported row, which identifies the system, not a person. These pages use demo keys.</dd></div>
 <div><dt>Not covered</dt><dd>User accounts. <a href="roadmap.html#signatures">Per-analyst signatures</a> <span class="tag">Upcoming</span></dd></div>
 </dl></article>
 <article class="cl" aria-labelledby="c-5-2"><h3 id="c-5-2"><span class="no">5.2</span>Legible</h3><dl>
@@ -222,17 +222,17 @@
 </dl></article>
 <article class="cl" aria-labelledby="c-5-6"><h3 id="c-5-6"><span class="no">5.6</span>Complete</h3><dl>
 <div><dt>Approach</dt><dd>Records are linked in order, so a removed or inserted record breaks a link. If every later link is rewritten, which needs no key, only a fingerprint anchored beforehand shows it (anchoring is upcoming; simulated on these pages).</dd></div>
-<div><dt>Today</dt><dd>On these pages and in the console demo.</dd></div>
+<div><dt>Today</dt><dd>On these pages.</dd></div>
 <div><dt>Not covered</dt><dd>Only the peak area of each result is sealed, with instrument, unit and capture time. <a href="roadmap.html#metadata">Sample and method metadata in the seal</a> <span class="tag">Upcoming</span></dd></div>
 </dl></article>
 <article class="cl" aria-labelledby="c-5-7"><h3 id="c-5-7"><span class="no">5.7</span>Consistent</h3><dl>
 <div><dt>Approach</dt><dd>Corrections are appended in time order with a reason; the original stays.</dd></div>
-<div><dt>Today</dt><dd>On these pages and in the console demo.</dd></div>
+<div><dt>Today</dt><dd>On these pages.</dd></div>
 <div><dt>Not covered</dt><dd>Corrections in the alpha app.</dd></div>
 </dl></article>
 <article class="cl" aria-labelledby="c-5-8"><h3 id="c-5-8"><span class="no">5.8</span>Enduring</h3><dl>
 <div><dt>Approach</dt><dd>Anchoring batch fingerprints outside the lab, an upcoming feature.</dd></div>
-<div><dt>Today</dt><dd>A simulated anchor on these pages and in the console; nothing is written to a network.</dd></div>
+<div><dt>Today</dt><dd>A simulated anchor on these pages; nothing is written to a network.</dd></div>
 <div><dt>Not covered</dt><dd>Keeping the records: for GMP retention the lab’s validated archive stays the record, and a Filecoin copy would be one more encrypted copy, whose storage providers would need the supplier controls <span class="nw">EU Annex 11</span> expects. <a href="roadmap.html#anchoring">Anchoring on a public test network</a> <span class="tag">Upcoming</span> <a href="roadmap.html#filecoin">Encrypted archive on Filecoin</a> <span class="tag">Upcoming</span></dd></div>
 </dl></article>
 <article class="cl" aria-labelledby="c-5-9"><h3 id="c-5-9"><span class="no">5.9</span>Available</h3><dl>
@@ -260,7 +260,7 @@
 <article class="cl" aria-labelledby="c-6-3"><h3 id="c-6-3"><span class="no">6.3</span>Alterations to entries (EU GMP)</h3><dl>
 <div><dt>Expectation</dt><dd>An alteration is signed and dated, leaves the original readable and, where appropriate, records the reason.</dd></div>
 <div><dt>Approach</dt><dd>A correction is a new record with a reason and a time; the original stays readable.</dd></div>
-<div><dt>Today</dt><dd>On these pages and in the console demo.</dd></div>
+<div><dt>Today</dt><dd>On these pages.</dd></div>
 <div><dt>Not covered</dt><dd>A signature by the person making the alteration.</dd></div>
 </dl></article>
 </div>
@@ -274,7 +274,7 @@
 <article class="cl" aria-labelledby="c-7-1"><h3 id="c-7-1"><span class="no">7.1</span>Control of records</h3><dl>
 <div><dt>Expectation</dt><dd>Records are legible, identifiable and retrievable, and changes to them can be traced to the original, with the date and the person.</dd></div>
 <div><dt>Approach</dt><dd>Corrections appended with a reason; the original stays and keeps passing.</dd></div>
-<div><dt>Today</dt><dd>On these pages and in the console demo.</dd></div>
+<div><dt>Today</dt><dd>On these pages.</dd></div>
 <div><dt>Not covered</dt><dd>The person; retention.</dd></div>
 </dl></article>
 <article class="cl" aria-labelledby="c-7-2"><h3 id="c-7-2"><span class="no">7.2</span>Handling of samples</h3><dl>
@@ -297,7 +297,7 @@
 <footer class="foot">
 <div class="wrap">
 <p class="ind">Immutable QC is an independent project built on the founder’s own time. It is not affiliated with or endorsed by any employer. Founder: <span class="nw">José A. Fernández Abreu</span> · <a href="https://joseqc.com">joseqc.com</a></p>
-<p class="meta"><span class="m-doc"><span class="nw">IQC-RM-01</span> · Draft 6 · Updated 2026-10-07 · <a href="about.html#history">Revision history</a></span><span class="m-fonts">Fonts, SIL Open Font License: <a href="fonts/OFL-IBM-Plex-Sans.txt">IBM Plex Sans</a> <a href="fonts/OFL-IBM-Plex-Mono.txt">IBM Plex Mono</a> <a href="fonts/OFL-Archivo.txt">Archivo</a></span></p>
+<p class="meta"><span class="m-doc"><span class="nw">IQC-RM-01</span> · Draft 7 · Updated 2026-10-13 · <a href="about.html#history">Revision history</a></span><span class="m-fonts">Fonts, SIL Open Font License: <a href="fonts/OFL-IBM-Plex-Sans.txt">IBM Plex Sans</a> <a href="fonts/OFL-IBM-Plex-Mono.txt">IBM Plex Mono</a> <a href="fonts/OFL-Archivo.txt">Archivo</a></span></p>
 </div>
 </footer>
 

@@ -4,10 +4,10 @@
 <div class="body">
 <ul class="items">
 <li><span class="k">These pages</span><span>One synthetic HPLC sequence, sealed with the alpha’s five-field payload and link rule from 64 zeros, signed with a demo key at build, with a simulated anchor. Your browser recomputes every check.</span></li>
-<li><span class="k">Alpha console · demo</span><span>A synthetic lab that runs only in your browser: records sealed and linked, signed with a demo key made in your browser, corrections appended with a reason, and every check recomputed after each change. Its anchor is simulated, with no network call.</span></li>
+<li><span class="k">App · in your browser</span><span>Drop a data folder to audit it: your browser re-reads every file and checks its SHA-256 fingerprint, and every signature and link, against the ledger in the folder. Nothing is uploaded. It can seal a folder too, and a demo builds a sample folder in memory to show a pass and a fail.</span></li>
 <li><span class="k">Alpha app · not public</span><span>Imports HPLC CSV files, then fingerprints, links and signs each peak area with one server key, using the same payload construction and link rule.</span></li>
 </ul>
-<p><a class="xref" href="dashboard/"><span class="id">Demo</span><span>Open the alpha console</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
+<p><a class="xref" href="app/"><span class="id">app/</span><span>Open the app</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
 </div>
 </section>
 <section class="sec sec--side" id="planned" aria-labelledby="s2-h">
@@ -47,7 +47,7 @@
 </div>
 <h3 id="anchoring"><span class="no">2.7</span><span>Anchoring on a public test network <span class="tag">Upcoming</span></span></h3>
 <div class="body">
-<p>Anchoring will write a batch fingerprint, with a time, to a registry on a public test network, so that a later rewrite of the record history shows against a fingerprint the lab does not control. The registry code (a smart contract) is written; nothing on this site or in the console writes to a network, and every anchor shown here is simulated. As the registry code is written, an entry would also show the address that wrote it, which links a lab’s anchors to one another, and the first and last record numbers of its batch. A test network can be reset, so this is a first step; anchoring on Filecoin itself would follow.</p>
+<p>Anchoring will write a batch fingerprint, with a time, to a registry on a public test network, so that a later rewrite of the record history shows against a fingerprint the lab does not control. The registry code (a smart contract) is written; nothing on this site or in the app writes to a network, and every anchor shown here is simulated. As the registry code is written, an entry would also show the address that wrote it, which links a lab’s anchors to one another, and the first and last record numbers of its batch. A test network can be reset, so this is a first step; anchoring on Filecoin itself would follow.</p>
 <p><a class="xref" href="sealed.html#anchoring"><span class="id">IQC-HS-01 §7</span><span>Anchoring a batch</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
 </div>
 <h3 id="filecoin"><span class="no">2.8</span><span>Encrypted archive on Filecoin <span class="tag">Upcoming</span></span></h3>
@@ -68,7 +68,7 @@
 </div>
 <h3 id="verification"><span class="no">2.12</span><span>Server-side verification in the app <span class="tag">Upcoming</span></span></h3>
 <div class="body">
-<p>The alpha app recomputing every fingerprint, link and signature on the server, as these pages and the console do in your browser.</p>
+<p>The alpha app recomputing every fingerprint, link and signature on the server, as these pages do in your browser.</p>
 </div>
 <h3 id="metadata"><span class="no">2.13</span><span>Sample and method metadata in the seal <span class="tag">Upcoming</span></span></h3>
 <div class="body">

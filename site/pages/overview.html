@@ -30,7 +30,6 @@
 </ul>
 <p>One wrong value does not stay put: it feeds an analysis, the analysis feeds a model, and the model picks the next experiment, so a concentration a script wrote in mg/mL where the pipeline expects µg/mL can end up in a dose-response fit, a training set and tomorrow’s plates. Today a seal shows a value changed after it was sealed; upcoming, a restored backup or a dropped batch would show against an anchor, a filled-in blank with measured and derived records, and lineage would find every analysis, model and decision recorded as using a wrong value.</p>
 <p class="note"><span class="k">Deliberate changes</span>A value changed on purpose after sealing, by someone without the signing key, fails the same checks as one changed by accident. A history rewritten with the key, or a record deleted and the rest relinked (which needs no key), passes each record’s checks; <a href="about.html#q7">question 5.7 on the About page</a> says what would show it, and what is not covered.</p>
-<blockquote class="pull"><p>{{founderLine}}</p><footer>José A. Fernández Abreu, founder</footer></blockquote>
 </div>
 </section>
 {{> story}}
@@ -47,20 +46,20 @@
 <h2 id="s5-h"><span class="no">5</span>Today, upcoming and not claimed</h2>
 <div class="body">
 <ul class="items">
-<li><span class="k">Alpha console · demo in your browser</span><span>Runs on a synthetic lab, only in your browser. Each record gets a SHA-256 fingerprint, a link to the record before it (the first record links to a fixed start value of 64 zeros), and a signature from a demo key made in your browser. Corrections are new records with a reason, and every check is recomputed after each change. Its anchor is simulated, with no network call.</span></li>
+<li><span class="k">App · in your browser</span><span>Drop a data folder and your browser re-reads every file, recomputes its SHA-256 fingerprint and checks it, and every signature and link, against the ledger in the folder, then gives one verdict. Nothing is uploaded. A demo builds a sample folder, seals it and shows a pass and a fail.</span></li>
 <li><span class="k">These pages</span><span>The same construction on one synthetic sequence, signed with a demo key at build. Your browser recomputes every check.</span></li>
 <li><span class="k">Alpha app · not public</span><span>Imports HPLC CSV exports. Each peak area becomes a record of instrument, measurement type, value, unit and capture time, fingerprinted, linked and signed by one server key. The capture time is an injection time typed at import, or the server’s clock if none is given.</span></li>
-<li><span class="k"><span class="tag tag--in">Upcoming</span></span><span>Sealing at capture (SiLA 2 and OPC UA LADS adapters), measured and derived records, lineage and recall, agentic workflows, Merkle batches with salted leaves and inclusion checks, privacy on public networks, anchoring batch fingerprints on a public test network, an encrypted archive on Filecoin, per-analyst signatures, signatures that cover each record’s position, reviewer sign-off, server-side verification in the app, sample and method metadata in the seal, a shared registry, and post-quantum signatures and encryption, in the Roadmap’s order. Every anchor on this site and in the console is simulated.</span></li>
-<li><span class="k">Not claimed</span><span>No customers, no capture at the instrument or orchestrator, no electronic signatures and no validation. Nothing on this site or in the console writes to a public network.</span></li>
+<li><span class="k"><span class="tag tag--in">Upcoming</span></span><span>Sealing at capture (SiLA 2 and OPC UA LADS adapters), measured and derived records, lineage and recall, agentic workflows, Merkle batches with salted leaves and inclusion checks, privacy on public networks, anchoring batch fingerprints on a public test network, an encrypted archive on Filecoin, per-analyst signatures, signatures that cover each record’s position, reviewer sign-off, server-side verification in the app, sample and method metadata in the seal, a shared registry, and post-quantum signatures and encryption, in the Roadmap’s order. Every anchor on this site is simulated.</span></li>
+<li><span class="k">Not claimed</span><span>No customers, no capture at the instrument or orchestrator, no electronic signatures and no validation. Nothing on this site or in the app writes to a public network.</span></li>
 </ul>
-<p class="note"><span class="k">Basis</span>The same five fields and link rule in the alpha app’s HPLC import and on these pages; in the app, the instrument field is its internal instrument number. The console documents its own payload in its Method panel.</p>
+<p class="note"><span class="k">Basis</span>The same five fields and link rule in the alpha app’s HPLC import and on these pages; in the alpha app, the instrument field is its internal instrument number. The app seals whole files instead: each file’s SHA-256 fingerprint, path and size, signed and linked in a ledger kept in the folder.</p>
 </div>
 </section>
 <section class="sec" id="fits" aria-labelledby="s6-h">
 <h2 id="s6-h"><span class="no">6</span>Where it fits</h2>
 <div class="body">
 <p>In an automated lab, software already sits between the instrument and the record: the scheduler or orchestrator, the device drivers and the data pipeline that feeds models and agents. Sealing each result in the orchestrator or driver, as the instrument produces it, over SiLA 2 or OPC UA LADS, is upcoming.</p>
-<p>Today, Immutable QC sits beside an HPLC CSV export: the alpha app fingerprints, links and signs each peak area imported from it with one server key, and checking them in the app is upcoming. On these pages and in the console the record history is tamper-evident, so a later change to a sealed value fails its checks. Today a change made before import is not covered; with sealing at capture, only a change made before capture would be.</p>
+<p>Today, Immutable QC sits beside an HPLC CSV export: the alpha app fingerprints, links and signs each peak area imported from it with one server key, and checking them in the alpha app is upcoming. On these pages the record history is tamper-evident, so a later change to a sealed value fails its checks. Today a change made before import is not covered; with sealing at capture, only a change made before capture would be.</p>
 </div>
 <figure class="flow flow--fits" aria-labelledby="f4-c">
 <ol class="lane">
@@ -150,7 +149,7 @@
 <li><a class="xref" href="regulatory.html"><span class="id">IQC-RM-01</span><span>Regulatory map</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>Expectation by expectation for 21 CFR Part 11, EU Annex 11, ISO/IEC 17025:2017, ALCOA+, GMP and TNI, with what exists today and what is not covered. A reading aid, not an assessment.</p></li>
 <li><a class="xref" href="roadmap.html"><span class="id">IQC-RD-01</span><span>Roadmap</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>What works today, and what is upcoming, the automated-lab items first.</p></li>
 <li><a class="xref" href="about.html"><span class="id">IQC-AB-01</span><span>About</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>Who builds it, status, and questions.</p></li>
-<li><a class="xref" href="dashboard/"><span class="id">Demo</span><span>Alpha console</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>A synthetic lab that runs only in your browser.</p></li>
+<li><a class="xref" href="app/"><span class="id">app/</span><span>The app</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>Drop a data folder to audit it in your browser; nothing is uploaded.</p></li>
 </ul>
 </div>
 </section>
