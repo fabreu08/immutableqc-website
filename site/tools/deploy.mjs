@@ -4,13 +4,13 @@
 //   node site/tools/check.mjs                assembles it into a temporary folder and runs every browser check against it
 //   node site/tools/serve.mjs 8810 --deploy  serves the assembled site locally
 // It copies only the files named below. It fails if one is missing, if an allowlisted folder holds a file of a type it
-// does not expect, or if anything outside the allowlist (site/, contracts/, .github/, agent/, docs/, core/test/, any
+// does not expect, or if anything outside the allowlist (site/, contracts/, .github/, agent/, docs/, e2e/, core/test/, any
 // test/ folder, dashboard/registry-*.js, any .md, any dotfile) would be published. Then it reads every assembled page,
 // stylesheet and script: each relative href, src and url(), and each relative import in a module, must resolve to a file
 // inside the assembled folder, so a published page can never need a file the allowlist leaves out.
 // v1 (docs/product-v1.md, section 2) publishes the hand-written landing page (index.html), the app (app/), their design
-// assets (ui/), the format's implementation (core/immutableqc.mjs) and the one-file agent (download/iqc.mjs). Those that
-// other parts of v1 have not written yet are in LATER: published once they exist, named by pending() until then.
+// assets (ui/), the format's implementation (core/immutableqc.mjs) and the one-file agent (download/iqc.mjs). All of them
+// are written now, so each is required: a missing one fails the build, the deploy and the browser checks.
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs'
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -21,30 +21,23 @@ export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 export const FILES = [
   // the document set, built by site/build.mjs (GitHub Pages serves 404.html at any missing path by itself)
   'overview.html', 'sealed.html', 'check.html', 'regulatory.html', 'roadmap.html', 'about.html', '404.html',
-  // written by hand: the landing page and the app's page (the rest of app/ is copied with the folder, below)
+  // written by hand: the landing page and the app's page (the rest of app/ and ui/ is copied with the folder, below)
   'index.html', 'app/index.html',
+  // the format's one implementation, which the app imports, and the one-file agent the landing page offers
+  'core/immutableqc.mjs', 'download/iqc.mjs',
   'favicon.svg', 'og.png', 'apple-touch-icon.png', 'CNAME',
   // the alpha console's old address: a small page that sends visitors to the app (never registry-*.js)
   'dashboard/index.html',
 ]
-// published once they exist (docs/product-v1.md, section 2); until then pending() names them
-export const LATER = ['core/immutableqc.mjs', 'download/iqc.mjs']
-// folders copied whole, each limited to the file types it is meant to hold; a test/ folder inside one is never published.
-// A folder in LATER_DIRS may be missing until it is written.
+// folders copied whole, each limited to the file types it is meant to hold; a test/ folder inside one is never published
 export const DIRS = { assets: /\.(css|js)$/, fonts: /\.(woff2|txt)$/, app: /\.(html|css|m?js|svg|png|webp|woff2)$/, ui: /\.(css|m?js|svg|png|webp|woff2)$/ }
-export const LATER_DIRS = ['ui']
 // never published, whatever the lists above say
-const NEVER = [/^site\//, /^contracts\//, /^\.github\//, /^agent\//, /^docs\//, /^core\/(?!immutableqc\.mjs$)/, /(^|\/)test\//, /^dashboard\/registry-/, /\.md$/i, /(^|\/)\./, /^_site\//, /node_modules\//]
-
-// what the spec publishes that is not written yet (a LATER file or a LATER_DIRS folder that is missing)
-export function pending(root = ROOT) {
-  return [...LATER.filter((f) => !existsSync(join(root, f))), ...LATER_DIRS.filter((d) => !existsSync(join(root, d))).map((d) => `${d}/`)]
-}
+const NEVER = [/^site\//, /^contracts\//, /^\.github\//, /^agent\//, /^docs\//, /^e2e\//, /^core\/(?!immutableqc\.mjs$)/, /(^|\/)test\//, /^dashboard\/registry-/, /\.md$/i, /(^|\/)\./, /^_site\//, /node_modules\//]
 
 export function manifest(root = ROOT) {
-  const files = [...FILES, ...LATER.filter((f) => existsSync(join(root, f)))]
+  const files = [...FILES]
   for (const [d, ok] of Object.entries(DIRS)) {
-    if (!existsSync(join(root, d))) { if (LATER_DIRS.includes(d)) continue; throw new Error(`deploy: folder ${d}/ is missing`) }
+    if (!existsSync(join(root, d))) throw new Error(`deploy: folder ${d}/ is missing`)
     for (const f of readdirSync(join(root, d)).sort()) {
       if (statSync(join(root, d, f)).isDirectory()) {
         if (f === 'test') continue // tests stay in the repo

@@ -1133,8 +1133,8 @@ const REMOVED_CLAUSES = [[/7\.11\.3/, 'ISO/IEC 17025:2017 7.11.3'], [/Chapter\s*
 // list), the vendor-name ban, no email address, US spelling, no third-party request, a Content-Security-Policy before
 // anything loads, no inline event handler, and present tense only for what works. So does dashboard/index.html, the alpha
 // console's old address, which now sends visitors to the app. Scripts are read as their string literals
-// (site/tools/jsstrings.mjs, as the console was), module specifiers ('node:crypto') left out. index.html and
-// app/index.html must exist; a file the spec names that is not written yet is skipped, named in one pending assertion.
+// (site/tools/jsstrings.mjs, as the console was), module specifiers ('node:crypto') left out. Every file the spec names
+// (section 2) must exist: all of v1 is written, so a missing one fails (until the integration step it was skipped).
 //
 // What v1 does not do (section 1) carries the one label "Upcoming" in any copy: anchoring heads on a public network,
 // Merkle batches, an encrypted archive, per-person signatures, extracting values from inside files (per-result records),
@@ -1173,7 +1173,7 @@ const lintV1 = (where, sents) => {
 }
 const V1_STATUS = 'Independent project · Open alpha · No customers yet'
 const APOS = (t) => t.replace(/'/g, '’')
-const HAND = { pages: {}, scripts: {}, styles: {}, pending: [] }
+const HAND = { pages: {}, scripts: {}, styles: {}, missing: [] }
 {
   const walk = (d) => (!existsSync(join(OUT, d)) ? [] : readdirSync(join(OUT, d), { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : 1))
     .flatMap((e) => (e.isDirectory() ? (/^(?:test|node_modules)$|^\./.test(e.name) ? [] : walk(`${d}/${e.name}`)) : [`${d}/${e.name}`])))
@@ -1184,8 +1184,8 @@ const HAND = { pages: {}, scripts: {}, styles: {}, pending: [] }
   for (const f of [...new Set(['index.html', 'app/index.html', 'dashboard/index.html', ...found.filter((f) => /\.html$/.test(f))])]) if (existsSync(join(OUT, f))) HAND.pages[f] = readFileSync(join(OUT, f), 'utf8')
   for (const f of [...found.filter((f) => /\.m?js$/.test(f)), 'download/iqc.mjs']) if (existsSync(join(OUT, f))) HAND.scripts[f] = readFileSync(join(OUT, f), 'utf8')
   for (const f of found.filter((f) => /\.css$/.test(f))) HAND.styles[f] = readFileSync(join(OUT, f), 'utf8')
-  HAND.pending = SPEC.filter((f) => !existsSync(join(OUT, f)))
-  ok(`v1 lint: pending, skipped until written (docs/product-v1.md, section 2): ${HAND.pending.join(', ') || 'none; every file the spec names is linted'}`, true)
+  HAND.missing = SPEC.filter((f) => !existsSync(join(OUT, f)))
+  ok(`v1 lint: every file the spec names exists and is linted (docs/product-v1.md, section 2)${HAND.missing.length ? `; missing: ${HAND.missing.join(', ')}` : ''}`, HAND.missing.length === 0)
 }
 {
   const cspDirs = (c) => Object.fromEntries(c.split(';').map((d) => d.trim().split(/\s+/)).filter((d) => d[0]).map(([k, ...v]) => [k.toLowerCase(), v]))
@@ -1276,19 +1276,19 @@ ok(`"Filecoin Calibration" exactly once across the site, on How a record is seal
 // from the one allowlist in site/tools/deploy.mjs. Everything a page links to must be on it.
 {
   const D = await import(pathToFileURL(join(HERE, 'tools/deploy.mjs')).href)
-  const pub = new Set([...D.FILES, ...D.LATER.filter((f) => existsSync(join(OUT, f)))])
+  const pub = new Set(D.FILES)
   for (const [d, re] of Object.entries(D.DIRS)) {
     for (const p of Object.keys(out).filter((p) => p.startsWith(`${d}/`))) pub.add(p)
     if (existsSync(join(OUT, d))) for (const f of readdirSync(join(OUT, d))) if (re.test(f)) pub.add(`${d}/${f}`)
   }
   // the root pages: the document set the build writes, and the landing page written by hand (Draft 7)
   ok('deploy: every page the build writes is on the allowlist, and so is the landing page index.html', site.pages.every((p) => D.FILES.includes(p.file)) && D.FILES.includes('index.html') && D.FILES.filter((f) => /^[\w-]+\.html$/.test(f)).length === site.pages.length + 1)
-  ok('deploy: the app, its design assets, the format’s implementation and the one-file agent are published as the spec says (docs/product-v1.md, section 2)', D.FILES.includes('app/index.html') && 'app' in D.DIRS && 'ui' in D.DIRS && D.LATER.includes('core/immutableqc.mjs') && D.LATER.includes('download/iqc.mjs'))
+  ok('deploy: the app, its design assets, the format’s implementation and the one-file agent are published as the spec says (docs/product-v1.md, section 2)', D.FILES.includes('app/index.html') && 'app' in D.DIRS && 'ui' in D.DIRS && D.FILES.includes('core/immutableqc.mjs') && D.FILES.includes('download/iqc.mjs'))
   ok('deploy: the alpha console is off the allowlist; its old address is the redirect page only', D.FILES.includes('dashboard/index.html') && !D.FILES.some((f) => /^dashboard\/(?!index\.html$)/.test(f)))
-  ok(`deploy: pending, published once written: ${D.pending(OUT).join(', ') || 'none'}`, true)
+  ok(`deploy: every file on the allowlist exists, and so do app/ and ui/${[...D.FILES, 'app', 'ui'].filter((f) => !existsSync(join(OUT, f))).map((f) => ` (missing ${f})`).join('')}`, [...D.FILES, 'app', 'ui'].every((f) => existsSync(join(OUT, f))))
   ok('deploy: every file the build writes is on the allowlist', Object.keys(out).every((p) => pub.has(p)))
   ok('deploy: the og card, touch icon, favicon and CNAME are on it', ['og.png', 'apple-touch-icon.png', 'favicon.svg', 'CNAME'].every((f) => pub.has(f)))
-  ok('deploy: nothing from site/, contracts/, .github/, agent/, docs/ or a test/ folder, from core/ only immutableqc.mjs, no registry script, no .md, no dotfile', [...pub].every((f) => !/^(site|contracts|\.github|agent|docs)\/|(^|\/)test\/|^core\/(?!immutableqc\.mjs$)|^dashboard\/registry-|\.md$|(^|\/)\./i.test(f)))
+  ok('deploy: nothing from site/, contracts/, .github/, agent/, docs/, e2e/ or a test/ folder, from core/ only immutableqc.mjs, no registry script, no .md, no dotfile', [...pub].every((f) => !/^(site|contracts|\.github|agent|docs|e2e)\/|(^|\/)test\/|^core\/(?!immutableqc\.mjs$)|^dashboard\/registry-|\.md$|(^|\/)\./i.test(f)))
   let ok2 = true
   try { D.manifest(OUT) } catch (e) { ok2 = false; console.error(e.message) }
   ok('deploy: the allowlist assembles from the repo as committed (site/tools/deploy.mjs manifest)', ok2 || !CHECK)
@@ -1311,10 +1311,14 @@ ok(`"Filecoin Calibration" exactly once across the site, on How a record is seal
   has('the deploy job needs the build and uses actions/deploy-pages in the github-pages environment', /\n  deploy:\n[\s\S]*needs: build\n[\s\S]*environment:\n\s+name: github-pages\n[\s\S]*uses: actions\/deploy-pages@[0-9a-f]{40} # v[\d.]+\n/)
   ok('pages.yml: publishes only _site/ (no other upload path, no checkout of the repo root as the artifact)', count(wf, /path:/g) === 1)
   {
-    // docs/product-v1.md, section 8: the unit and integration tests run in CI on Node 22, agent/test once it exists
+    // docs/product-v1.md, section 8: the unit and integration tests run in CI on Node 22 (those that need a browser skip
+    // there), and the browser-check job, which installs Playwright and Chromium, also runs the tests that need them
     const sc = existsSync(join(OUT, '.github/workflows/site-check.yml')) ? readFileSync(join(OUT, '.github/workflows/site-check.yml'), 'utf8') : ''
-    const job = (sc.match(/\n  unit-tests:\n[\s\S]*?(?=\n  [\w-]+:\n|$)/) || [''])[0]
-    ok('site-check.yml: a unit-tests job runs node --test core/test agent/test on Node 22, and core/test alone until agent/test exists', /node-version: 22\n/.test(job) && /if \[ -d agent\/test \]; then\n\s+node --test core\/test agent\/test\n\s+else\n[\s\S]*?\n\s+node --test core\/test\n\s+fi\n/.test(job))
+    const jobOf = (name) => (sc.match(new RegExp(`\\n  ${name}:\\n[\\s\\S]*?(?=\\n  [\\w-]+:\\n|$)`)) || [''])[0]
+    const unit = jobOf('unit-tests'), br = jobOf('browser-check')
+    ok('site-check.yml: a unit-tests job runs node --test core/test agent/test ui/test on Node 22', /node-version: 22\n/.test(unit) && /\n\s+run: node --test core\/test agent\/test ui\/test\n/.test(unit))
+    ok('site-check.yml: the browser-check job installs Playwright’s Chromium, runs site/tools/check.mjs, then node --test app/test e2e and the landing test, one at a time', /node-version: 22\n/.test(br) && /\n\s+run: npx playwright install --with-deps chromium\n[\s\S]*\n\s+run: node site\/tools\/check\.mjs --json=\S+\n[\s\S]*\n\s+run: node --test --test-concurrency=1 app\/test e2e ui\/test\/landing\.test\.mjs\b[^\n]*\n/.test(br))
+    ok('e2e/: the test folder Node 22 can run (package.json whose main is index.mjs)', existsSync(join(OUT, 'e2e/index.mjs')) && /"main": "index\.mjs"/.test(existsSync(join(OUT, 'e2e/package.json')) ? readFileSync(join(OUT, 'e2e/package.json'), 'utf8') : ''))
   }
   for (const f of ['pages.yml', 'site-check.yml']) {
     const w = existsSync(join(OUT, '.github/workflows', f)) ? readFileSync(join(OUT, '.github/workflows', f), 'utf8') : ''

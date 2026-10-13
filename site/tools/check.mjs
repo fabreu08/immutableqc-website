@@ -3,21 +3,27 @@
 // as GitHub Pages does, exactly what the Pages workflow publishes: the allowlist in site/tools/deploy.mjs, assembled into
 // a temporary folder (--repo serves the whole repo root instead).
 // Pages (Draft 7, docs/product-v1.md): the document set, built by site/build.mjs (the Overview is overview.html); the
-// landing page (index.html) and the app (app/), written by hand, which get the generic checks for now (links, overflow,
-// axe, CSP violations); and dashboard/, the alpha console's old address, which must send visitors to ../app/.
+// landing page (index.html) and the app (app/), written by hand, which get the same checks wherever they apply (below);
+// and dashboard/, the alpha console's old address, which must send visitors to ../app/.
 //   node site/tools/check.mjs              links (every href/src after JS, the 404 at nested paths), overflow 320–1920,
 //                                          tap targets, smallest text, axe at 375 and 1280, frames at rest (3 s traces),
 //                                          reduced motion and hidden tab, the Overview story (stage steps, fast scroll,
 //                                          keyboard, phone figures, axe and overflow per state, URL bar, print), no-JS
-//                                          text, first-load budgets (the document set); links, overflow, axe and CSP
-//                                          (index.html, app/); the redirect (dashboard/)
+//                                          text, first-load budgets, CSP violations (the document set); the same for the
+//                                          landing page (index.html: also in each step of its hero; frames at rest with
+//                                          the hero off-screen, paused and after its story ends; no rAF or animation
+//                                          with reduced motion or a hidden tab; its no-JS text) and the app (app/: also
+//                                          in the demo's pass and fail and the seal screen; frames at rest after the
+//                                          demo; no animation with reduced motion; no no-JS text check, as the app is
+//                                          a script); the redirect (dashboard/)
 //   node site/tools/check.mjs --perf       also CLS / TBT / LCP at 320×568, 390×844 and 412×915 with DevTools' Slow 4G
 //                                          (562.5 ms, 1.44 Mbps) and CPU 4× (median of --runs=3, and of at least 5
 //                                          for the Overview's gate at 390×844), every layout shift
 //                                          counted (no input is sent); the same at 320×568 with the Arial-, Liberation-
 //                                          and Courier-based fallback faces unmatched (as on Android); and the URL-bar
-//                                          resize test (390×664 ↔ 390×745); reported, except the Overview at 390×844,
-//                                          which fails over CLS 0.02, TBT 200 ms or Draft 4's LCP + 100 ms
+//                                          resize test (390×664 ↔ 390×745), for the document set and the landing page;
+//                                          reported, except the Overview at 390×844, which fails over CLS 0.02, TBT
+//                                          200 ms or Draft 4's LCP + 100 ms
 //   --only=overview.html,check.html        a subset of pages       --json=path   write every result as JSON
 //   --repo                                 serve the repo root as it is on disk, not the deploy allowlist
 // In CI: npm ci in site/, then npx playwright install --with-deps chromium. Locally the preinstalled Chromium is used.
@@ -31,7 +37,7 @@ const { chromium } = load('playwright', '/opt/node22/lib/node_modules/playwright
 const AXE = readFileSync(req.resolve('axe-core/axe.min.js'), 'utf8')
 
 const ARGS = Object.fromEntries(process.argv.slice(2).map((a) => { const m = /^--([\w-]+)(?:=(.*))?$/.exec(a); return m ? [m[1], m[2] ?? true] : [a, true] }))
-// the document set (every check); the hand-written pages (the generic checks only, for now); old addresses that redirect
+// the document set (every check); the hand-written pages (every check that applies to them); old addresses that redirect
 const DOCS = ['overview.html', 'sealed.html', 'check.html', 'regulatory.html', 'roadmap.html', 'about.html', '404.html']
 const HAND = ['index.html', 'app/']
 const REDIRECTS = { 'dashboard/': 'app/' }
@@ -40,9 +46,18 @@ const PAGES = ARGS.only ? String(ARGS.only).split(',') : ALL
 const isDoc = (pg) => DOCS.includes(pg)
 const VIEWS = PAGES.filter((pg) => !(pg in REDIRECTS)) // pages that are opened and checked as they render
 const DOC_PAGES = PAGES.filter(isDoc)
+const HAND_PAGES = PAGES.filter((pg) => HAND.includes(pg))
 const WIDTHS = [320, 360, 375, 390, 412, 480, 600, 768, 1024, 1280, 1440, 1920]
 const STATUS = 'Independent project · Open alpha · Synthetic demo data · No customers yet'
-const BUDGET = { site: { requests: 8, total: 160 * 1024, js: 22 * 1024, fonts: 100 * 1024 } }
+// the landing page and the app work on real files, so their status line has no "Synthetic demo data" (spec section 7)
+const V1_STATUS = 'Independent project · Open alpha · No customers yet'
+const BUDGET = { site: { requests: 8, total: 160 * 1024, js: 22 * 1024, fonts: 100 * 1024 }, ...HAND_BUDGET() }
+// the smallest text at 320 px: 12 px on the document set; 11 px on the hand-written pages, the design system's floor
+// (ui/theme.css: its mono, uppercase, letter-spaced labels, as ui/test/landing.test.mjs checks)
+const MIN_FONT = (pg) => (HAND.includes(pg) ? 11 : 12)
+// tap targets: 44 px at 320 and 390 on every page, and at 1280 on the document set; the hand-written pages are built
+// for 44 px on phones (720 px and below) and keep their compact desktop controls, held at 1280 to WCAG 2.5.8's 24 px
+const TAP_MIN = (pg, w) => (HAND.includes(pg) && w > 720 ? 24 : 44)
 // the Overview's own budget since the story (Draft 5), against Draft 4 as measured here (main 4e793fb): LCP 1592 ms at
 // 390×844 with Slow 4G and CPU 4× (median of 3), 13685 bytes of JS as served
 const OVERVIEW = { total: 130 * 1024, js0: 13685, lcp0: 1592, cls: 0.02, tbt: 200 }
@@ -84,6 +99,14 @@ const STATES = {
     hexreason: async (p) => { await p.fill('#f-value', '1588811'); await p.fill('#reason', HEX_REASON); await p.click('[data-act=correct]'); await p.waitForTimeout(400) },
   },
   'overview.html': { menu: async (p) => { if (await p.locator('.menu-btn').isVisible()) { await p.click('.menu-btn'); await p.waitForTimeout(100) } } },
+  // the landing page rests on its hero's last step (Caught); the other three, picked with the step buttons (which pause it)
+  'index.html': Object.fromEntries(['written', 'sealed', 'edited'].map((k) => [k, async (p) => { await p.click(`#viz [data-go="${k}"]`); await p.waitForFunction((k) => document.getElementById('viz').dataset.phase === k, k); await p.waitForTimeout(150) }])),
+  // the app opens on Audit; the demo's pass, then its fail (one value changed), and the seal screen, through the header's tabs
+  'app/': {
+    'demo pass': async (p) => { await p.click('.modes a[data-mode="demo"]'); await p.waitForSelector('#demo [data-verdict="pass"]', { timeout: 30000 }); await p.waitForTimeout(150) },
+    'demo fail': async (p) => { await STATES['app/']['demo pass'](p); await p.click('#demo [data-view="result"]:not([hidden]) [data-act="demo-edit"]'); await p.waitForSelector('#demo [data-verdict="fail"]', { timeout: 30000 }); await p.waitForTimeout(150) },
+    seal: async (p) => { await p.click('.modes a[data-mode="seal"]'); await p.waitForSelector('#seal:not([hidden]) #seal-drop', { timeout: 10000 }); await p.waitForTimeout(150) },
+  },
 }
 const runsFor = (pg) => [[pg, null], ...Object.keys(STATES[pg] || {}).map((s) => [pg, s])]
 
@@ -92,7 +115,7 @@ const overflowProbe = () => {
   const vw = document.documentElement.clientWidth, sw = document.documentElement.scrollWidth, offenders = []
   for (const el of document.querySelectorAll('body *')) {
     const r = el.getBoundingClientRect()
-    if (!r.width || el.closest('.sr-only,.skip')) continue
+    if (!r.width || el.closest('.sr-only,.vh,.skip')) continue
     if (r.right > vw + 0.5 || r.left < -0.5) {
       let a = el.parentElement, clipped = false
       while (a && a !== document.body) { const cs = getComputedStyle(a); if (/(auto|scroll|hidden|clip)/.test(cs.overflowX)) { const ar = a.getBoundingClientRect(); if (ar.right <= vw + 0.5 && ar.left >= -0.5) { clipped = true; break } } a = a.parentElement }
@@ -104,7 +127,8 @@ const overflowProbe = () => {
 const tapProbe = () => {
   const out = []
   for (const el of document.querySelectorAll('a[href], button, input:not([type=hidden]), select, textarea, summary, [role=button], [tabindex]:not([tabindex="-1"])')) {
-    if (el.closest('[hidden],.skip')) continue
+    // not a target: hidden, visually hidden (.sr-only, .vh), or not rendered (inside a closed <details>)
+    if (el.closest('[hidden],.skip,.sr-only,.vh') || (el.checkVisibility && !el.checkVisibility())) continue
     const cs = getComputedStyle(el)
     if (cs.visibility === 'hidden' || cs.display === 'none') continue
     const t = el.matches('input[type=radio],input[type=checkbox]') && el.closest('label') ? el.closest('label') : el
@@ -124,7 +148,7 @@ const minFontProbe = (sel) => {
   for (let n; (n = tw.nextNode());) {
     if (!n.textContent.trim()) continue
     const el = n.parentElement
-    if (el.closest('.sr-only,[hidden],template,script,style')) continue
+    if (el.closest('.sr-only,.vh,[hidden],template,script,style')) continue
     if (!el.getClientRects().length) continue
     let a = el, hid = false
     while (a) { if (getComputedStyle(a).display === 'none') { hid = true; break } a = a.parentElement }
@@ -167,13 +191,16 @@ const COUNT_ANIM = () => {
     return a.apply(this, x)
   }
 }
+// every requestAnimationFrame the page asks for
+const COUNT_RAF = () => { window.__raf = 0; const raf = window.requestAnimationFrame.bind(window); window.requestAnimationFrame = (f) => { window.__raf++; return raf(f) } }
 const text = (p, sel) => p.evaluate((s) => (document.querySelector(s) || document.body).innerText.replace(/\s+/g, ' ').trim(), sel)
 
 // ---------------------------------------------------------------------------------------------- 0. links
 // Every href and src in the rendered DOM (after the scripts ran, so the views they build count too), resolved as the
 // browser resolves it (the 404 page's <base> included), fetched from the server: each must answer 200, and each
 // #fragment must name an element in its target. Subresources that fail (a font in CSS, say) fail too. The 404 page is
-// also opened at nested missing paths, as GitHub Pages serves it there. An old address (dashboard/) must answer with a
+// also opened at nested missing paths, as GitHub Pages serves it there. The hand-written pages are read in each of their
+// states too (the app's demo and seal screens write links of their own). An old address (dashboard/) must answer with a
 // page that sends visitors on at once, with no script, and opening it must land on the new one (app/).
 console.log(`checking ${PAGES.join(' ')} at ${BASE}`)
 {
@@ -184,12 +211,13 @@ console.log(`checking ${PAGES.join(' ')} at ${BASE}`)
   }
   const extra = PAGES.includes('404.html') ? ['missing/deep/page', 'dashboard/missing'] : []
   let refs = 0
-  for (const pg of VIEWS.concat(extra)) {
+  for (const [pg, s] of VIEWS.concat(extra).flatMap((pg) => (HAND.includes(pg) ? runsFor(pg) : [[pg, null]]))) {
     const bad = []
     const onResp = (r) => { if (r.status() >= 400 && r.url() !== BASE + pg) bad.push(`${r.status()} ${r.url().replace(BASE, '')}`) }
     p.on('response', onResp)
     await p.goto(BASE + pg, { waitUntil: 'networkidle' })
     await p.evaluate(() => document.fonts.ready)
+    if (s) await STATES[pg][s](p)
     p.off('response', onResp)
     const found = await p.evaluate(() => ({
       refs: [...document.querySelectorAll('[href],[src]')].filter((e) => e.tagName.toLowerCase() !== 'use').map((e) => { const raw = e.getAttribute('href') ?? e.getAttribute('src'); return { raw, abs: new URL(raw, document.baseURI).href } }),
@@ -204,13 +232,13 @@ console.log(`checking ${PAGES.join(' ')} at ${BASE}`)
       refs++
       const [u, frag] = abs.split('#')
       const r = await fetchOnce(u)
-      if (r.status !== 200) fail(`link: ${pg} ${raw} → ${u.replace(BASE, '')} answers ${r.status}`)
-      else if (frag && r.body && !r.body.includes(`id="${frag}"`) && u !== p.url().split('#')[0]) fail(`link: ${pg} ${raw} → no id="${frag}" in ${u.replace(BASE, '')}`)
+      if (r.status !== 200) fail(`link: ${pg} ${s || ''} ${raw} → ${u.replace(BASE, '')} answers ${r.status}`)
+      else if (frag && r.body && !r.body.includes(`id="${frag}"`) && u !== p.url().split('#')[0]) fail(`link: ${pg} ${s || ''} ${raw} → no id="${frag}" in ${u.replace(BASE, '')}`)
     }
-    await cspCheck(p, pg)
-    for (const h of found.sprite) fail(`link: ${pg} <use href="${h}"> has no symbol on the page`)
-    for (const h of found.self) fail(`link: ${pg} ${h} has no target on the page`)
-    for (const x of bad) fail(`link: ${pg} subresource ${x}`)
+    await cspCheck(p, `${pg} ${s || ''}`)
+    for (const h of found.sprite) fail(`link: ${pg} ${s || ''} <use href="${h}"> has no symbol on the page`)
+    for (const h of found.self) fail(`link: ${pg} ${s || ''} ${h} has no target on the page`)
+    for (const x of bad) fail(`link: ${pg} ${s || ''} subresource ${x}`)
   }
   // the old addresses: a small page with a refresh to the new one and a link to it in words, no script; opened, with or
   // without its trailing slash, it lands on the new address
@@ -231,12 +259,13 @@ console.log(`checking ${PAGES.join(' ')} at ${BASE}`)
   }
   // what must never be published answers 404 from the deploy view (the page itself, the 404 page, is the body); the
   // retired console's script and stylesheet are gone
-  if (!ARGS.repo) for (const u of ['site/build.mjs', 'site/HANDOFF.md', 'site/data/site.json', 'contracts/README.md', 'contracts/RootRegistry.sol', 'dashboard/registry-abi.js', 'dashboard/registry-artifact.js', 'dashboard/console.js', 'dashboard/console.css', '.github/workflows/pages.yml', '.nojekyll', 'README.md', 'docs/product-v1.md', 'agent/package.json', 'agent/bin/iqc.mjs', 'core/test/index.mjs', 'core/test/package.json']) {
+  if (!ARGS.repo) for (const u of ['site/build.mjs', 'site/HANDOFF.md', 'site/data/site.json', 'contracts/README.md', 'contracts/RootRegistry.sol', 'dashboard/registry-abi.js', 'dashboard/registry-artifact.js', 'dashboard/console.js', 'dashboard/console.css', '.github/workflows/pages.yml', '.nojekyll', 'README.md', 'docs/product-v1.md', 'agent/package.json', 'agent/bin/iqc.mjs', 'agent/tools/bundle.mjs', 'core/test/index.mjs', 'core/test/package.json', 'app/test/index.mjs', 'app/test/browser.test.mjs', 'ui/test/landing.test.mjs', 'e2e/index.mjs', 'e2e/agent-app.test.mjs']) {
     const r = await ctx.request.get(BASE + u)
     if (r.status() !== 404) fail(`deploy: ${u} answers ${r.status()}; it must not be published`)
   }
-  R.links = { pages: VIEWS.length + extra.length, refs, targets: seen.size, redirects: R.redirects.length, deploy: ARGS.repo ? null : served.files }
-  console.log(`links: ${refs} same-origin references on ${VIEWS.length + extra.length} pages, ${seen.size} distinct targets; ${R.redirects.length} redirects opened`)
+  const states = HAND_PAGES.reduce((a, pg) => a + Object.keys(STATES[pg] || {}).length, 0)
+  R.links = { pages: VIEWS.length + extra.length, states, refs, targets: seen.size, redirects: R.redirects.length, deploy: ARGS.repo ? null : served.files }
+  console.log(`links: ${refs} same-origin references on ${VIEWS.length + extra.length} pages (and ${states} states of the hand-written pages), ${seen.size} distinct targets; ${R.redirects.length} redirects opened`)
   await ctx.close()
 }
 
@@ -259,13 +288,13 @@ for (const w of WIDTHS) {
     }
     R.overflow.push({ w, pg, s, ...o })
     if (o.over || o.offenders.length) fail(`overflow at ${w}: ${pg} ${s || ''} scrollWidth ${o.sw} > ${o.vw} ${o.offenders.join(' | ')}`)
-    // tap targets and the smallest text: the document set (the hand-written pages get the generic checks only, for now)
-    if ([320, 390, 1280].includes(w) && !HAND.includes(pg)) {
-      const t = await p.evaluate(tapProbe)
+    // tap targets at 320, 390 and 1280, and the smallest text at 320 (MIN_FONT), in every state
+    if ([320, 390, 1280].includes(w)) {
+      const t = await p.evaluate(tapProbe), min = TAP_MIN(pg, w)
       R.taps[`${w} ${pg} ${s || ''}`] = t
-      for (const x of t.filter((x) => !x.inline)) fail(`tap target under 44 px at ${w}: ${pg} ${s || ''} ${x.el} ${x.w}×${x.h}`)
+      for (const x of t.filter((x) => !x.inline && (x.w < min - 0.5 || x.h < min - 0.5))) fail(`tap target under ${min} px at ${w}: ${pg} ${s || ''} ${x.el} ${x.w}×${x.h}`)
     }
-    if (w === 320 && !HAND.includes(pg)) { const m = await p.evaluate(minFontProbe); R.minFont[`${pg} ${s || ''}`] = m; if (m.min < 12) fail(`text under 12 px at 320: ${pg} ${s || ''} ${m.min}px ${m.where}`) }
+    if (w === 320) { const m = await p.evaluate(minFontProbe); R.minFont[`${pg} ${s || ''}`] = m; if (m.min < MIN_FONT(pg)) fail(`text under ${MIN_FONT(pg)} px at 320: ${pg} ${s || ''} ${m.min}px ${m.where}`) }
   }
   await ctx.close()
 }
@@ -338,12 +367,28 @@ for (const w of [375, 1280]) {
 console.log(`axe: ${R.axe.length} runs, ${R.axe.reduce((a, x) => a + x.violations.length, 0)} violations`)
 
 // ---------------------------------------------------------------------------------------------- 3. frames at rest, motion
+// The landing page's hero plays its story while it is in view (twice, then it rests on Caught), so it is checked where it
+// must be still: off-screen while playing, paused, after its story ends, and after a scroll through the page. The app has
+// no motion of its own: still after load and after the demo has run.
+const heroPhase = (p) => p.evaluate(() => ({ phase: document.getElementById('viz').dataset.phase, play: document.querySelector('#viz .viz-play-t').textContent.trim() }))
+const REST_STEPS = {
+  'index.html': (p) => [
+    ['hero off-screen while its story plays (scrolled past it)', async () => { await p.evaluate(() => scrollTo(0, scrollY + document.getElementById('viz').getBoundingClientRect().bottom + 40)); await p.waitForTimeout(600) }],
+    ['hero in view, paused (Pause pressed)', async () => { await p.evaluate(() => scrollTo(0, 0)); await p.waitForTimeout(600); if ((await heroPhase(p)).play === 'Pause') await p.click('#viz .viz-play'); await p.evaluate(() => document.activeElement.blur()); await p.mouse.move(1, 1); await p.waitForTimeout(500) }],
+    ['after its story played to the end (twice, then it rests on Caught)', async () => { await p.reload({ waitUntil: 'networkidle' }); await p.waitForFunction(() => document.getElementById('viz').dataset.phase === 'caught' && document.querySelector('#viz .viz-play-t').textContent.trim() === 'Play', null, { timeout: 60000, polling: 500 }); await p.waitForTimeout(500) }],
+    ['after scrolling through, back at the top', async () => settle(p)],
+  ],
+  'app/': (p) => [
+    ['top, after load', async () => {}],
+    ['after the demo (its pass, then one value changed: its fail)', async () => { await STATES['app/']['demo fail'](p); await p.waitForTimeout(800) }],
+  ],
+}
 for (const [w, h] of [[390, 844], [1440, 900]]) {
   const ctx = await ctxFor(w, h), p = await ctx.newPage(), cdp = await ctx.newCDPSession(p)
-  for (const pg of DOC_PAGES) {
+  for (const pg of [...DOC_PAGES, ...HAND_PAGES]) {
     await p.goto(BASE + pg, { waitUntil: 'networkidle' })
     await p.waitForTimeout(1200)
-    const steps = [['top, after load', async () => {}], ['after scrolling through (one-shot motion played)', async () => settle(p)]]
+    const steps = REST_STEPS[pg] ? REST_STEPS[pg](p) : [['top, after load', async () => {}], ['after scrolling through (one-shot motion played)', async () => settle(p)]]
     if (pg === 'check.html') steps.push(['after an edit (blurred)', async () => { await p.fill('#f-value', '1508911'); await p.evaluate(() => document.activeElement.blur()); await p.waitForTimeout(800) }], ['after Rewrite', async () => { await p.click('[data-act=rewrite]'); await p.evaluate(() => document.activeElement.blur()); await p.waitForTimeout(800) }])
     for (const [label, act] of steps) {
       await act()
@@ -367,6 +412,40 @@ for (const [w, h] of [[390, 844], [1440, 900]]) {
     if (n) fail(`reduced motion: ${pg} started ${n} animations`)
   }
   await ctx.close()
+  // the hand-written pages with reduced motion: the landing page's hero starts nothing (no animation frame, no animation)
+  // and rests on Caught, and its Play steps through the story without either; the app's demo animates nothing
+  if (HAND_PAGES.length) {
+    const c1 = await ctxFor(390, 844, { reduced: true }), q = await c1.newPage()
+    await q.addInitScript(COUNT_ANIM); await q.addInitScript(COUNT_RAF)
+    for (const pg of HAND_PAGES) {
+      await q.goto(BASE + pg, { waitUntil: 'networkidle' }); await q.waitForTimeout(1500); await settle(q)
+      const r = { mode: 'reduced motion', pg }
+      if (pg === 'index.html') {
+        r.atRest = { ...(await heroPhase(q)), ...(await q.evaluate(() => ({ raf: window.__raf, anim: window.__anim }))) }
+        await q.click('#viz .viz-play'); await q.waitForTimeout(2200)
+        r.played = { ...(await heroPhase(q)), ...(await q.evaluate(() => ({ raf: window.__raf, anim: window.__anim }))) }
+        if (r.atRest.raf || r.atRest.anim || r.atRest.phase !== 'caught') fail(`reduced motion: index.html at rest: ${JSON.stringify(r.atRest)} (no frame, no animation, on Caught)`)
+        if (r.played.raf || r.played.anim || r.played.phase === 'caught') fail(`reduced motion: index.html after Play: ${JSON.stringify(r.played)} (steps on without a frame or an animation)`)
+      } else {
+        if (pg === 'app/') await STATES['app/']['demo fail'](q)
+        r.animations = await q.evaluate(() => window.__anim + document.getAnimations().filter((a) => a.playState === 'running').length)
+        if (r.animations) fail(`reduced motion: ${pg} started ${r.animations} animations`)
+      }
+      R.motion.push(r)
+    }
+    await c1.close()
+  }
+  // a hidden tab (emulated): the landing page's hero never starts
+  if (PAGES.includes('index.html')) {
+    const c2 = await ctxFor(1440, 900), q = await c2.newPage()
+    await q.addInitScript(() => { Object.defineProperty(Document.prototype, 'hidden', { get: () => true }); Object.defineProperty(Document.prototype, 'visibilityState', { get: () => 'hidden' }) })
+    await q.addInitScript(COUNT_ANIM); await q.addInitScript(COUNT_RAF)
+    await q.goto(BASE + 'index.html', { waitUntil: 'networkidle' }); await q.waitForTimeout(3000)
+    const r = { ...(await heroPhase(q)), ...(await q.evaluate(() => ({ raf: window.__raf, anim: window.__anim }))) }
+    R.motion.push({ mode: 'hidden tab (emulated)', pg: 'index.html', ...r })
+    if (r.raf || r.anim || r.phase !== 'caught') fail(`hidden tab: index.html ${JSON.stringify(r)} (no frame, no animation, on Caught)`)
+    await c2.close()
+  }
   if (PAGES.includes('overview.html')) {
     const c2 = await ctxFor(390, 844), q = await c2.newPage()
     await q.addInitScript(() => { Object.defineProperty(Document.prototype, 'hidden', { get: () => true }); Object.defineProperty(Document.prototype, 'visibilityState', { get: () => 'hidden' }) })
@@ -749,15 +828,29 @@ if (PAGES.includes('overview.html')) {
   const on = await ctxFor(390, 844), off = await ctxFor(390, 844, { js: false })
   const po = await on.newPage(), pf = await off.newPage()
   const words = (t) => new Set((t.toLowerCase().match(/[a-z0-9][a-z0-9'’.-]{2,}/g) || []).map((w) => w.replace(/[.]+$/, '')))
-  for (const pg of DOC_PAGES) {
+  // the landing page reads the same without JavaScript (its hero rests on its last step, Caught, which is what the page
+  // ships); the app is a script, so it has no no-JS text to compare
+  for (const pg of [...DOC_PAGES, ...HAND_PAGES.filter((x) => x === 'index.html')]) {
     await po.goto(BASE + pg, { waitUntil: 'networkidle' }); await settle(po)
+    if (pg === 'index.html') { await po.click('#viz [data-go="caught"]'); await po.waitForTimeout(200) }
     await pf.goto(BASE + pg, { waitUntil: 'networkidle' })
     const a = await text(po, 'body'), b = await text(pf, 'body')
     const wa = words(a), wb = words(b), missing = [...wa].filter((x) => !wb.has(x))
     const cover = 1 - missing.length / wa.size
     R.nojs.push({ pg, words: wa.size, coverage: +cover.toFixed(3), missing: missing.slice(0, 40) })
     if (cover < 0.95) fail(`no-JS: ${pg} shows only ${(cover * 100).toFixed(1)}% of its words without JavaScript (missing ${missing.slice(0, 12).join(' ')})`)
-    if (!b.includes(STATUS)) fail(`no-JS: ${pg} lacks the status line`)
+    if (!b.includes(HAND.includes(pg) ? V1_STATUS : STATUS)) fail(`no-JS: ${pg} lacks the status line`)
+    if (pg === 'index.html') {
+      // without JavaScript: the hero on Caught with every value the script would write, its controls off (no Play, the
+      // step buttons disabled), and the download's SHA-256 beside its link
+      const hero = (q) => q.evaluate(() => { const v = document.getElementById('viz'); return { phase: v.dataset.phase, values: [...v.querySelectorAll('[data-fp], [data-sha], [data-sha-now], [data-size], [data-v], [data-name]')].map((e) => e.textContent.replace(/\s+/g, '')), sha: (document.querySelector('[data-sha256-of="download/iqc.mjs"]') || {}).textContent } })
+      const [hj, hn] = [await hero(po), await hero(pf)]
+      const ctl = await pf.evaluate(() => ({ play: !document.querySelector('#viz .viz-play').getClientRects().length, steps: [...document.querySelectorAll('#viz [data-go]')].every((b) => b.disabled) }))
+      R.nojs.push({ pg: 'index.html #viz', phase: hn.phase, values: hn.values.length, same: JSON.stringify(hj.values) === JSON.stringify(hn.values), controls: ctl, sha: hn.sha })
+      if (hn.phase !== 'caught' || JSON.stringify(hj.values) !== JSON.stringify(hn.values) || !hn.values.length) fail(`no-JS: index.html's hero is not on Caught with the values the script writes (${hn.phase}; ${JSON.stringify(hn.values).slice(0, 160)})`)
+      if (!ctl.play || !ctl.steps) fail(`no-JS: index.html's hero controls are live without JavaScript: ${JSON.stringify(ctl)}`)
+      if (!/^[0-9a-f]{64}$/.test(hn.sha || '') || hn.sha !== hj.sha) fail(`no-JS: index.html does not show the SHA-256 of download/iqc.mjs (${hn.sha})`)
+    }
     if (pg === 'overview.html') {
       // the story without JavaScript: every step's text and its static figure, shown, in that step's state
       const st = await pf.evaluate(() => [...document.querySelectorAll('#story [data-step]')].map((li) => { const f = li.querySelector('.sf'), sc = f && f.querySelector('[data-sc]'); return { k: li.dataset.step, text: li.querySelector('.step-t').innerText.trim().length, fig: !!f && getComputedStyle(f).display !== 'none' && f.getBoundingClientRect().height > 100, s: sc && sc.dataset.s, cap: f ? f.querySelector('figcaption').innerText : '' } }))
@@ -813,8 +906,20 @@ async function firstLoad(pg, { slow = false, w = 390, h = 844, android = false }
   const tbt = m.lt.filter(([s, d]) => s + d > m.fcp).reduce((a, [, d]) => a + Math.max(0, d - 50), 0)
   return { pg, requests: n, third, by, total: Object.values(by).reduce((a, b) => a + b, 0), fcp: Math.round(m.fcp), lcp: Math.round(m.lcp), cls: +m.cls.toFixed(4), tbt: Math.round(tbt), urls: [...reqs.values()].map((r) => r.url.replace(BASE, '')) }
 }
-for (const pg of DOC_PAGES) {
-  const r = await firstLoad(pg), B = BUDGET.site
+// the hand-written pages' own first-load budgets (bytes as served, gzip on, at 390×844), set at the integration step
+// (2026-10-13) from what they measured then, with about 10% headroom:
+//   index.html  9 requests · 99.8 KB (html 8.4, css 17.0, js 8.4, fonts 65.9): the page, theme.css, landing.css,
+//               landing.mjs, sample-data.mjs and four fonts
+//   app/       12 requests · 151.0 KB (html 4.6, css 16.6, js 64.0, fonts 65.9): the page, theme.css, app.css, boot.js,
+//               app.mjs, engine.mjs, core/immutableqc.mjs (the format: 27 KB of the JS), sample-data.mjs and four fonts
+function HAND_BUDGET() {
+  return {
+    'index.html': { requests: 10, total: 110 * 1024, html: 10 * 1024, css: 19 * 1024, js: 10 * 1024, fonts: 72 * 1024 },
+    'app/': { requests: 13, total: 166 * 1024, html: 6 * 1024, css: 19 * 1024, js: 71 * 1024, fonts: 72 * 1024 },
+  }
+}
+for (const pg of [...DOC_PAGES, ...HAND_PAGES]) {
+  const r = await firstLoad(pg), B = BUDGET[pg] || BUDGET.site
   R.budgets.push(r)
   const kb = (b) => (b / 1024).toFixed(1)
   console.log(`  ${pg.padEnd(16)} ${r.requests} requests · ${kb(r.total)} KB (html ${kb(r.by.html)} css ${kb(r.by.css)} js ${kb(r.by.js)} fonts ${kb(r.by.font)} other ${kb(r.by.other)}) · third-party ${r.third}`)
@@ -822,6 +927,8 @@ for (const pg of DOC_PAGES) {
   if (r.total > B.total) fail(`budget: ${pg} ${kb(r.total)} KB > ${kb(B.total)} KB`)
   if (r.by.font > B.fonts) fail(`budget: ${pg} fonts ${kb(r.by.font)} KB > ${kb(B.fonts)} KB`)
   if (B.js && r.by.js > B.js) fail(`budget: ${pg} JS ${kb(r.by.js)} KB > ${kb(B.js)} KB`)
+  if (B.css && r.by.css > B.css) fail(`budget: ${pg} CSS ${kb(r.by.css)} KB > ${kb(B.css)} KB`)
+  if (B.html && r.by.html > B.html) fail(`budget: ${pg} HTML ${kb(r.by.html)} KB > ${kb(B.html)} KB`)
   if (r.third) fail(`budget: ${pg} makes ${r.third} third-party requests`)
   // the Overview with its story (Draft 5): at most 130 KB, and at most 8 KB more eager JS than Draft 4 (13685 bytes as
   // served, main 4e793fb)
@@ -833,7 +940,8 @@ for (const pg of DOC_PAGES) {
 if (ARGS.perf) {
   const med = (a) => [...a].sort((x, y) => x - y)[(a.length - 1) >> 1]
   const RUNS = +(ARGS.runs || 3)
-  for (const [w, h, android] of [[320, 568], [390, 844], [412, 915], [320, 568, true]]) for (const pg of DOC_PAGES) {
+  const PERF = [...DOC_PAGES, ...HAND_PAGES.filter((x) => x === 'index.html')]
+  for (const [w, h, android] of [[320, 568], [390, 844], [412, 915], [320, 568, true]]) for (const pg of PERF) {
     // the Overview's own gate at 390×844 takes the median of at least 5 runs, so one slow run cannot decide it
     const runs = [], gate = pg === 'overview.html' && w === 390 && !android
     for (let i = 0; i < (gate ? Math.max(RUNS, 5) : RUNS); i++) runs.push(await firstLoad(pg, { slow: true, w, h, android }))
@@ -846,7 +954,7 @@ if (ARGS.perf) {
       if (r.lcp > OVERVIEW.lcp0 + 100) fail(`perf: overview.html at 390×844 LCP ${r.lcp} ms, more than 100 ms over Draft 4's ${OVERVIEW.lcp0} ms`)
     }
   }
-  for (const pg of DOC_PAGES) for (const [h1, h2] of [[664, 745], [745, 664]]) {
+  for (const pg of PERF) for (const [h1, h2] of [[664, 745], [745, 664]]) {
     const ctx = await ctxFor(390, h1), p = await ctx.newPage()
     await p.addInitScript(() => { window.__sh = 0; try { new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__sh++ }).observe({ type: 'layout-shift', buffered: true }) } catch {} })
     await p.goto(BASE + pg, { waitUntil: 'networkidle' }); await settle(p)

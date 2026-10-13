@@ -43,6 +43,9 @@ const hashHTML = (hex, cls = '') => `<code class="hash${cls ? ' ' + cls : ''}">$
 const shortHash = (hex, cls = '') => `<code class="hash hash-short${cls ? ' ' + cls : ''}"><span>${esc(String(hex).slice(0, 8))}</span>…</code>`
 const headHTML = (head) => `<code class="hash">${hexGroups(head.h).map((g, i) => `<span>${i ? '' : `${esc(head.n)}:`}${esc(g)}</span>`).join('')}</code>`
 const headText = (head) => IQC.formatHead(head)
+// a path as the person's folder names it (the ledger stores "50%25.txt" for "50%.txt"); kept encoded if decoding would
+// show a control character, or fails. Reports keep the ledger's form.
+const nameOf = (path) => { try { const d = IQC.decodePath(path); return /[\u0000-\u001f\u007f]/.test(d) ? path : d } catch { return path } }
 const slug = (s) => String(s || 'folder').normalize('NFKD').replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 48) || 'folder'
 
 // the state tags (theme.css .tag): every state has an icon and a word, never color alone
@@ -67,7 +70,7 @@ const S = {
   demo: { phase: 'idle', run: null, ledgerText: null, seal: null, auto: false },
 }
 const TITLES = { audit: 'Audit a data folder · Immutable QC', seal: 'Seal a data folder · Immutable QC', demo: 'Demo with sample data · Immutable QC' }
-const section = (mode) => $(`#mode-${mode}`)
+const section = (mode) => document.getElementById(mode) // the sections are #audit, #seal and #demo, as the tabs link them
 const viewEl = (mode, v) => $(`:scope > .wrap > [data-view="${v}"]`, section(mode))
 function show(mode, v) {
   for (const el of $$(':scope > .wrap > [data-view]', section(mode))) el.hidden = el.dataset.view !== v
@@ -139,17 +142,18 @@ function progressView(box, { verb, root, steps, onCancel }) {
   const order = steps.map((s) => s.id)
   let p = null, frame = 0, last = Date.now(), shown = -1
   const started = Date.now()
-  const stepText = {}
+  const stepText = {}, fixed = new Set() // fixed: texts the run set itself (prog.text), never redrawn from older progress
+  const auto = (step, t) => { if (!fixed.has(step)) stepText[step] = t }
   const draw = () => {
     frame = 0
     if (!p) return
     const now = Date.now()
     const at = order.indexOf(p.stage)
-    if (p.stage === 'ledger' && p.ledgerTotal) stepText.ledger = `${fmtN(p.ledgerDone)} of ${plural(p.ledgerTotal, 'record', 'records')}: signatures and links`
-    if (p.stage === 'hash') stepText.hash = `${fmtN(p.files)} of ${plural(p.filesTotal, 'file', 'files')}, ${fmtB(p.bytes)} of ${fmtB(p.bytesTotal)}`
-    if (p.stage === 'list' && p.listed) stepText.list = p.measured ? `${plural(p.listed, 'file', 'files')}: sizes read for ${fmtN(p.measured)}` : `${plural(p.listed, 'file', 'files')} found so far`
-    if (p.ledgerProblems !== undefined && p.stage !== 'ledger') stepText.ledger = p.ledgerProblems ? `${plural(p.records, 'record', 'records')}: ${plural(p.ledgerProblems, 'problem', 'problems')} found` : `${plural(p.records, 'record', 'records')}: every signature and link verified`
-    if ((p.stage === 'audit' || p.stage === 'sign') && p.filesTotal !== undefined) stepText.hash = `${plural(p.filesTotal, 'file', 'files')}, ${fmtB(p.bytesTotal)} re-read`
+    if (p.stage === 'ledger' && p.ledgerTotal) auto('ledger', `${fmtN(p.ledgerDone)} of ${plural(p.ledgerTotal, 'record', 'records')}: signatures and links`)
+    if (p.stage === 'hash') auto('hash', `${fmtN(p.files)} of ${plural(p.filesTotal, 'file', 'files')}, ${fmtB(p.bytes)} of ${fmtB(p.bytesTotal)}`)
+    if (p.stage === 'list' && p.listed) auto('list', p.measured ? `${plural(p.listed, 'file', 'files')} found: sizes read for ${fmtN(p.measured)} of them` : `${plural(p.listed, 'file', 'files')} found so far`)
+    if (p.ledgerProblems !== undefined && p.stage !== 'ledger') auto('ledger', p.ledgerProblems ? `${plural(p.records, 'record', 'records')}: ${plural(p.ledgerProblems, 'problem', 'problems')} found` : `${plural(p.records, 'record', 'records')}: every signature and link verified`)
+    if ((p.stage === 'audit' || p.stage === 'sign') && p.filesTotal !== undefined) auto('hash', `${plural(p.filesTotal, 'file', 'files')}, ${fmtB(p.bytesTotal)} re-read`)
     $$('.checks li', box).forEach((li, i) => {
       li.className = i < at ? 'done' : i === at ? 'run' : 'wait'
       const t = stepText[li.dataset.s]
@@ -197,7 +201,7 @@ function progressView(box, { verb, root, steps, onCancel }) {
   return {
     heading: $('h1', box),
     update(np) { p = np; last = Date.now(); if (!frame) frame = requestAnimationFrame(draw) },
-    text(step, t) { stepText[step] = t; if (!frame) frame = requestAnimationFrame(draw) },
+    text(step, t) { stepText[step] = t; fixed.add(step); if (!frame) frame = requestAnimationFrame(draw) },
     setRoot(r) { q('root').textContent = r || 'the folder' },
     done() { clearInterval(timer); if (frame) cancelAnimationFrame(frame) },
   }
@@ -324,7 +328,7 @@ function askLedger(located) {
   finishRun('audit')
   const box = show('audit', 'ledger')
   const n = located.files.length
-  $('[data-slot="ask-text"]', box).innerHTML = `There is no <code>ImmutableQC/ledger.jsonl</code> in <b>${esc(located.root || 'the dropped files')}</b> (${esc(plural(n, 'file', 'files'))}), at the top or one folder down. If the ledger is kept somewhere else, choose it: the audit starts at once with the files you dropped.`
+  $('[data-slot="ask-text"]', box).innerHTML = `There is no <code>ImmutableQC/ledger.jsonl</code> in <b>${esc(located.root || 'the dropped files')}</b> (${esc(plural(n, 'file', 'files'))}), at the top or one folder down. If the ledger is kept somewhere else, choose it: the audit starts at once, with this folder’s files.`
   $('[data-slot="ask-error"]', box).innerHTML = ''
   focusEl($('h1', box))
   announce('No ledger was found in the folder. Choose the ledger file to continue.')
@@ -432,7 +436,7 @@ function rowsOf(res) {
     const problem = f.state === 'changed' || f.state === 'missing'
     const stateNote = f.state === 'not sealed' || f.state === 'back after removal' || f.state === 'not checked'
     const note = !problem && (stateNote || f.versions > 1 || unwatched)
-    const hay = `${f.path} ${f.sealed ? f.sealed.sha256 : ''} ${f.present ? f.present.sha256 : ''}`.toLowerCase()
+    const hay = `${nameOf(f.path)} ${f.path} ${f.sealed ? f.sealed.sha256 : ''} ${f.present ? f.present.sha256 : ''}`.toLowerCase()
     return { f, i, group: problem ? 0 : note ? 1 : 2, problem, note, unwatched, unread: unread.get(f.path), hay }
   }).sort((a, b) => a.group - b.group || a.i - b.i)
 }
@@ -459,7 +463,7 @@ function rowHTML(row) {
   else if (f.sealed) sha = shortHash(f.sealed.sha256)
   const why = whyOf(row)
   const cls = row.problem ? 'is-problem' : row.note ? 'is-note' : ''
-  return `<tr${cls ? ` class="${cls}"` : ''}><td class="c-state" data-label="State">${tag(f.state)}</td><td class="c-path" data-label="Path"><code>${esc(f.path)}</code>${why ? `<span class="why${row.problem ? ' bad' : row.note ? '' : ' faint'}">${esc(why)}</span>` : ''}</td><td class="num" data-label="Size">${size !== null ? esc(fmtB(size)) : '<span class="faint">none</span>'}</td><td class="c-sha" data-label="SHA-256"><span class="lbl" aria-hidden="true">SHA-256</span>${sha}</td><td class="num" data-label="Versions"><span class="lbl" aria-hidden="true">Versions</span>${esc(f.versions)}</td></tr>`
+  return `<tr${cls ? ` class="${cls}"` : ''}><td class="c-state" data-label="State">${tag(f.state)}</td><td class="c-path" data-label="Path"><code>${esc(nameOf(f.path))}</code>${why ? `<span class="why${row.problem ? ' bad' : row.note ? '' : ' faint'}">${esc(why)}</span>` : ''}</td><td class="num" data-label="Size">${size !== null ? esc(fmtB(size)) : '<span class="faint">none</span>'}</td><td class="c-sha" data-label="SHA-256"><span class="lbl" aria-hidden="true">SHA-256</span>${sha}</td><td class="num" data-label="Versions"><span class="lbl" aria-hidden="true">Versions</span>${esc(f.versions)}</td></tr>`
 }
 
 const PAGE = 100
@@ -538,11 +542,11 @@ function problemsPanel(id, res, rowsByPath) {
       if (!f) return `<li><p>${esc(p.message)}</p></li>`
       const s = f.sealed
       if (p.code === 'missing') {
-        return `<li><div class="pr-h">${tag('missing')}<code>${esc(f.path)}</code></div><p>Sealed in record ${esc(f.latest.n)}${s ? ` (${esc(when(s.observedAt))})` : ''}. It is not in the folder, and no removal was recorded.</p>${s ? `<dl class="cmp"><div><dt>Sealed</dt><dd>${hashHTML(s.sha256, 'hash-sealed')}</dd></div><div><dt>Size</dt><dd class="finding">${esc(fmtN(Number(s.bytes)))} bytes</dd></div></dl>` : ''}</li>`
+        return `<li><div class="pr-h">${tag('missing')}<code>${esc(nameOf(f.path))}</code></div><p>Sealed in record ${esc(f.latest.n)}${s ? ` (${esc(when(s.observedAt))})` : ''}. It is not in the folder, and no removal was recorded.</p>${s ? `<dl class="cmp"><div><dt>Sealed</dt><dd>${hashHTML(s.sha256, 'hash-sealed')}</dd></div><div><dt>Size</dt><dd class="finding">${esc(fmtN(Number(s.bytes)))} bytes</dd></div></dl>` : ''}</li>`
       }
       const sb = Number(s.bytes), nb = Number(f.present.bytes)
       const size = sb === nb ? `${fmtN(nb)} bytes, the same size as sealed: only the content differs.` : `${fmtN(nb)} bytes instead of ${fmtN(sb)}.`
-      return `<li><div class="pr-h">${tag('changed')}<code>${esc(f.path)}</code></div><p>Different bytes from the version sealed in record ${esc(s.n)} (${esc(when(s.observedAt))}).${f.matchesN ? ` They match the version sealed in record ${esc(f.matchesN)}, not the latest one: an older copy is back, as after a restored backup.` : ''}</p><dl class="cmp"><div><dt>Sealed</dt><dd>${hashHTML(s.sha256, 'hash-sealed')}</dd></div><div><dt>Now</dt><dd>${hashHTML(f.present.sha256, 'hash-changed')}</dd></div><div><dt>Size</dt><dd class="finding">${esc(size)}</dd></div></dl></li>`
+      return `<li><div class="pr-h">${tag('changed')}<code>${esc(nameOf(f.path))}</code></div><p>Different bytes from the version sealed in record ${esc(s.n)} (${esc(when(s.observedAt))}).${f.matchesN ? ` They match the version sealed in record ${esc(f.matchesN)}, not the latest one: an older copy is back, as after a restored backup.` : ''}</p><dl class="cmp"><div><dt>Sealed</dt><dd>${hashHTML(s.sha256, 'hash-sealed')}</dd></div><div><dt>Now</dt><dd>${hashHTML(f.present.sha256, 'hash-changed')}</dd></div><div><dt>Size</dt><dd class="finding">${esc(size)}</dd></div></dl></li>`
     }
     if (p.code === 'expect-head' || p.code === 'expect-key') {
       return `<li><div class="pr-h"><span class="tag tag-fail">${ic('x')}${p.code === 'expect-head' ? 'Pinned head' : 'Key id'}</span></div><p>${esc(p.message)}</p></li>`
@@ -682,7 +686,7 @@ function renderResult(box, res, { mode, level = 'h1', demo = false, exp = null }
   const notices = []
   if (res.located && res.located.kind === 'ledger-only') notices.push(`<p class="callout callout-note">${ic('note')}<span>${res.located.why === 'ledger-folder' ? 'This is the ledger’s own ImmutableQC folder, so only the ledger was checked. Drop the data folder that holds it to re-read every file too.' : 'Only the ledger was checked. Drop the data folder that holds it to re-read every file too.'}</span></p>`)
   if (res.located && res.located.parent) notices.push(`<p class="callout">${ic('folder')}<span>${esc(`The ledger was found one folder down: ${res.located.root}/ImmutableQC/ledger.jsonl, so ${res.located.root} was audited.`)}</span></p>`)
-  if (res.unreadable && res.unreadable.length) notices.push(`<div class="callout callout-note">${ic('note')}<div><p>${esc(`${plural(res.unreadable.length, 'file', 'files')} could not be read, so ${res.unreadable.length === 1 ? 'it was' : 'they were'} not checked:`)}</p><ul class="note-items">${res.unreadable.slice(0, 5).map((u) => `<li>${esc(`${u.path}: ${readError(u.error)}`)}</li>`).join('')}${res.unreadable.length > 5 ? `<li>${esc(`and ${fmtN(res.unreadable.length - 5)} more (Notes, in the file list)`)}</li>` : ''}</ul></div></div>`)
+  if (res.unreadable && res.unreadable.length) notices.push(`<div class="callout callout-note">${ic('note')}<div><p>${esc(`${plural(res.unreadable.length, 'file', 'files')} could not be read, so ${res.unreadable.length === 1 ? 'it was' : 'they were'} not checked:`)}</p><ul class="note-items">${res.unreadable.slice(0, 5).map((u) => `<li>${esc(`${nameOf(u.path)}: ${readError(u.error)}`)}</li>`).join('')}${res.unreadable.length > 5 ? `<li>${esc(`and ${fmtN(res.unreadable.length - 5)} more (Notes, in the file list)`)}</li>` : ''}</ul></div></div>`)
   if (res.skipped && res.skipped.length) notices.push(`<div class="callout callout-note">${ic('note')}<div><p>${esc(`${plural(res.skipped.length, 'file was', 'files were')} left out:`)}</p><ul class="note-items">${res.skipped.slice(0, 5).map((u) => `<li>${esc(`${u.raw}: ${u.why}`)}</li>`).join('')}</ul></div></div>`)
   const head = L.head && L.head.n > 0 ? L.head : null
   box.innerHTML = `<div class="result" data-verdict="${r.verdict}">
@@ -695,6 +699,7 @@ ${metaLedger ? `<p class="verdict-meta">${esc(metaLedger)}</p>` : ''}<p class="v
 ${pass && r.filesChecked ? '<p class="v-why">Each file is byte for byte the one that was sealed, and the ledger was not edited, reordered or cut since it was signed. It does not show a file was right when it was written. <a href="../sealed.html">What a seal covers</a></p>' : ''}
 </div>
 <div class="verdict-actions">
+${demo && pass ? `<button class="btn btn-primary btn-s" type="button" data-act="demo-edit">${ic('edit')}Change one value</button>` : ''}
 <button class="btn ${primary ? 'btn-primary' : 'btn-ghost'} btn-s" type="button" data-act="report-html">${ic('down')}Download report (HTML)</button>
 <button class="btn btn-ghost btn-s" type="button" data-act="report-json">${ic('down')}Download report (JSON)</button>
 </div>
@@ -707,7 +712,7 @@ ${notices.join('\n')}
 ${problemsPanel(id, res, byPath)}
 ${notesPanel(id, r)}
 ${timelinePanel(id, res)}
-${rerunPanel(id, res, exp)}
+${demo ? '' : rerunPanel(id, res, exp)}
 </div>
 <div class="col-side">
 ${ledgerPanel(id, res)}
@@ -715,7 +720,7 @@ ${ledgerPanel(id, res)}
 </div>
 ${filesPanel(id, rows)}
 <div class="end-row">
-${demo ? '' : `<button class="btn btn-ghost" type="button" data-act="reset">${ic('folder')}Audit another folder</button>`}
+${demo ? `<button class="btn btn-ghost" type="button" data-act="demo-restart">${ic('redo')}Start over</button>` : `<button class="btn btn-ghost" type="button" data-act="reset">${ic('folder')}Audit another folder</button>`}
 ${head ? `<button class="chip-copy" type="button" data-copy="${esc(headText(head))}">${ic('copy')}<span><span class="vh">Copy the </span>Head ${esc(head.n)}:${esc(head.h.slice(0, 8))}…</span></button>` : ''}
 ${L.keyId ? `<button class="chip-copy" type="button" data-copy="${esc(L.keyId)}">${ic('copy')}<span><span class="vh">Copy the </span>Key id ${esc(L.keyId)}</span></button>` : ''}
 </div>
@@ -831,12 +836,12 @@ function renderSeal(box, res) {
   const dest = `${root}/ImmutableQC/ledger.jsonl`
   const steps = res.appended
     ? `<li><span><b>Download</b> the new <code>ledger.jsonl</code>. It keeps every earlier line and adds ${esc(plural(res.records.length, 'record', 'records'))}.</span></li><li><span><b>Replace</b> <code>${esc(dest)}</code> with it.</span></li><li><span><b>Audit</b> the folder on <a href="#audit">Audit</a>, now or any time later.</span></li>`
-    : `<li><span><b>Download</b> <code>ledger.jsonl</code>.</span></li><li><span><b>Put it in the data folder</b> as <code>${esc(dest)}</code>: make the <code>ImmutableQC</code> folder inside <code>${esc(root)}</code> if it is not there.</span></li><li><span><b>Audit</b> the folder on <a href="#audit">Audit</a>, now or any time later. To catch a rewrite, keep the head (below) somewhere else too.</span></li>`
+    : `<li><span><b>Download</b> <code>ledger.jsonl</code>.</span></li><li><span><b>Put it in the data folder</b> as <code>${esc(dest)}</code>: make the <code>ImmutableQC</code> folder inside <code>${esc(root)}</code> if it is not there.</span></li><li><span><b>Audit</b> the folder on <a href="#audit">Audit</a>, now or any time later. To catch a rewrite, copy the head and keep it somewhere else too (an email, a lab notebook entry).</span></li>`
   const check = res.report.verdict === 'pass'
     ? `<p class="callout callout-pass">${ic('check')}<span>${esc(`Checked in this tab: the new ledger verifies, and ${res.report.counts.match === 1 ? 'the file matches it' : `all ${fmtN(res.report.counts.match)} files match it`}.`)}</span></p>`
     : `<p class="callout callout-fail">${ic('x')}<span>${esc(`The check of the new ledger did not pass: ${res.report.summary} Do not use it; seal again.`)}</span></p>`
   const rows = rowsOf({ ...res, unreadable: res.unreadable || [] })
-  const unread = res.unreadable.length ? `<div class="callout callout-note">${ic('note')}<div><p>${esc(`${plural(res.unreadable.length, 'file', 'files')} could not be read, so ${res.unreadable.length === 1 ? 'it was' : 'they were'} not sealed. Seal again once ${res.unreadable.length === 1 ? 'it is' : 'they are'} readable:`)}</p><ul class="note-items">${res.unreadable.slice(0, 5).map((u) => `<li>${esc(`${u.path}: ${readError(u.error)}`)}</li>`).join('')}</ul></div></div>` : ''
+  const unread = res.unreadable.length ? `<div class="callout callout-note">${ic('note')}<div><p>${esc(`${plural(res.unreadable.length, 'file', 'files')} could not be read, so ${res.unreadable.length === 1 ? 'it was' : 'they were'} not sealed. Seal again once ${res.unreadable.length === 1 ? 'it is' : 'they are'} readable:`)}</p><ul class="note-items">${res.unreadable.slice(0, 5).map((u) => `<li>${esc(`${nameOf(u.path)}: ${readError(u.error)}`)}</li>`).join('')}</ul></div></div>` : ''
   box.innerHTML = `<div class="result">
 <div class="verdict verdict-pass verdict-sealed" tabindex="-1" role="group" aria-labelledby="${id}-vh">
 <div class="verdict-ic" aria-hidden="true"><svg viewBox="0 0 64 64" focusable="false"><circle class="v-ring" cx="32" cy="32" r="28"/><circle class="v-ring" cx="32" cy="32" r="17" stroke-width="4"/><circle cx="32" cy="32" r="6.5" fill="currentColor"/></svg></div>
@@ -875,7 +880,7 @@ ${filesPanel(id, rows, { title: 'Files sealed', sub: `${plural(rows.length, 'pat
 // ---------------------------------------------------------------------------------------------------------- the demo
 const D = () => S.demo
 function demoSteps(states) {
-  for (const li of $$('#mode-demo .steps li')) {
+  for (const li of $$('.steps li', section('demo'))) {
     const s = states[li.dataset.step]
     if (s) li.className = s
   }
@@ -1062,6 +1067,7 @@ function boot() {
   addEventListener('error', (e) => { if (e.error || e.message) showFatal(e.error || new Error(e.message)) })
   addEventListener('unhandledrejection', (e) => { if (!(e.reason instanceof Canceled)) showFatal(e.reason) })
   setMode(modeOf(location.hash) || 'audit')
+  document.documentElement.dataset.app = 'ready' // boot.js: the app has started
 }
 function showFatal(err) {
   const mode = S.mode

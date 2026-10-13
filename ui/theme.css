@@ -223,6 +223,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .foot-nav a{display:inline-block;padding:4px 0;color:var(--ink);text-decoration:none}
 .foot-nav a:hover{color:var(--signal);text-decoration:underline}
 .foot-meta{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 28px}
+.foot-meta>a{padding:4px 0}
 .indep{max-width:68ch;color:var(--ink-3)}
 .indep a,.foot-meta a{color:var(--ink-2)}
 .indep a:hover,.foot-meta a:hover{color:var(--signal)}

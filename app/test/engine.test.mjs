@@ -4,10 +4,12 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
+import { spawnSync } from 'node:child_process'
 import * as IQC from '../../core/immutableqc.mjs'
 import { SHA256, SHA256_EDITED, EDIT, FILES, FOLDER } from '../../ui/sample-data.mjs'
-import { locate, listInput, listEntries, entriesOfDrop, prepareFiles, ledgerHeaderProblem, runAudit, runSeal, demoListing, DemoKeys, AppError, Canceled, TOOL, MAX_FILES } from '../engine.mjs'
+import { locate, listInput, listEntries, entriesOfDrop, prepareFiles, ledgerHeaderProblem, runAudit, runSeal, demoListing, DemoKeys, AppError, Canceled, TOOL, MAX_FILES, yieldNow } from '../engine.mjs'
 
+const T = { timeout: 30000 } // every test is bounded: a hang fails the test instead of the run
 const file = (name, text = name, extra = {}) => Object.assign(new File([text], name.split('/').pop()), extra)
 const sha = async (f) => createHash('sha256').update(Buffer.from(await f.arrayBuffer())).digest('hex')
 
@@ -39,12 +41,28 @@ function fileEntry(name, text, { fail = false } = {}) {
   return { name, isDirectory: false, isFile: true, file(ok, ko) { setTimeout(() => (fail ? ko(Object.assign(new Error('gone'), { name: 'NotFoundError' })) : ok(new File([text], name))), 0) } }
 }
 
-test('constants: the tool name and the limits', () => {
+test('constants: the tool name and the limits', T, () => {
   assert.equal(TOOL, `immutableqc-app/${IQC.VERSION}`)
   assert.equal(MAX_FILES, 1000000)
 })
 
-test('listEntries: a dropped folder is walked whole, every batch of readEntries, folders inside folders', async () => {
+// The stall of `node --test app/test` (2026-10-13): yieldNow listened on a MessageChannel, and on Node a port with a
+// listener holds the event loop open, so every process that had yielded once never exited. A process that imports the
+// engine and yields must end by itself.
+test('yieldNow: lets the page draw, and leaves nothing behind that keeps a Node process running', T, async () => {
+  let n = 0
+  await Promise.all([yieldNow().then(() => n++), yieldNow().then(() => n++)])
+  assert.equal(n, 2)
+  const env = { ...process.env }
+  delete env.NODE_TEST_CONTEXT
+  const code = `const m = await import(${JSON.stringify(new URL('../engine.mjs', import.meta.url).href)}); await m.yieldNow(); await m.yieldNow(); console.log('yielded')`
+  const r = spawnSync(process.execPath, ['--input-type=module', '-e', code], { env, encoding: 'utf8', timeout: 20000 })
+  assert.equal(r.error && r.error.code, undefined, 'the process did not exit by itself within 20 s')
+  assert.equal(r.status, 0, r.stderr)
+  assert.equal(r.stdout.trim(), 'yielded')
+})
+
+test('listEntries: a dropped folder is walked whole, every batch of readEntries, folders inside folders', T, async () => {
   const many = Array.from({ length: 250 }, (_, i) => fileEntry(`f${String(i).padStart(3, '0')}.csv`, `v${i}`))
   const root = dirEntry('bio-line-2', [dirEntry('run-1', many), dirEntry('ImmutableQC', [fileEntry('ledger.jsonl', '{}\n')]), fileEntry('top.txt', 't'), dirEntry('empty', []), dirEntry('a', [dirEntry('b', [fileEntry('deep.bin', 'd')])])])
   const seen = []
@@ -57,7 +75,7 @@ test('listEntries: a dropped folder is walked whole, every batch of readEntries,
   assert.deepEqual(l.errors, [])
 })
 
-test('listEntries: several dropped items have no root; a file that cannot be opened is kept as unreadable', async () => {
+test('listEntries: several dropped items have no root; a file that cannot be opened is kept as unreadable', T, async () => {
   const l = await listEntries({ entries: [dirEntry('ImmutableQC', [fileEntry('ledger.jsonl', 'x')]), fileEntry('a.csv', 'a'), fileEntry('b.csv', 'b', { fail: true })], loose: [] })
   assert.equal(l.root, null)
   assert.deepEqual(l.items.map((x) => x.raw), ['ImmutableQC/ledger.jsonl', 'a.csv', 'b.csv'])
@@ -66,7 +84,7 @@ test('listEntries: several dropped items have no root; a file that cannot be ope
   assert.match(b.error, /gone/)
 })
 
-test('listEntries: a folder too large for a tab, and a canceled listing, stop with a reason', async () => {
+test('listEntries: a folder too large for a tab, and a canceled listing, stop with a reason', T, async () => {
   const root = dirEntry('big', Array.from({ length: 30 }, (_, i) => fileEntry(`${i}.txt`, 'x')))
   await assert.rejects(listEntries({ entries: [root] }, { max: 10 }), (e) => e instanceof AppError && e.code === 'too-many' && /too large for a browser tab/.test(e.title) && /node iqc\.mjs audit/.test(e.message))
   const ctl = new AbortController()
@@ -74,7 +92,7 @@ test('listEntries: a folder too large for a tab, and a canceled listing, stop wi
   await assert.rejects(listEntries({ entries: [root] }, { signal: ctl.signal }), (e) => e instanceof Canceled)
 })
 
-test('entriesOfDrop: entries from webkitGetAsEntry, plain files when there is no entry', () => {
+test('entriesOfDrop: entries from webkitGetAsEntry, plain files when there is no entry', T, () => {
   const e = { name: 'x', isDirectory: true }
   const f = file('loose.csv')
   const got = entriesOfDrop({ items: [{ kind: 'file', webkitGetAsEntry: () => e }, { kind: 'file', webkitGetAsEntry: () => null, getAsFile: () => f }, { kind: 'string' }] })
@@ -83,7 +101,7 @@ test('entriesOfDrop: entries from webkitGetAsEntry, plain files when there is no
   assert.deepEqual(entriesOfDrop({ items: [], files: [f] }).loose, [f])
 })
 
-test('listInput: the chosen folder is the root; paths are relative to it', () => {
+test('listInput: the chosen folder is the root; paths are relative to it', T, () => {
   const l = listInput([file('x', 'a', { webkitRelativePath: 'bio-line-2/run-1007/b.csv' }), file('y', 'b', { webkitRelativePath: 'bio-line-2/ImmutableQC/ledger.jsonl' })])
   assert.equal(l.root, 'bio-line-2')
   assert.deepEqual(l.items.map((x) => x.raw), ['ImmutableQC/ledger.jsonl', 'run-1007/b.csv'])
@@ -93,7 +111,7 @@ test('listInput: the chosen folder is the root; paths are relative to it', () =>
   assert.throws(() => listInput([file('a'), file('b'), file('c')], { max: 2 }), (e) => e.code === 'too-many')
 })
 
-test('locate: the ledger at the top, one folder down, alone, in its own folder, missing, or in several folders', () => {
+test('locate: the ledger at the top, one folder down, alone, in its own folder, missing, or in several folders', T, () => {
   const L = (raws, root = 'top') => ({ root, items: raws.map((raw) => ({ raw, file: file(raw) })), errors: [] })
   let r = locate(L(['ImmutableQC/ledger.jsonl', 'a.csv', 'ImmutableQC/README.txt']))
   assert.equal(r.kind, 'folder')
@@ -114,7 +132,7 @@ test('locate: the ledger at the top, one folder down, alone, in its own folder, 
   assert.throws(() => locate({ root: 'x', items: [], errors: [] }), (e) => e.code === 'empty' && e.title === 'The folder is empty')
 })
 
-test('prepareFiles: encoded paths, without the ledger folder and system files (unless sealed), each path once', () => {
+test('prepareFiles: encoded paths, without the ledger folder and system files (unless sealed), each path once', T, () => {
   const items = ['a 50%.csv', 'ImmutableQC/agent.lock', 'run/.DS_Store', 'run/x.tmp', 'Thumbs.db', 'caf\u00e9.txt', 'cafe\u0301.txt', 'sub/ImmutableQC/kept.txt'].map((raw) => ({ raw, file: file(raw) }))
   const { list, skipped } = prepareFiles(items, new Map([['run/x.tmp', {}]]))
   assert.deepEqual(list.map((x) => x.path), ['a 50%25.csv', 'run/x.tmp', 'café.txt', 'sub/ImmutableQC/kept.txt'])
@@ -125,7 +143,7 @@ test('prepareFiles: encoded paths, without the ledger folder and system files (u
   assert.match(un.error, /gone/)
 })
 
-test('ledgerHeaderProblem: a ledger header passes; anything else says why', () => {
+test('ledgerHeaderProblem: a ledger header passes; anything else says why', T, () => {
   assert.equal(ledgerHeaderProblem(new TextEncoder().encode('{"format":"immutableqc-ledger","version":1}\n{"n":1}\n')), null)
   assert.match(ledgerHeaderProblem(new Uint8Array()), /empty/)
   assert.match(ledgerHeaderProblem(new TextEncoder().encode('well,abs_450\nA01,0.482\n')), /not a JSON object/)
@@ -133,7 +151,7 @@ test('ledgerHeaderProblem: a ledger header passes; anything else says why', () =
   assert.match(ledgerHeaderProblem(new Uint8Array([0xff, 0xfe, 0x00, 0x0a])), /not text/)
 })
 
-test('demoListing: the sample folder, and the copy with one value changed, hash to the published fingerprints', async () => {
+test('demoListing: the sample folder, and the copy with one value changed, hash to the published fingerprints', T, async () => {
   const a = demoListing()
   assert.equal(a.root, FOLDER)
   assert.deepEqual(a.items.map((x) => x.raw), FILES.map((f) => f.path))
@@ -145,7 +163,7 @@ test('demoListing: the sample folder, and the copy with one value changed, hash 
   assert.ok(b.items.some((x) => x.raw === IQC.LEDGER_PATH))
 })
 
-test('seal and audit: the demo pipeline end to end (seal, pass, change one value, fail on plate-07.csv)', async () => {
+test('seal and audit: the demo pipeline end to end (seal, pass, change one value, fail on plate-07.csv)', T, async () => {
   const pool = nodePool(), keys = new DemoKeys()
   const steps = []
   const sealed = await runSeal(locate(demoListing()), { station: 'bio-line-2', pool, keys, onProgress: (p) => steps.push(p.stage) })
@@ -183,7 +201,7 @@ test('seal and audit: the demo pipeline end to end (seal, pass, change one value
   assert.deepEqual(other.report.problems.map((p) => p.code).sort(), ['expect-head', 'expect-key'])
 })
 
-test('seal: appending to a ledger whose key the browser holds, refusing one it does not, never extending a broken one', async () => {
+test('seal: appending to a ledger whose key the browser holds, refusing one it does not, never extending a broken one', T, async () => {
   const pool = nodePool(), keys = new DemoKeys()
   const first = await runSeal(locate(demoListing()), { station: 'Browser', pool, keys })
   // the copy with one value changed, sealed again with the same key: a scan and the change
@@ -208,7 +226,7 @@ test('seal: appending to a ledger whose key the browser holds, refusing one it d
   await assert.rejects(runSeal(locate(demoListing()), { pool, keys, station: 'a|b' }), (e) => e.code === 'station')
 })
 
-test('audit: a chosen file that is not a ledger, an unreadable ledger, a file that cannot be opened, a ledger alone', async () => {
+test('audit: a chosen file that is not a ledger, an unreadable ledger, a file that cannot be opened, a ledger alone', T, async () => {
   const pool = nodePool()
   const items = demoListing().items
   await assert.rejects(runAudit({ kind: 'folder', root: 'x', ledger: { raw: 'run.json', file: items[3].file }, files: items }, { pool, chosen: true }), (e) => e.code === 'not-ledger' && /run\.json: its first line/.test(e.message))
@@ -226,7 +244,7 @@ test('audit: a chosen file that is not a ledger, an unreadable ledger, a file th
   assert.equal(only.report.filesChecked, false)
 })
 
-test('audit: the core fixtures give the expected verdicts through the app pipeline', async () => {
+test('audit: the core fixtures give the expected verdicts through the app pipeline', T, async () => {
   const { readFileSync, readdirSync, statSync } = await import('node:fs')
   const { join, relative } = await import('node:path')
   const FX = new URL('../../core/test/fixtures/', import.meta.url).pathname

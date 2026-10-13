@@ -6,7 +6,7 @@
 .sprite{position:absolute;width:0;height:0;overflow:hidden}
 .mark-dot{fill:var(--signal)}
 main{display:block;outline:none;min-height:60vh;padding-bottom:clamp(40px,6vw,88px);background:radial-gradient(70% 420px at 50% 0%,rgba(30,90,170,.16),transparent 70%)}
-.mode{padding-top:clamp(20px,3.5vw,44px)}
+.mode{padding-top:clamp(20px,3.5vw,44px);scroll-margin-top:16rem} /* app/#seal, #demo: the fragment names the section; the page stays at its top */
 .mode:focus{outline:none}
 .screen{padding:clamp(14px,3vw,36px)}
 .screen+.screen,.screen+[data-view],[data-view]+[data-view]{margin-top:16px}
@@ -199,6 +199,7 @@ code{overflow-wrap:anywhere}
 .ftable .c-sha .hash{white-space:nowrap}
 .ftable .why{display:block;margin-top:3px;font-size:.8125rem;color:var(--note)}
 .ftable .why.bad{color:var(--alert)}
+.ftable .why.faint{color:var(--ink-3)}
 .ftable .c-sha .now{display:block;color:var(--alert)}
 .empty-row td{text-align:center;color:var(--ink-3);padding:22px 10px}
 .pager{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;margin-top:14px;font-size:var(--t-small);color:var(--ink-3)}
@@ -247,7 +248,7 @@ code{overflow-wrap:anywhere}
 .tree .t-size{color:var(--ink-3);white-space:nowrap}
 .tree .hash{font-size:.75rem}
 .tree li.is-edited .hash{color:var(--alert)}
-.tree .tag{font-size:.625rem;padding:2px 7px 2px 5px}
+.tree .tag{font-size:.6875rem;padding:2px 7px 2px 5px}
 .tree .tag svg{width:11px;height:11px}
 .inside{padding:14px 16px;border-radius:var(--r-m);background:var(--well);border:1px solid var(--alert-line)}
 .inside .label{margin-bottom:8px}
@@ -296,12 +297,20 @@ code{overflow-wrap:anywhere}
   .tree li{grid-template-columns:minmax(0,1fr) auto}
   .tree .hash{grid-column:1/-1}
   .verdict-actions .btn{justify-content:center}
+  /* tap targets: 44 px on phones, as on the landing page (site/tools/check.mjs checks them at 320 and 390) */
+  .btn-s{--h:44px}
+  .brand,.modes .seg a,.site-nav a:not(.btn),.filter,.chip-copy,.copy,.input,input[type=text],input[type=search]{min-height:44px}
+  .brand{min-width:44px}
+  .icon-btn{width:44px;height:44px}
+  .foot-nav a,.foot-meta a{display:inline-flex;align-items:center;min-height:44px;min-width:44px;padding:0}
+  .foot-nav ul{gap:0 22px}
 }
 @media (max-width:400px){
   .screen{padding:12px}
   .drop{padding-left:12px;padding-right:12px}
   .stat{padding:12px}
-  .prog-stats{grid-template-columns:minmax(0,1fr)}
+  .prog-stats>div{padding:8px 10px}
+  .prog-stats dd{font-size:.875rem;overflow-wrap:anywhere}
   .chip-copy{max-width:100%}
 }
 

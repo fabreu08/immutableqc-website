@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   unit-tests:
-    name: Unit tests (core and agent, node --test)
+    name: Unit tests (core, agent and ui, node --test)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -21,15 +21,10 @@ jobs:
           node-version: 22
           package-manager-cache: false
       # docs/product-v1.md, section 8. Node 22 reads a folder given to --test as a module path, so each test folder has a
-      # package.json whose main loads its tests (core/test does). agent/test joins once it exists.
-      - name: Run node --test core/test agent/test
-        run: |
-          if [ -d agent/test ]; then
-            node --test core/test agent/test
-          else
-            echo "agent/test does not exist yet: running core/test only"
-            node --test core/test
-          fi
+      # package.json whose main loads its tests. Playwright is not installed in this job, so the tests that need a browser
+      # (core/test/browser.test.mjs, ui/test/landing.test.mjs) skip here; the browser-check job runs them.
+      - name: Run node --test core/test agent/test ui/test
+        run: node --test core/test agent/test ui/test
 
   build-check:
     name: Build check (asserts, lints, output up to date)
@@ -46,7 +41,7 @@ jobs:
         run: node site/build.mjs --check
 
   browser-check:
-    name: Browser checks (links, overflow, taps, axe, frames at rest, no-JS text, budgets)
+    name: Browser checks and browser tests (links, overflow, taps, axe, frames at rest, no-JS text, budgets; app, e2e, landing)
     runs-on: ubuntu-latest
     needs: build-check
     timeout-minutes: 30
@@ -67,6 +62,11 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Run the browser checks over every page, the app and dashboard/, served as the Pages workflow publishes them
         run: node site/tools/check.mjs --json=site-check-results.json
+      # The tests that need Chromium: the app (app/test), the agent and the app on one folder (e2e), the landing page and
+      # core in the browser. One file at a time, so only one Chromium runs at once.
+      - name: Run node --test app/test e2e ui/test/landing.test.mjs core/test/browser.test.mjs
+        if: always()
+        run: node --test --test-concurrency=1 app/test e2e ui/test/landing.test.mjs core/test/browser.test.mjs
       - name: Keep the results
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

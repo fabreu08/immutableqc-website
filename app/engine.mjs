@@ -122,11 +122,13 @@ export function listInput(fileList, { max = MAX_FILES } = {}) {
 }
 
 // Lets the page draw and take input between slices of long work. A message on a channel comes back at once (a timer is
-// clamped to 4 ms or more, which adds up over thousands of slices).
+// clamped to 4 ms or more, which adds up over thousands of slices). On Node (the tests), setImmediate: a MessagePort
+// with a listener holds Node's event loop open for good, so a process that had yielded once would never exit.
 const _now = () => (globalThis.performance ? performance.now() : Date.now())
 let _chan = null
 const _waiting = []
 export function yieldNow() {
+  if (typeof setImmediate === 'function') return new Promise((r) => setImmediate(r))
   if (typeof MessageChannel !== 'function') return new Promise((r) => setTimeout(r, 0))
   if (!_chan) { _chan = new MessageChannel(); _chan.port1.onmessage = () => { const r = _waiting.shift(); if (r) r() } }
   return new Promise((r) => { _waiting.push(r); _chan.port2.postMessage(0) })
