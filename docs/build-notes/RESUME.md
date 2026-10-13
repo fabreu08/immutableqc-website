@@ -23,15 +23,18 @@ Branch `claude/nifty-gates-h5guqf`. Nothing goes live until it is merged to `mai
   the format-agnostic file-sealing agent is; AI-assisted format inference on the lab's own files is worth a small test
   later; flags a patent to clear (US11502847) and that Node 20 is end of life.
 
-## In flight when paused
-- An integration agent was stamping the download hash into `index.html`, extending `site/tools/check.mjs` to the landing
-  page and the app, adding the cross-implementation test `e2e/` (CLI seals, app audits, same verdict), CI jobs, the root
-  `README.md` and `site/HANDOFF.md`. The working tree at the pause was committed as WIP; re-run its checks:
-  `node agent/tools/bundle.mjs && node agent/tools/bundle.mjs --stamp`, `node --test core/test agent/test ui/test`,
-  `node --test app/test e2e`, `node site/build.mjs --check`, `node site/tools/check.mjs`.
+## Integration: finished (after the pause)
+- `node --test core/test agent/test ui/test`: 123/123. `node --test app/test e2e`: 31/31 (incl. the cross-implementation
+  test: a folder sealed by `download/iqc.mjs` gives the same verdict, head, key id and file states in the browser).
+  `node site/build.mjs --check`: 2,285 assertions. `node site/tools/check.mjs`: all pass except one Overview timing
+  check ("story cost" 53.6 ms against a 50 ms limit); `--perf`: Overview LCP 1728 ms against 1692 ms. Both look like this
+  container's speed (the same unchanged bytes measured 38.5 ms and 1624 ms earlier); re-measure in CI before changing
+  any limit. Reports: `reports/app.md`, `reports/integration.md`.
+- Small open items: "Folder read" counts the ledger file and "Files re-read" does not; core's note details show encoded
+  paths; the landing page and app use 24 px desktop tap targets and an 11 px text floor (the docs use 44 px and 12 px).
 
 ## Next (in order)
-1. Finish integration until every check above passes; commit; push.
+1. Check CI on GitHub (the site-check workflow) and re-measure the two Overview timing limits there.
 2. Fold `spec-addendum-agents.md` and `changes-after-research.md` into `docs/product-v1.md`, then build them:
    three verdicts (pass / review / fail; exit codes 0 / 3 / 1 / 2), `step` and `review` record kinds, the multi-ledger
    audit with lineage back to measurements, `iqc record` / `trace` / `review` / `mcp` (a dependency-free MCP server so AI
