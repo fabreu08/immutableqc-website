@@ -1,28 +1,371 @@
 <!doctype html>
 <html lang="en">
+<!-- The landing page (docs/product-v1.md, section 6), written by hand. Styles: ui/theme.css, ui/landing.css; script: ui/landing.mjs (deferred; the page reads the same without it). The hero ships its last step, Caught, with the fingerprints, sizes and values of ui/sample-data.mjs; ui/test/landing.test.mjs checks that they agree. The download hash (data-sha256-of) is stamped from download/iqc.mjs. -->
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'sha256-ZBXSPoECBSyutUMT4sWWa+dXO2tnzLFlg0TjSCabU0I='; img-src 'self'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
-<title>Immutable QC</title>
-<meta name="description" content="Tamper-evident records for automated research labs. Independent project, open alpha, no customers yet.">
+<title>Immutable QC · Every instrument file, sealed. Any later change, caught.</title>
+<meta name="description" content="Seal every file as your instruments write it. Anyone can audit the folder in one click, and your data never leaves your lab. Tamper-evident records for automated research labs.">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#05080F">
+<link rel="canonical" href="https://immutableqc.com/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Immutable QC">
+<meta property="og:title" content="Immutable QC · Every instrument file, sealed. Any later change, caught.">
+<meta property="og:description" content="Seal every file as your instruments write it. Anyone can audit the folder in one click, and your data never leaves your lab.">
+<meta property="og:url" content="https://immutableqc.com/">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<style>:root{color-scheme:light}body{margin:0;background:#F4F6F5;color:#0B1620;font:1rem/1.55 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}main,body>footer{box-sizing:border-box;max-width:42rem;margin:0 auto;padding:24px 16px}h1{margin:16px 0 8px;font-size:2rem;line-height:1.2}.st{margin:0 0 24px;color:#3D4A55;font-size:.9375rem}blockquote{margin:0 0 24px;padding:0 0 0 16px;border-left:3px solid #00A383;font-size:1.125rem}blockquote p{margin:0 0 4px}blockquote footer{color:#3D4A55;font-size:.875rem}a{color:#0B5D4E;text-underline-offset:.2em}ul{margin:0;padding:0;list-style:none}li a{display:inline-flex;align-items:center;min-height:44px}body>footer{border-top:1px solid #C9D1CE;color:#3D4A55;font-size:.875rem}</style>
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preload" href="fonts/archivo-c-115-620.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="ui/theme.css">
+<link rel="stylesheet" href="ui/landing.css">
+<script type="module" src="ui/landing.mjs"></script>
 </head>
 <body>
-<main>
-<h1>Immutable QC</h1>
-<p class="st">Independent project · Open alpha · No customers yet</p>
-<p>Tamper-evident records for automated research labs. This page holds the place of the new landing page while it is written.</p>
-<blockquote><p>In an intelligence explosion, human review can’t keep up with every result; records have to verify themselves.</p><footer>José A. Fernández Abreu, founder</footer></blockquote>
-<ul>
-<li><a href="overview.html">Read the docs, starting with the Overview</a></li>
-<li><a href="app/">Open the app</a></li>
-</ul>
+<a class="skip" href="#main">Skip to content</a>
+<svg class="sprite" aria-hidden="true" focusable="false">
+<symbol id="i-mark" viewBox="0 0 32 32"><circle cx="16" cy="16" r="9.5" fill="none" stroke="currentColor" stroke-width="3"/><circle cx="16" cy="16" r="3.75" class="mark-dot"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+<symbol id="i-note" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 11v5.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="7.75" r="1.35" fill="currentColor"/></symbol>
+<symbol id="i-unchecked" viewBox="0 0 24 24"><circle cx="6.5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="17.5" cy="12" r="1.6" fill="currentColor"/></symbol>
+<symbol id="i-upcoming" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.9"/><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/></symbol>
+<symbol id="i-pause" viewBox="0 0 24 24"><path d="M7.5 5h3v14h-3zM13.5 5h3v14h-3z" fill="currentColor"/></symbol>
+<symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h13M13 6.5l5.5 5.5-5.5 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-down" viewBox="0 0 24 24"><path d="M12 4.5v12M6.5 11.5l5.5 5.5 5.5-5.5M5 20h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-copy" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="11" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M15.5 5.5V5a1.5 1.5 0 0 0-1.5-1.5H6A1.5 1.5 0 0 0 4.5 5v8A1.5 1.5 0 0 0 6 14.5h.5" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+<symbol id="i-file" viewBox="0 0 24 24"><path d="M6 3.5h8l4.5 4.5v12.5H6zM14 3.5V8h4.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+<symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+</svg>
+
+<aside class="strip" aria-label="Project status"><div class="wrap"><p class="status-line"><span>Independent project ·</span> <span>Open alpha ·</span> <span>No customers yet</span></p></div></aside>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="index.html"><svg class="mark" aria-hidden="true" focusable="false"><use href="#i-mark"/></svg><span class="brand-name">Immutable QC</span></a>
+    <nav class="site-nav" aria-label="Main">
+      <ul>
+        <li class="nav-opt"><a href="#how">How it works</a></li>
+        <li class="nav-opt"><a href="#install">Install</a></li>
+        <li><a href="overview.html">Docs</a></li>
+        <li><a class="btn btn-ghost btn-s" href="app/">Open the app</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main id="main" tabindex="-1">
+  <section class="hero sky" aria-labelledby="hero-h">
+    <div class="wrap hero-grid">
+      <div class="hero-copy">
+        <p class="eyebrow">Tamper-evident records for automated labs</p>
+        <h1 id="hero-h" class="text-grad"><span>Every instrument file, sealed.</span> <span>Any later change, caught.</span></h1>
+        <p class="lead">Seal every file as your instruments write it. Anyone can audit the folder in one click, and your data never leaves your lab.</p>
+        <div class="btn-row hero-cta">
+          <a class="btn btn-primary" href="app/#demo"><svg aria-hidden="true" focusable="false"><use href="#i-play"/></svg>Run the 1-click demo</a>
+          <a class="btn btn-ghost" href="#install">Get the agent<svg aria-hidden="true" focusable="false"><use href="#i-arrow"/></svg></a>
+        </div>
+        <p class="hero-note">The demo seals sample data in your browser. Nothing to install.</p>
+      </div>
+
+      <figure class="viz glass" id="viz" data-phase="caught" aria-labelledby="viz-t" aria-describedby="viz-d">
+        <figcaption class="vh" id="viz-t">How a change is caught, in four steps</figcaption>
+        <p class="vh" id="viz-d">1, Written: a plate reader writes plate-07.csv into the folder bio-line-2, where the agent is watching. 2, Sealed: the agent fingerprints the file with SHA-256 and signs the seal into the ledger. 3, Copy edited: weeks later, a sync conflict rewrites well A01 from 0.482 to 0.428 in a shared copy of the folder; same name, same size. 4, Caught: one click audits the copy. The fingerprint of plate-07.csv no longer matches its seal, so it is reported as changed; the other four files match.</p>
+        <div class="viz-bar">
+          <p class="viz-mode" aria-hidden="true"><span class="live-dot"></span><span class="m m-watch">iqc watch · bio-line-2</span><span class="m m-copy">copy · shared drive</span><span class="m m-audit">audit · nothing uploaded</span></p>
+          <button class="viz-play" type="button" hidden><svg aria-hidden="true" focusable="false"><use href="#i-pause"/></svg><span class="viz-play-t">Pause</span><span class="vh"> the animation</span></button>
+        </div>
+        <div class="viz-main">
+          <div class="stage" aria-hidden="true">
+            <svg class="ring" viewBox="0 0 400 400" focusable="false">
+              <defs>
+                <radialGradient id="ring-core" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#45E6D6" stop-opacity=".1"/><stop offset=".7" stop-color="#45E6D6" stop-opacity=".03"/><stop offset="1" stop-color="#45E6D6" stop-opacity="0"/></radialGradient>
+                <filter id="ring-glow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+              </defs>
+              <circle class="r-core" cx="200" cy="200" r="162" fill="url(#ring-core)"/>
+              <circle class="r-outer" cx="200" cy="200" r="192"/>
+              <g class="r-marks"><line x1="200" y1="11" x2="200" y2="3"/><line x1="273.5" y1="22.6" x2="275.4" y2="18"/><line x1="335.8" y1="64.2" x2="339.3" y2="60.7"/><line x1="377.4" y1="126.5" x2="382" y2="124.6"/><line x1="389" y1="200" x2="397" y2="200"/><line x1="377.4" y1="273.5" x2="382" y2="275.4"/><line x1="335.8" y1="335.8" x2="339.3" y2="339.3"/><line x1="273.5" y1="377.4" x2="275.4" y2="382"/><line x1="200" y1="389" x2="200" y2="397"/><line x1="126.5" y1="377.4" x2="124.6" y2="382"/><line x1="64.2" y1="335.8" x2="60.7" y2="339.3"/><line x1="22.6" y1="273.5" x2="18" y2="275.4"/><line x1="11" y1="200" x2="3" y2="200"/><line x1="22.6" y1="126.5" x2="18" y2="124.6"/><line x1="64.2" y1="64.2" x2="60.7" y2="60.7"/><line x1="126.5" y1="22.6" x2="124.6" y2="18"/></g>
+              <circle class="r-inner" cx="200" cy="200" r="156"/>
+              <circle class="r-seal" cx="200" cy="200" r="156" transform="rotate(-90 200 200)"/>
+              <circle class="r-sweep" cx="200" cy="200" r="175"/>
+              <g class="ticks"><line class="tk bad" x1="208.2" y1="33.2" x2="209" y2="17.2"/><line class="tk on" x1="224.5" y1="34.8" x2="226.9" y2="19"/><line class="tk bad" x1="240.6" y1="38" x2="244.5" y2="22.5"/><line class="tk bad" x1="256.3" y1="42.8" x2="261.7" y2="27.7"/><line class="tk bad" x1="271.4" y1="49" x2="278.2" y2="34.6"/><line class="tk bad" x1="285.9" y1="56.8" x2="294.1" y2="43"/><line class="tk bad" x1="299.5" y1="65.9" x2="309" y2="53"/><line class="tk bad" x1="312.2" y1="76.3" x2="322.9" y2="64.4"/><line class="tk bad" x1="323.7" y1="87.8" x2="335.6" y2="77.1"/><line class="tk bad" x1="334.1" y1="100.5" x2="347" y2="91"/><line class="tk bad" x1="343.2" y1="114.1" x2="357" y2="105.9"/><line class="tk bad" x1="351" y1="128.6" x2="365.4" y2="121.8"/><line class="tk bad" x1="357.2" y1="143.7" x2="372.3" y2="138.3"/><line class="tk bad" x1="362" y1="159.4" x2="377.5" y2="155.5"/><line class="tk bad" x1="365.2" y1="175.5" x2="381" y2="173.1"/><line class="tk bad" x1="366.8" y1="191.8" x2="382.8" y2="191"/><line class="tk bad" x1="366.8" y1="208.2" x2="382.8" y2="209"/><line class="tk bad" x1="365.2" y1="224.5" x2="381" y2="226.9"/><line class="tk bad" x1="362" y1="240.6" x2="377.5" y2="244.5"/><line class="tk bad" x1="357.2" y1="256.3" x2="372.3" y2="261.7"/><line class="tk bad" x1="351" y1="271.4" x2="365.4" y2="278.2"/><line class="tk bad" x1="343.2" y1="285.9" x2="357" y2="294.1"/><line class="tk bad" x1="334.1" y1="299.5" x2="347" y2="309"/><line class="tk bad" x1="323.7" y1="312.2" x2="335.6" y2="322.9"/><line class="tk bad" x1="312.2" y1="323.7" x2="322.9" y2="335.6"/><line class="tk bad" x1="299.5" y1="334.1" x2="309" y2="347"/><line class="tk bad" x1="285.9" y1="343.2" x2="294.1" y2="357"/><line class="tk bad" x1="271.4" y1="351" x2="278.2" y2="365.4"/><line class="tk bad" x1="256.3" y1="357.2" x2="261.7" y2="372.3"/><line class="tk bad" x1="240.6" y1="362" x2="244.5" y2="377.5"/><line class="tk bad" x1="224.5" y1="365.2" x2="226.9" y2="381"/><line class="tk bad" x1="208.2" y1="366.8" x2="209" y2="382.8"/><line class="tk bad" x1="191.8" y1="366.8" x2="191" y2="382.8"/><line class="tk bad" x1="175.5" y1="365.2" x2="173.1" y2="381"/><line class="tk bad" x1="159.4" y1="362" x2="155.5" y2="377.5"/><line class="tk bad" x1="143.7" y1="357.2" x2="138.3" y2="372.3"/><line class="tk bad" x1="128.6" y1="351" x2="121.8" y2="365.4"/><line class="tk bad" x1="114.1" y1="343.2" x2="105.9" y2="357"/><line class="tk bad" x1="100.5" y1="334.1" x2="91" y2="347"/><line class="tk on" x1="87.8" y1="323.7" x2="77.1" y2="335.6"/><line class="tk bad" x1="76.3" y1="312.2" x2="64.4" y2="322.9"/><line class="tk bad" x1="65.9" y1="299.5" x2="53" y2="309"/><line class="tk bad" x1="56.8" y1="285.9" x2="43" y2="294.1"/><line class="tk bad" x1="49" y1="271.4" x2="34.6" y2="278.2"/><line class="tk bad" x1="42.8" y1="256.3" x2="27.7" y2="261.7"/><line class="tk on" x1="38" y1="240.6" x2="22.5" y2="244.5"/><line class="tk bad" x1="34.8" y1="224.5" x2="19" y2="226.9"/><line class="tk on" x1="33.2" y1="208.2" x2="17.2" y2="209"/><line class="tk bad" x1="33.2" y1="191.8" x2="17.2" y2="191"/><line class="tk bad" x1="34.8" y1="175.5" x2="19" y2="173.1"/><line class="tk bad" x1="38" y1="159.4" x2="22.5" y2="155.5"/><line class="tk bad" x1="42.8" y1="143.7" x2="27.7" y2="138.3"/><line class="tk bad" x1="49" y1="128.6" x2="34.6" y2="121.8"/><line class="tk bad" x1="56.8" y1="114.1" x2="43" y2="105.9"/><line class="tk bad" x1="65.9" y1="100.5" x2="53" y2="91"/><line class="tk bad" x1="76.3" y1="87.8" x2="64.4" y2="77.1"/><line class="tk bad" x1="87.8" y1="76.3" x2="77.1" y2="64.4"/><line class="tk bad" x1="100.5" y1="65.9" x2="91" y2="53"/><line class="tk bad" x1="114.1" y1="56.8" x2="105.9" y2="43"/><line class="tk bad" x1="128.6" y1="49" x2="121.8" y2="34.6"/><line class="tk bad" x1="143.7" y1="42.8" x2="138.3" y2="27.7"/><line class="tk on" x1="159.4" y1="38" x2="155.5" y2="22.5"/><line class="tk bad" x1="175.5" y1="34.8" x2="173.1" y2="19"/><line class="tk bad" x1="191.8" y1="33.2" x2="191" y2="17.2"/></g>
+            </svg>
+            <div class="file">
+              <p class="file-h"><svg aria-hidden="true" focusable="false"><use href="#i-file"/></svg><span data-name>plate-07.csv</span></p>
+              <p class="r r-h"><span>well</span><span>abs_450</span></p>
+              <p class="r"><span>A01</span><span class="val"><s data-v="before">0.482</s><b data-v="after">0.428</b></span></p>
+              <p class="r"><span>A02</span><span>0.517</span></p>
+              <p class="r"><span>A03</span><span>0.091</span></p>
+              <p class="r"><span>A04</span><span>0.733</span></p>
+              <p class="file-note">Changed in the copy</p>
+            </div>
+            <p class="badge"><span class="tag tag-l tag-sealed b-sealed"><svg aria-hidden="true" focusable="false"><use href="#i-check"/></svg>Sealed</span><span class="tag tag-l tag-changed b-caught"><svg aria-hidden="true" focusable="false"><use href="#i-x"/></svg>Changed since sealed</span></p>
+          </div>
+          <div class="viz-side">
+            <ol class="phases" aria-label="Steps of the animation">
+              <li><button class="done" type="button" data-go="written" disabled><span class="n" aria-hidden="true">1</span>Written</button></li>
+              <li><button class="done" type="button" data-go="sealed" disabled><span class="n" aria-hidden="true">2</span>Sealed</button></li>
+              <li><button class="done" type="button" data-go="edited" disabled><span class="n" aria-hidden="true">3</span>Copy edited</button></li>
+              <li><button type="button" data-go="caught" disabled aria-current="step"><span class="n" aria-hidden="true">4</span>Caught</button></li>
+            </ol>
+            <div class="caps">
+              <p class="cap" data-cap="written">The plate reader writes plate-07.csv into the watched folder.</p>
+              <p class="cap" data-cap="sealed">The agent fingerprints it with <span class="nw">SHA-256</span> and signs the seal into the ledger.</p>
+              <p class="cap" data-cap="edited">Weeks later, a sync conflict rewrites one value in a shared copy. The folder looks the same.</p>
+              <p class="cap" data-cap="caught">One click audits the copy: plate-07.csv changed since it was sealed.</p>
+            </div>
+          </div>
+        </div>
+        <div class="viz-data" aria-hidden="true">
+          <div class="fps">
+            <p class="fp fp-s"><span class="label">Sealed</span><code class="hash hash-sealed" data-fp="sealed"><span>477f09c4</span><span>8ac1a6b4</span><span>b6230fa6</span><span>5012c0cd</span><span>11fad2c9</span><span>75954bd8</span><span>40911f21</span><span>9f6f6484</span></code></p>
+            <p class="fp fp-n"><span class="label">Now</span><code class="hash hash-changed" data-fp="now"><span>1<i class="m">7</i>02711c</span><span>5ebac751</span><span>75c67210</span><span>414bd422</span><span>537e106<i class="m">9</i></span><span>944b5<i class="m">b</i>4<i class="m">8</i></span><span>9fa5dbb3</span><span>f2e50<i class="m">4</i>37</span></code></p>
+          </div>
+          <div class="feed">
+            <div class="log"><p class="feed-h"><span>Ledger · ImmutableQC/ledger.jsonl</span></p><ol>
+              <li class="ev ev-dim"><span class="ev-w">watch</span><span class="ev-p">bio-line-2</span><span class="ev-s"></span><span class="ev-h">started</span></li>
+              <li class="ev"><span class="ev-w">sealed</span><span class="ev-p"><span class="pfx">run-1007/</span>standards.csv</span><span class="ev-s" data-size="run-1007/standards.csv">150 B</span><span class="ev-h" data-sha="run-1007/standards.csv">4d79c05b…</span></li>
+              <li class="ev"><span class="ev-w">sealed</span><span class="ev-p"><span class="pfx">run-1007/</span>plate-07.raw</span><span class="ev-s" data-size="run-1007/plate-07.raw">400 B</span><span class="ev-h" data-sha="run-1007/plate-07.raw">abc34ba5…</span></li>
+              <li class="ev ev-new"><span class="ev-w"><span class="w1">written</span><span class="w2">sealed</span></span><span class="ev-p"><span class="pfx">run-1007/</span>plate-07.csv</span><span class="ev-s" data-size="run-1007/plate-07.csv">973 B</span><span class="ev-h"><span class="w1">settling…</span><span class="w2" data-sha="run-1007/plate-07.csv">477f09c4…</span></span></li>
+              <li class="ev ev-dim ev-wait"><span class="ev-w">watch</span><span class="ev-p">waiting for new files</span><span class="ev-s"></span><span class="ev-h"></span></li>
+            </ol></div>
+            <div class="files">
+              <p class="feed-h"><span class="fh-copy">The copy · 5 files, same names and sizes</span><span class="fh-audit">Audit · 1 changed, 4 match their seals</span></p>
+              <ol>
+                <li class="fr fr-bad"><span class="fr-p">plate-07.csv</span><span class="fr-s" data-size="run-1007/plate-07.csv">973 B</span><span class="fr-h" data-sha-now="run-1007/plate-07.csv">1702711c…</span><span class="fr-t"><span class="tag tag-unchecked t0"><svg aria-hidden="true" focusable="false"><use href="#i-unchecked"/></svg>Not checked</span><span class="tag tag-changed t1"><svg aria-hidden="true" focusable="false"><use href="#i-x"/></svg>Changed</span></span></li>
+                <li class="fr"><span class="fr-p">plate-07.raw</span><span class="fr-s" data-size="run-1007/plate-07.raw">400 B</span><span class="fr-h" data-sha-now="run-1007/plate-07.raw">abc34ba5…</span><span class="fr-t"><span class="tag tag-unchecked t0"><svg aria-hidden="true" focusable="false"><use href="#i-unchecked"/></svg>Not checked</span><span class="tag tag-match t1"><svg aria-hidden="true" focusable="false"><use href="#i-check"/></svg>Match</span></span></li>
+                <li class="fr"><span class="fr-p">plate-08.csv</span><span class="fr-s" data-size="run-1007/plate-08.csv">973 B</span><span class="fr-h" data-sha-now="run-1007/plate-08.csv">fd7f57e6…</span><span class="fr-t"><span class="tag tag-unchecked t0"><svg aria-hidden="true" focusable="false"><use href="#i-unchecked"/></svg>Not checked</span><span class="tag tag-match t1"><svg aria-hidden="true" focusable="false"><use href="#i-check"/></svg>Match</span></span></li>
+                <li class="fr"><span class="fr-p">run.json</span><span class="fr-s" data-size="run-1007/run.json">340 B</span><span class="fr-h" data-sha-now="run-1007/run.json">70d29db0…</span><span class="fr-t"><span class="tag tag-unchecked t0"><svg aria-hidden="true" focusable="false"><use href="#i-unchecked"/></svg>Not checked</span><span class="tag tag-match t1"><svg aria-hidden="true" focusable="false"><use href="#i-check"/></svg>Match</span></span></li>
+                <li class="fr"><span class="fr-p">standards.csv</span><span class="fr-s" data-size="run-1007/standards.csv">150 B</span><span class="fr-h" data-sha-now="run-1007/standards.csv">4d79c05b…</span><span class="fr-t"><span class="tag tag-unchecked t0"><svg aria-hidden="true" focusable="false"><use href="#i-unchecked"/></svg>Not checked</span><span class="tag tag-match t1"><svg aria-hidden="true" focusable="false"><use href="#i-check"/></svg>Match</span></span></li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </figure>
+    </div>
+  </section>
+
+  <section class="section" id="how" aria-labelledby="how-h">
+    <div class="wrap">
+      <header class="section-h">
+        <p class="eyebrow">How it works</p>
+        <h2 id="how-h">Three steps. One of them is a click.</h2>
+      </header>
+      <ol class="steps">
+        <li class="step glass">
+          <span class="step-no" aria-hidden="true">01</span>
+          <span class="lens" aria-hidden="true"><svg viewBox="0 0 48 48" focusable="false"><rect x="7" y="9" width="34" height="23" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M18 39h12M24 32v7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle class="ac" cx="24" cy="20.5" r="5.5" fill="none" stroke-width="1.6"/><circle class="acf" cx="24" cy="20.5" r="2"/></svg></span>
+          <h3>Install the agent on the instrument PC</h3>
+          <p>One file, run with Node.js on the results folder. It reads only bytes: any instrument, any vendor, any format.</p>
+          <p class="step-out"><code><span class="pr" aria-hidden="true">&gt; </span>node iqc.mjs watch "D:\Results"</code></p>
+        </li>
+        <li class="step glass">
+          <span class="step-no" aria-hidden="true">02</span>
+          <span class="lens" aria-hidden="true"><svg viewBox="0 0 48 48" focusable="false"><path d="M13 6.5h14l8 8V41.5H13z M27 6.5v8h8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle class="ac" cx="24" cy="28" r="8" fill="none" stroke-width="1.6" stroke-dasharray="3 2.2"/><path class="ac" d="M20.5 28l2.5 2.5 4.5-5" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          <h3>Every file is sealed as it is written</h3>
+          <p>Each new or changed file gets a <span class="nw">SHA-256</span> fingerprint and a signature, chained into a ledger inside that folder.</p>
+          <p class="step-out"><code><span class="ok">sealed</span>  plate-07.csv  <span class="faint" data-sha="run-1007/plate-07.csv">477f09c4…</span></code></p>
+        </li>
+        <li class="step glass">
+          <span class="step-no" aria-hidden="true">03</span>
+          <span class="lens" aria-hidden="true"><svg viewBox="0 0 48 48" focusable="false"><path d="M5.5 14.5v24h37v-20h-19l-4-4z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path class="ac" d="M24 4.5v14M18.5 13l5.5 5.5 5.5-5.5" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          <h3>Drop the folder to audit it in one click</h3>
+          <p>Anyone with the folder drops it on the app: every file matches its seal, or you see exactly which do not.</p>
+          <p class="step-out"><span class="tag tag-pass"><svg aria-hidden="true" focusable="false"><use href="#i-check"/></svg>Pass</span> <span>All 5 files match.</span></p>
+        </li>
+      </ol>
+
+      <div class="scope glass">
+        <div class="scope-col scope-yes">
+          <h3><svg aria-hidden="true" focusable="false"><use href="#i-check"/></svg>A pass shows</h3>
+          <p>Each file is byte-for-byte the one the agent sealed, and the ledger has not been edited, reordered or cut since it was signed.</p>
+        </div>
+        <div class="scope-col scope-no">
+          <h3><svg aria-hidden="true" focusable="false"><use href="#i-unchecked"/></svg>It does not show</h3>
+          <p>That a file was right when it was written, or a change in the few seconds before the agent reads a new file. Whoever holds the ledger’s key could rewrite it from the start; a head pinned elsewhere exposes that.</p>
+        </div>
+        <p class="scope-line"><svg aria-hidden="true" focusable="false"><use href="#i-note"/></svg><span>A change on the instrument PC while the agent runs is sealed as a new version, with its time; the audit lists every version.</span></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section why" id="why" aria-labelledby="why-h">
+    <div class="wrap">
+      <header class="section-h">
+        <p class="eyebrow">Why it matters</p>
+        <h2 id="why-h">Most bad data is not malicious.</h2>
+      </header>
+      <div class="why-grid">
+        <article class="why-card">
+          <h3>Quiet accidents</h3>
+          <p>A script rewrites a column, a sync conflict keeps the wrong copy, a backup lands over newer results. Nobody meant to change anything.</p>
+        </article>
+        <article class="why-card">
+          <h3>Results that steer</h3>
+          <p>Results now feed models that choose the next experiment, so one wrong value travels into every run after it.</p>
+        </article>
+        <article class="why-card why-private">
+          <h3>Nothing readable leaves</h3>
+          <p>The ledger holds fingerprints, not data. Audits run in your browser, and the app is blocked from connecting anywhere.</p>
+          <p>To pin the ledger somewhere else, you share only its head: a record number and a 64-character link that reveals none of your data.</p>
+        </article>
+      </div>
+      <figure class="quote">
+        <blockquote><p>In an intelligence explosion, human review can’t keep up with every result; records have to verify themselves.</p></blockquote>
+        <figcaption>José A. Fernández Abreu, founder</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="section" id="who" aria-labelledby="who-h">
+    <div class="wrap">
+      <header class="section-h">
+        <p class="eyebrow">Who it is for</p>
+        <h2 id="who-h">Built for labs where machines write the results.</h2>
+      </header>
+      <div class="who">
+        <article class="who-item who-now">
+          <p class="label">First</p>
+          <h3>Automated research labs</h3>
+          <p>Biotech, microbiology, chemistry and materials science, where instruments and robots write results faster than anyone can review them.</p>
+        </article>
+        <article class="who-item">
+          <p class="label">Later</p>
+          <h3>Regulated QC labs</h3>
+          <p><span class="tag tag-upcoming"><svg aria-hidden="true" focusable="false"><use href="#i-upcoming"/></svg>Upcoming<span class="vh">:</span></span> Per-person signatures and the review controls regulated labs ask for.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="status" aria-labelledby="status-h">
+    <div class="wrap">
+      <header class="section-h">
+        <p class="eyebrow">Status</p>
+        <h2 id="status-h">What works today, and what is Upcoming.</h2>
+      </header>
+      <div class="status-grid">
+        <div class="glass status-panel">
+          <h3><svg class="ic-ok" aria-hidden="true" focusable="false"><use href="#i-check"/></svg>Works today</h3>
+          <ul class="list-check">
+            <li>The agent seals a folder, then every new, changed or removed file.</li>
+            <li>One-click audit in the browser. Nothing is uploaded.</li>
+            <li>The same audit on the command line, with an exit code.</li>
+            <li>A self-contained audit report, in HTML and JSON.</li>
+            <li>Sealing in the browser, and a demo with sample data.</li>
+          </ul>
+        </div>
+        <div class="glass status-panel">
+          <h3><svg aria-hidden="true" focusable="false"><use href="#i-upcoming"/></svg>Upcoming</h3>
+          <ul class="chips">
+            <li class="chip chip-upcoming"><span class="vh">Upcoming: </span>Anchoring heads on a public network</li>
+            <li class="chip chip-upcoming"><span class="vh">Upcoming: </span>Merkle batches</li>
+            <li class="chip chip-upcoming"><span class="vh">Upcoming: </span>An encrypted archive</li>
+            <li class="chip chip-upcoming"><span class="vh">Upcoming: </span>Per-person signatures</li>
+            <li class="chip chip-upcoming"><span class="vh">Upcoming: </span>Values extracted from inside files</li>
+            <li class="chip chip-upcoming"><span class="vh">Upcoming: </span>Lineage</li>
+            <li class="chip chip-upcoming"><span class="vh">Upcoming: </span>Sealing inside the vendor’s software</li>
+            <li class="chip chip-upcoming"><span class="vh">Upcoming: </span>A Windows installer and service</li>
+            <li class="chip chip-upcoming"><span class="vh">Upcoming: </span>An npm package</li>
+            <li class="chip chip-upcoming"><span class="vh">Upcoming: </span>Post-quantum signatures</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section install" id="install" aria-labelledby="install-h">
+    <div class="wrap">
+      <header class="section-h">
+        <p class="eyebrow">Install</p>
+        <h2 id="install-h">Get the agent.</h2>
+        <p>One file, no dependencies. Needs Node.js 20 or later on Windows, macOS or Linux.</p>
+      </header>
+      <p class="vh" id="copy-status" aria-live="polite"></p>
+      <div class="install-grid">
+        <article class="card install-card" aria-labelledby="dl-h">
+          <h3 class="card-n" id="dl-h">1 · Download</h3>
+          <a class="btn btn-primary" href="download/iqc.mjs" download><svg aria-hidden="true" focusable="false"><use href="#i-down"/></svg>Download iqc.mjs</a>
+          <div class="cmd sha">
+            <div class="cmd-h"><span class="label" id="sha-l">SHA-256 of iqc.mjs</span><button class="copy" type="button" data-copy="sha-dl" aria-describedby="sha-l" hidden><svg aria-hidden="true" focusable="false"><use href="#i-copy"/></svg><span>Copy</span></button></div>
+            <p class="sha-body"><code class="sha-hex" id="sha-dl" data-sha256-of="download/iqc.mjs">594c2324af656aedb1d36791392c3ce48e9482da34e07560bc1bbd029e2f6410</code></p>
+            <div class="sha-check">
+              <p>Check your download:</p>
+              <ul class="check-cmds">
+                <li><span class="os">Windows</span><code>certutil -hashfile iqc.mjs SHA256</code></li>
+                <li><span class="os">macOS, Linux</span><code>shasum -a 256 iqc.mjs</code></li>
+              </ul>
+            </div>
+          </div>
+        </article>
+        <article class="card install-card" aria-labelledby="run-h">
+          <h3 class="card-n" id="run-h">2 · Run one command</h3>
+          <div class="cmd">
+            <div class="cmd-h"><span class="label" id="cmd-watch-l">On the instrument PC</span><button class="copy" type="button" data-copy="cmd-watch" aria-describedby="cmd-watch-l" hidden><svg aria-hidden="true" focusable="false"><use href="#i-copy"/></svg><span>Copy</span></button></div>
+            <pre tabindex="0"><code id="cmd-watch"><span class="pr" aria-hidden="true">&gt; </span>node iqc.mjs watch "D:\Results"</code></pre>
+          </div>
+          <p>It seals the folder now, then each new or changed file until you press Ctrl+C.</p>
+        </article>
+      </div>
+      <div class="install-more">
+        <div class="touch glass">
+          <h3><svg aria-hidden="true" focusable="false"><use href="#i-lock"/></svg>What it touches</h3>
+          <dl class="kv">
+            <div><dt>Reads</dt><dd>Every file in the folder, read-only. It skips symlinks and system files.</dd></div>
+            <div><dt>Writes</dt><dd>Only <code>ImmutableQC/ledger.jsonl</code>, <code>README.txt</code> and <code>agent.lock</code> in that folder, and its private key in <code>~/.immutableqc/keys/</code>, readable only by you.</dd></div>
+            <div><dt>Network</dt><dd>None.</dd></div>
+            <div><dt>Runs as</dt><dd>You: no installer, no service. It stops on Ctrl+C, and records the stop.</dd></div>
+          </dl>
+        </div>
+        <div class="cmd pipeline">
+          <div class="cmd-h"><span class="label" id="cmd-pipe-l">In a scheduler or a pipeline</span><button class="copy" type="button" data-copy="cmd-pipe" aria-describedby="cmd-pipe-l" hidden><svg aria-hidden="true" focusable="false"><use href="#i-copy"/></svg><span>Copy</span></button></div>
+          <pre tabindex="0"><code id="cmd-pipe"><span class="cm"># seal once and exit</span>
+node iqc.mjs seal "D:\Results"
+<span class="cm"># print the head, to pin it somewhere else</span>
+node iqc.mjs head "D:\Results"
+<span class="cm"># exit 0 pass, 1 fail, 2 usage or read error</span>
+node iqc.mjs audit "D:\Results" --expect-head &lt;n&gt;:&lt;h&gt; --json audit.json</code></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="closer" aria-labelledby="closer-h">
+    <div class="wrap closer-in">
+      <h2 id="closer-h">See a pass and a fail in under a minute.</h2>
+      <a class="btn btn-primary" href="app/#demo"><svg aria-hidden="true" focusable="false"><use href="#i-play"/></svg>Run the 1-click demo</a>
+    </div>
+  </section>
 </main>
-<footer>
-<p>Immutable QC is an independent project built on the founder’s own time. It is not affiliated with or endorsed by any employer. Contact: <a href="https://joseqc.com">joseqc.com</a></p>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="foot-top">
+      <a class="brand" href="index.html"><svg class="mark" aria-hidden="true" focusable="false"><use href="#i-mark"/></svg><span class="brand-name">Immutable QC</span></a>
+      <nav class="foot-nav" aria-labelledby="foot-docs">
+        <p class="label" id="foot-docs">Docs</p>
+        <ul>
+          <li><a href="overview.html">Overview</a></li>
+          <li><a href="sealed.html">How a record is sealed</a></li>
+          <li><a href="check.html">Check a record</a></li>
+          <li><a href="regulatory.html">Regulatory map</a></li>
+          <li><a href="roadmap.html">Roadmap</a></li>
+          <li><a href="about.html">About</a></li>
+        </ul>
+      </nav>
+    </div>
+    <div class="foot-meta">
+      <a href="core/immutableqc.mjs">The code that checks your data</a>
+      <a href="app/">The app</a>
+      <p>Contact: <a href="https://joseqc.com">joseqc.com</a></p>
+    </div>
+    <p class="status-line"><span>Independent project ·</span> <span>Open alpha ·</span> <span>No customers yet</span></p>
+    <p class="indep">Immutable QC is an independent project built on the founder’s own time. It is not affiliated with or endorsed by any employer.</p>
+  </div>
 </footer>
 </body>
 </html>

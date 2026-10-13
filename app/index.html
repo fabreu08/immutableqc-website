@@ -2,26 +2,217 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data: blob:; worker-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'sha256-ZBXSPoECBSyutUMT4sWWa+dXO2tnzLFlg0TjSCabU0I='; img-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
-<title>App · Immutable QC</title>
-<meta name="description" content="The Immutable QC app is being built: it will audit a data folder in your browser, with nothing uploaded.">
+<title>Audit a data folder · Immutable QC</title>
+<meta name="description" content="Drop a data folder: your browser re-reads every file, checks every seal and link in its ledger, and shows one verdict. Nothing is uploaded.">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#05080F">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
-<style>:root{color-scheme:light}body{margin:0;background:#F4F6F5;color:#0B1620;font:1rem/1.55 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}main,body>footer{box-sizing:border-box;max-width:42rem;margin:0 auto;padding:24px 16px}h1{margin:16px 0 8px;font-size:2rem;line-height:1.2}.st{margin:0 0 24px;color:#3D4A55;font-size:.9375rem}blockquote{margin:0 0 24px;padding:0 0 0 16px;border-left:3px solid #00A383;font-size:1.125rem}blockquote p{margin:0 0 4px}blockquote footer{color:#3D4A55;font-size:.875rem}a{color:#0B5D4E;text-underline-offset:.2em}ul{margin:0;padding:0;list-style:none}li a{display:inline-flex;align-items:center;min-height:44px}body>footer{border-top:1px solid #C9D1CE;color:#3D4A55;font-size:.875rem}</style>
+<link rel="preload" href="../fonts/archivo-c-115-620.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="../fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="../ui/theme.css">
+<link rel="stylesheet" href="app.css">
+<link rel="modulepreload" href="engine.mjs">
+<link rel="modulepreload" href="../core/immutableqc.mjs">
+<link rel="modulepreload" href="../ui/sample-data.mjs">
+<script type="module" src="app.mjs"></script>
 </head>
 <body>
-<main>
-<h1>The app is being built</h1>
-<p class="st">Independent project · Open alpha · No customers yet</p>
-<p>It will audit a data folder in your browser: drop the folder, and every file will be checked against the seals in its ledger. Nothing will be uploaded.</p>
-<ul>
-<li><a href="../">Back to Immutable QC</a></li>
-<li><a href="../overview.html">Read the docs, starting with the Overview</a></li>
-</ul>
+<a class="skip" href="#main">Skip to content</a>
+<svg class="sprite" aria-hidden="true" focusable="false">
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+<symbol id="i-missing" viewBox="0 0 24 24"><path d="M6 3.5h8l4.5 4.5v12.5H6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-dasharray="3 2.6"/><path d="M9.5 13.5h5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+<symbol id="i-removed" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 12h8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+<symbol id="i-note" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 11v5.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="7.75" r="1.35" fill="currentColor"/></symbol>
+<symbol id="i-unsealed" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.5" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3.2 2.7"/></symbol>
+<symbol id="i-back" viewBox="0 0 24 24"><path d="M9 7.5L5 11.5l4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 11.5H14a5 5 0 0 1 0 10h-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+<symbol id="i-unchecked" viewBox="0 0 24 24"><circle cx="6.5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="17.5" cy="12" r="1.6" fill="currentColor"/></symbol>
+<symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/></symbol>
+<symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h13M13 6.5l5.5 5.5-5.5 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-down" viewBox="0 0 24 24"><path d="M12 4.5v12M6.5 11.5l5.5 5.5 5.5-5.5M5 20h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-copy" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="11" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M15.5 5.5V5a1.5 1.5 0 0 0-1.5-1.5H6A1.5 1.5 0 0 0 4.5 5v8A1.5 1.5 0 0 0 6 14.5h.5" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M15 15l5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+<symbol id="i-folder" viewBox="0 0 24 24"><path d="M3.5 6.5a1.5 1.5 0 0 1 1.5-1.5h4.2l2 2.2H19a1.5 1.5 0 0 1 1.5 1.5v9.3A1.5 1.5 0 0 1 19 19.5H5a1.5 1.5 0 0 1-1.5-1.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+<symbol id="i-file" viewBox="0 0 24 24"><path d="M6 3.5h8l4.5 4.5v12.5H6zM14 3.5V8h4.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+<symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+<symbol id="i-external" viewBox="0 0 24 24"><path d="M10 5H5.5v13.5H19V14M13.5 4.5h6v6M19.5 4.5L11 13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-redo" viewBox="0 0 24 24"><path d="M19 12a7 7 0 1 1-2.05-4.95M19 4.5V9h-4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-edit" viewBox="0 0 24 24"><path d="M4.5 19.5l1-4.2L15.8 5a1.8 1.8 0 0 1 2.5 0l.7.7a1.8 1.8 0 0 1 0 2.5L8.7 18.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M13.5 7.2l3.3 3.3" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+</svg>
+
+<aside class="strip" aria-label="Project status"><div class="wrap"><p class="status-line"><span>Independent project ·</span> <span>Open alpha ·</span> <span>No customers yet</span></p></div></aside>
+
+<header class="site-header app-header">
+  <div class="wrap">
+    <a class="brand" href="../index.html"><svg class="mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="9.5" fill="none" stroke="currentColor" stroke-width="3"/><circle class="mark-dot" cx="16" cy="16" r="3.75"/></svg><span class="brand-name">Immutable QC</span></a>
+    <nav class="modes" aria-label="Modes">
+      <ul class="seg">
+        <li><a href="#audit" data-mode="audit" aria-current="page">Audit</a></li>
+        <li><a href="#seal" data-mode="seal">Seal</a></li>
+        <li><a href="#demo" data-mode="demo">Demo</a></li>
+      </ul>
+    </nav>
+    <nav class="site-nav" aria-label="Main"><ul><li><a href="../overview.html">Docs</a></li></ul></nav>
+  </div>
+</header>
+
+<main id="main" tabindex="-1">
+<p class="vh" id="live" role="status" aria-live="polite" aria-atomic="true"></p>
+<noscript><div class="wrap"><p class="callout callout-fail noscript">The app runs in your browser and needs JavaScript. Nothing is uploaded either way: every check runs on this page.</p></div></noscript>
+<p class="wrap boot-error" id="boot-error" hidden></p>
+
+<!-- Audit: the default, the one click -->
+<section class="mode" id="mode-audit" data-mode="audit" aria-labelledby="audit-h">
+  <div class="wrap">
+    <div class="screen glass" data-view="ready">
+      <div class="drop" id="audit-drop">
+        <div class="drop-ic" aria-hidden="true">
+          <svg viewBox="0 0 120 120"><circle class="d-ring" cx="60" cy="60" r="54"/><circle class="d-ring2" cx="60" cy="60" r="43"/><path class="d-folder" d="M37 47v30h46V53H60l-5-6z"/><path class="d-arrow" d="M60 22v28M51 41l9 9 9-9"/></svg>
+        </div>
+        <h1 id="audit-h" tabindex="-1">Drop a data folder to audit it</h1>
+        <p class="drop-sub">The app finds <code><span class="nw">ImmutableQC/</span><wbr><span class="nw">ledger.jsonl</span></code> inside it and starts at once: every file re-read, every seal and link checked.</p>
+        <div class="drop-actions">
+          <button class="btn btn-primary" type="button" data-act="choose-folder" data-for="audit-folder"><svg aria-hidden="true"><use href="#i-folder"/></svg>Choose a folder</button>
+          <a class="btn btn-ghost" href="#demo"><svg aria-hidden="true"><use href="#i-play"/></svg>Try it with sample data</a>
+        </div>
+        <input class="vh" type="file" id="audit-folder" webkitdirectory multiple tabindex="-1" aria-label="Choose a folder to audit">
+        <p class="drop-note">Any file type. Large files are read in 8 MiB slices, so they never have to fit in memory.</p>
+        <p class="local"><svg aria-hidden="true"><use href="#i-lock"/></svg><span>Nothing is uploaded: your browser reads the files, and this page is not allowed to open a connection.</span></p>
+      </div>
+      <details class="fold opts" id="audit-opts">
+        <summary>Pinned head and expected key id <span class="label">Optional</span></summary>
+        <div class="fold-body">
+          <div class="fields">
+            <div class="field">
+              <label for="audit-head">Pinned head</label>
+              <input type="text" id="audit-head" placeholder="12:9a0ed7c9…" autocomplete="off" spellcheck="false" aria-describedby="audit-head-hint">
+              <p class="hint" id="audit-head-hint">From <code>iqc head</code> or an earlier report: a record number, a colon and a 64-character link. A ledger rewritten since will not match it.</p>
+            </div>
+            <div class="field">
+              <label for="audit-key">Expected key id</label>
+              <input type="text" id="audit-key" placeholder="16 hex characters" autocomplete="off" spellcheck="false" aria-describedby="audit-key-hint">
+              <p class="hint" id="audit-key-hint">The key id from an earlier report: a ledger signed with another key will not match it.</p>
+            </div>
+          </div>
+        </div>
+      </details>
+      <p class="hint ready-hint">No ledger in the folder? The app asks for the ledger file next.</p>
+    </div>
+
+    <div class="screen glass" data-view="ledger" hidden>
+      <div class="ask">
+        <h1 tabindex="-1" data-focus>Where is the ledger?</h1>
+        <p data-slot="ask-text"></p>
+        <div class="btn-row">
+          <button class="btn btn-primary" type="button" data-act="choose-ledger"><svg aria-hidden="true"><use href="#i-file"/></svg>Choose the ledger file</button>
+          <button class="btn btn-ghost" type="button" data-act="reset"><svg aria-hidden="true"><use href="#i-folder"/></svg>Audit another folder</button>
+        </div>
+        <input class="vh" type="file" id="audit-ledger" accept=".jsonl,.json,.txt,application/x-ndjson,application/json,text/plain" tabindex="-1" aria-label="Choose the ledger file">
+        <p class="hint">The agent writes it as <code>ImmutableQC/ledger.jsonl</code> inside the data folder, unless it was told to keep it somewhere else.</p>
+        <div data-slot="ask-error"></div>
+      </div>
+    </div>
+
+    <div class="screen glass" data-view="run" hidden></div>
+    <div class="screen glass" data-view="error" hidden></div>
+    <div data-view="result" hidden></div>
+  </div>
+</section>
+
+<!-- Seal, in the browser -->
+<section class="mode" id="mode-seal" data-mode="seal" aria-labelledby="seal-h" hidden>
+  <div class="wrap">
+    <div class="screen glass" data-view="ready">
+      <div class="drop drop-seal" id="seal-drop">
+        <div class="drop-ic" aria-hidden="true">
+          <svg viewBox="0 0 120 120"><circle class="d-ring" cx="60" cy="60" r="54"/><circle class="d-ring2" cx="60" cy="60" r="43"/><circle class="d-seal" cx="60" cy="60" r="20"/><circle class="d-dot" cx="60" cy="60" r="7.5"/></svg>
+        </div>
+        <h1 id="seal-h" tabindex="-1">Drop a data folder to seal it</h1>
+        <p class="drop-sub">Your browser fingerprints every file and signs the list with a key it keeps. You get <code>ledger.jsonl</code>, to put in an <code>ImmutableQC</code> folder inside the data folder.</p>
+        <div class="drop-actions">
+          <button class="btn btn-primary" type="button" data-act="choose-folder" data-for="seal-folder"><svg aria-hidden="true"><use href="#i-folder"/></svg>Choose a folder</button>
+        </div>
+        <input class="vh" type="file" id="seal-folder" webkitdirectory multiple tabindex="-1" aria-label="Choose a folder to seal">
+        <p class="drop-note">If the folder has a ledger whose key this browser holds, a scan and the changes since are added to it.</p>
+        <p class="local"><svg aria-hidden="true"><use href="#i-lock"/></svg><span>Nothing is uploaded. The key stays in this browser, which cannot export it.</span></p>
+      </div>
+      <details class="fold opts" id="seal-opts">
+        <summary>Station name <span class="label">Optional</span></summary>
+        <div class="fold-body">
+          <div class="field">
+            <label for="seal-station">Station name</label>
+            <input type="text" id="seal-station" placeholder="Browser" autocomplete="off" spellcheck="false" maxlength="64" aria-describedby="seal-station-hint">
+            <p class="hint" id="seal-station-hint">Sealed into every record: where it was made. 1 to 64 characters; “Browser” when left empty.</p>
+          </div>
+        </div>
+      </details>
+      <p class="callout agent-note"><svg aria-hidden="true"><use href="#i-note"/></svg><span>For an instrument PC, the agent is the real tool: it seals each new or changed file as soon as it is written, and keeps watching. <a href="../index.html#install">Get the agent</a></span></p>
+    </div>
+    <div class="screen glass" data-view="run" hidden></div>
+    <div class="screen glass" data-view="error" hidden></div>
+    <div data-view="result" hidden></div>
+  </div>
+</section>
+
+<!-- Demo, with sample data -->
+<section class="mode" id="mode-demo" data-mode="demo" aria-labelledby="demo-h" hidden>
+  <div class="wrap">
+    <div class="screen glass demo">
+      <div class="demo-grid">
+        <div class="demo-main">
+          <p class="eyebrow">Demo · sample data</p>
+          <h1 id="demo-h" tabindex="-1">A pass and a fail, in under a minute</h1>
+          <p class="demo-lead">A small plate-reader folder is built in this tab, sealed with a fresh key and audited by the same code as a real folder. Nothing is installed or uploaded.</p>
+          <ol class="steps" data-slot="steps">
+            <li data-step="seal" class="wait"><span class="ci" aria-hidden="true"><svg class="ci-ok" focusable="false"><use href="#i-check"/></svg><svg class="ci-bad" focusable="false"><use href="#i-x"/></svg></span><span><b>Sealed</b> <span data-slot="s-seal">the sample folder, with a key made for this demo</span></span></li>
+            <li data-step="pass" class="wait"><span class="ci" aria-hidden="true"><svg class="ci-ok" focusable="false"><use href="#i-check"/></svg><svg class="ci-bad" focusable="false"><use href="#i-x"/></svg></span><span><b>Audited</b> <span data-slot="s-pass">every file re-read and checked</span></span></li>
+            <li data-step="edit" class="wait"><span class="ci" aria-hidden="true"><svg class="ci-ok" focusable="false"><use href="#i-check"/></svg><svg class="ci-bad" focusable="false"><use href="#i-x"/></svg></span><span><b>One value changed in a copy</b> <span data-slot="s-edit">as a sync conflict on a shared drive would</span></span></li>
+            <li data-step="fail" class="wait"><span class="ci" aria-hidden="true"><svg class="ci-ok" focusable="false"><use href="#i-check"/></svg><svg class="ci-bad" focusable="false"><use href="#i-x"/></svg></span><span><b>Audited again</b> <span data-slot="s-fail">the change is caught</span></span></li>
+          </ol>
+          <div class="btn-row demo-actions">
+            <button class="btn btn-primary" type="button" data-act="demo-edit" hidden><svg aria-hidden="true"><use href="#i-edit"/></svg>Change one value</button>
+            <button class="btn btn-ghost" type="button" data-act="demo-restart" hidden><svg aria-hidden="true"><use href="#i-redo"/></svg>Start over</button>
+            <button class="btn btn-primary" type="button" data-act="demo-start" hidden><svg aria-hidden="true"><use href="#i-play"/></svg>Run the demo</button>
+          </div>
+        </div>
+        <div class="demo-side">
+          <div class="folder-card">
+            <p class="label"><svg aria-hidden="true"><use href="#i-folder"/></svg><span data-slot="d-folder">bio-line-2</span> <span class="faint">· in memory</span></p>
+            <ul class="tree" data-slot="tree"></ul>
+          </div>
+          <div class="inside" data-slot="inside" hidden></div>
+        </div>
+      </div>
+      <p class="demo-honest hint">The edit happens in a copy (a shared drive, a sync conflict, a restored backup), not on the watched instrument PC: there, a running agent would seal the edit as a new version, with its time, and the audit would list every version.</p>
+    </div>
+    <div class="screen glass" data-view="error" hidden></div>
+    <div data-view="result" hidden></div>
+  </div>
+</section>
 </main>
-<footer>
-<p>Immutable QC is an independent project built on the founder’s own time. It is not affiliated with or endorsed by any employer. Contact: <a href="https://joseqc.com">joseqc.com</a></p>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="foot-top">
+      <a class="brand" href="../index.html"><svg class="mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="9.5" fill="none" stroke="currentColor" stroke-width="3"/><circle class="mark-dot" cx="16" cy="16" r="3.75"/></svg><span class="brand-name">Immutable QC</span></a>
+      <nav class="foot-nav" aria-label="Footer">
+        <ul>
+          <li><a href="../overview.html">Docs</a></li>
+          <li><a href="../sealed.html">What a seal covers</a></li>
+          <li><a href="../index.html#install">Get the agent</a></li>
+          <li><a href="../core/immutableqc.mjs">The code that checks your data</a></li>
+        </ul>
+      </nav>
+    </div>
+    <div class="foot-meta">
+      <p class="status-line"><span>Independent project ·</span> <span>Open alpha ·</span> <span>No customers yet</span></p>
+      <p>Contact: <a href="https://joseqc.com">joseqc.com</a></p>
+    </div>
+    <p class="indep">Immutable QC is an independent project built on the founder’s own time. It is not affiliated with or endorsed by any employer.</p>
+  </div>
 </footer>
 </body>
 </html>

@@ -1,0 +1,5 @@
+{
+  "private": true,
+  "description": "Lets `node --test ui/test` run this folder on Node 22, which reads a directory argument as a module path: it resolves to index.mjs, which loads every *.test.mjs here.",
+  "main": "index.mjs"
+}

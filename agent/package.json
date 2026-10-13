@@ -1,0 +1,17 @@
+{
+  "name": "immutableqc",
+  "version": "0.1.0",
+  "description": "The Immutable QC agent (iqc): seals every file in a folder as it is written, and audits it. No dependencies; it never uses the network.",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "iqc": "bin/iqc.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "bundle": "node tools/bundle.mjs",
+    "test": "node --test test"
+  }
+}

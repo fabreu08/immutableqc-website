@@ -41,6 +41,7 @@
 //         concurrency counts batches in flight (default 8) of batchSize records (default 1024).
 //   async verifyLinks(publicKeyHex, [{h, sig}], {concurrency}) -> boolean[]   the worker side of verifyBatch
 //   isFirstScan(verified) -> bool            whether a scan now is this ledger's first (events `existing`)
+//   extendVerified(verified, records) -> verified   updated in place after appending records (no re-verification)
 //   planSeal(verified, files, {mode: 'first'|'watch'|'unwatched', station, observedAt, ignore}) -> [{kind, f, ctx?}]
 //   audit(verified, files|null, {expectHead, expectKeyId, strict, auditedAt, where: 'browser'|'command line', tool,
 //         ignore, folder}) -> report       (section 3.8; JSON.stringify(report) is the machine-readable form)
@@ -922,39 +923,47 @@ export async function verifyLedger(input, { concurrency, onProgress, verifyBatch
 
 // per-path state, watch sessions and the gaps between them, from records that passed every check
 function _state(good) {
-  const files = new Map(), sessions = [], kinds = { file: 0, 'file-removed': 0, session: 0, reading: 0 }
-  let cur = null, open = null
-  for (let i = 0; i < good.length; i++) {
-    const o = good[i], f = o.f, line = i + 2
-    kinds[o.kind]++
-    if (o.kind === 'file' || o.kind === 'file-removed') {
-      let e = files.get(f.path)
-      if (!e) { e = { path: f.path, versions: [], latest: null }; files.set(f.path, e) }
-      const v = { n: o.n, line, kind: o.kind, event: f.event, observedAt: f.observedAt }
-      if (o.kind === 'file') { v.sha256 = f.sha256; v.bytes = f.bytes }
-      if (o.ctx && o.ctx.modifiedAt !== undefined) v.modifiedAt = o.ctx.modifiedAt
-      e.versions.push(v)
-      e.latest = v
-      if (cur) { cur.files++; cur.lastN = o.n; if (f.observedAt > cur.lastAt) cur.lastAt = f.observedAt }
-    } else if (o.kind === 'session') {
-      const ev = f.event
-      if (ev === 'watch-started' || ev === 'scan') {
-        if (open) { open.clean = false; open.open = false; open.endedByN = o.n; open = null }
-        cur = { type: ev === 'scan' ? 'scan' : 'watch', startN: o.n, start: f.at, stopN: null, stop: null, clean: ev === 'scan' ? true : null, open: ev !== 'scan', endedByN: null, files: 0, lastN: o.n, lastAt: f.at, station: f.station, agent: f.agent }
-        sessions.push(cur)
-        if (ev !== 'scan') open = cur
-      } else if (ev === 'watch-stopped') {
-        if (open) {
-          Object.assign(open, { stopN: o.n, stop: f.at, clean: true, open: false, lastN: o.n })
-          if (f.at > open.lastAt) open.lastAt = f.at
-          open = null
-        } else {
-          sessions.push({ type: 'watch', startN: null, start: null, stopN: o.n, stop: f.at, clean: false, open: false, endedByN: null, files: 0, lastN: o.n, lastAt: f.at, station: f.station, agent: f.agent, stray: true })
-        }
-        cur = null
+  const st = { files: new Map(), sessions: [], kinds: { file: 0, 'file-removed': 0, session: 0, reading: 0 } }
+  for (let i = 0; i < good.length; i++) _stateAdd(st, good[i], i + 2)
+  return { files: st.files, sessions: st.sessions, gaps: _gapsOf(st.sessions), kinds: st.kinds }
+}
+
+// One good record (on ledger line `line`) into the state {files, sessions, kinds}. The session that file records count
+// toward and the open watch are read from the last session: a scan, or a watch not stopped yet, takes file records; a
+// watch not stopped yet is open (a start or a scan ends it, uncleanly); a stop, or a stray stop, ends both.
+function _stateAdd(st, o, line) {
+  const { files, sessions, kinds } = st
+  const last = sessions.length ? sessions[sessions.length - 1] : null
+  const open = last && last.open ? last : null
+  const cur = last && !last.stray && (last.type === 'scan' || last.open) ? last : null
+  const f = o.f
+  kinds[o.kind]++
+  if (o.kind === 'file' || o.kind === 'file-removed') {
+    let e = files.get(f.path)
+    if (!e) { e = { path: f.path, versions: [], latest: null }; files.set(f.path, e) }
+    const v = { n: o.n, line, kind: o.kind, event: f.event, observedAt: f.observedAt }
+    if (o.kind === 'file') { v.sha256 = f.sha256; v.bytes = f.bytes }
+    if (o.ctx && o.ctx.modifiedAt !== undefined) v.modifiedAt = o.ctx.modifiedAt
+    e.versions.push(v)
+    e.latest = v
+    if (cur) { cur.files++; cur.lastN = o.n; if (f.observedAt > cur.lastAt) cur.lastAt = f.observedAt }
+  } else if (o.kind === 'session') {
+    const ev = f.event
+    if (ev === 'watch-started' || ev === 'scan') {
+      if (open) { open.clean = false; open.open = false; open.endedByN = o.n }
+      sessions.push({ type: ev === 'scan' ? 'scan' : 'watch', startN: o.n, start: f.at, stopN: null, stop: null, clean: ev === 'scan' ? true : null, open: ev !== 'scan', endedByN: null, files: 0, lastN: o.n, lastAt: f.at, station: f.station, agent: f.agent })
+    } else if (ev === 'watch-stopped') {
+      if (open) {
+        Object.assign(open, { stopN: o.n, stop: f.at, clean: true, open: false, lastN: o.n })
+        if (f.at > open.lastAt) open.lastAt = f.at
+      } else {
+        sessions.push({ type: 'watch', startN: null, start: null, stopN: o.n, stop: f.at, clean: false, open: false, endedByN: null, files: 0, lastN: o.n, lastAt: f.at, station: f.station, agent: f.agent, stray: true })
       }
     }
   }
+}
+
+function _gapsOf(sessions) {
   const gaps = []
   const real = sessions.filter((s) => !s.stray)
   for (let i = 0; i + 1 < real.length; i++) {
@@ -962,7 +971,40 @@ function _state(good) {
     const from = a.type === 'watch' && a.clean ? a.stop : a.lastAt
     gaps.push({ afterN: a.lastN, beforeN: b.startN, from, to: b.start, ms: Date.parse(b.start) - Date.parse(from) })
   }
-  return { files, sessions, gaps, kinds }
+  return gaps
+}
+
+// Brings a verified ledger up to date with records just appended to it, without reading or verifying the ledger again
+// (the agent keeps `verified` in memory between polls; a poll never re-verifies the whole ledger). `verified` must have
+// no problem, and the records must continue its head: each record's number, previous link, sealed fields, fingerprint
+// and link are checked (its signature is not: the caller just made it). A list that fails changes nothing. Updates
+// records, recordCount, goodCount, head, files, sessions, gaps and kinds in place, and returns `verified`.
+export function extendVerified(verified, records) {
+  if (!verified || !verified.ok || !verified.head || verified.goodCount !== verified.recordCount) throw new Error('extendVerified needs a ledger that verified with no problem.')
+  if (!Array.isArray(records)) throw new TypeError('extendVerified needs an array of records.')
+  let { n, h } = verified.head
+  for (const o of records) {
+    const where = `Record ${_isObj(o) && Number.isSafeInteger(o.n) ? o.n : '?'}`
+    if (!_isObj(o) || o.n !== n + 1) throw new Error(`${where} does not continue the head: the next record is number ${n + 1}.`)
+    if (o.prev !== h) throw new Error(`${where} does not continue the head: its previous link is not the head's link.`)
+    if (typeof o.kind !== 'string' || !_own(KINDS, o.kind)) throw new Error(`${where} has an unknown kind.`)
+    const fp = _fieldProblems(o.kind, o.f)
+    if (fp.length) throw new Error(`${where} is not valid: ${fp.map((x) => x.text).join('; ')}.`)
+    if (fingerprintOf(o.kind, o.f) !== o.r || linkOf(h, o.r, o.n) !== o.h) throw new Error(`${where}'s fingerprint or link does not match its sealed fields.`)
+    if (sigProblem(o.sig) !== null) throw new Error(`${where}'s signature is not a low-S signature of 128 hex characters.`)
+    n = o.n
+    h = o.h
+  }
+  const st = { files: verified.files, sessions: verified.sessions, kinds: verified.kinds }
+  for (const o of records) {
+    _stateAdd(st, o, verified.recordCount + 2)
+    verified.records.push(o)
+    verified.recordCount++
+    verified.goodCount++
+  }
+  verified.head = { n, h }
+  verified.gaps = _gapsOf(verified.sessions)
+  return verified
 }
 
 // Whether a scan now is the first this ledger ever made (planSeal mode 'first', events `existing`): no file or removal
