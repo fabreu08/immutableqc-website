@@ -15,6 +15,7 @@ job is to pick it up and carry it forward to a high standard.
   push after the checks pass. Open a pull request into `main` only when the founder asks for one.
 
 ## Read these first, in this order
+0. `docs/patent-guardrails.md`: **the founder's hard rule: no patented work.** It applies to everything below.
 1. `docs/build-notes/RESUME.md`: what is done, what is open, and the next steps.
 2. `docs/product-v1.md`: the spec and the contract (ledger format, the agent CLI, the app, the landing page, the rules).
 3. `docs/build-notes/spec-addendum-agents.md` and `docs/build-notes/changes-after-research.md`: the decided next
@@ -34,6 +35,16 @@ job is to pick it up and carry it forward to a high standard.
 - The founder gave freedom to implement good ideas beyond theirs. Use judgment, but stay honest (rules below).
 
 ## Your tasks, in order
+0. **Patent cleanup first** (`docs/patent-guardrails.md`). Remove from every plan and every page the items that would put
+   instrument data or its records on a distributed ledger, or serve records to third parties: "Anchoring heads on a
+   public network" and any other anchoring, the registry contract and its scripts (`contracts/`, `dashboard/registry-*.js`;
+   delete them, git history keeps them), the encrypted archive on Filecoin, privacy on public networks (salted
+   commitments and zero-knowledge proofs on a network), and any hosted sharing service. That covers the landing page's
+   Upcoming list (`index.html`), the app, `docs/product-v1.md`, `README.md`, `site/HANDOFF.md`, and the document set's
+   sources (`site/data/site.json`, `site/pages/*.html`: the Roadmap, Overview, How a record is sealed, Regulatory map and
+   About pages mention anchoring, a registry and Filecoin). Rewrite the affected copy truthfully and update the build's
+   pins and lints to match; never loosen a banned-wording or honesty lint. Do not touch the other repositories
+   (`iqc-alpha`, `iqc-token`, `immutable.polsia.app`): tell the founder they should be archived.
 1. **CI.** Check the latest `site-check` workflow run on the branch. Fix real failures. Two Overview timing limits
    failed only on the previous agent's slow machine (`site/tools/check.mjs`: "story cost" 53.6 ms vs 50 ms; Overview LCP
    1,728 ms vs 1,692 ms with `--perf`); if CI passes them, leave them; if not, investigate before touching any limit.
@@ -64,6 +75,11 @@ job is to pick it up and carry it forward to a high standard.
    founder in plain words: what works now, what you checked, what is still open.
 
 ## Rules that must hold (the build enforces most of them; never loosen a lint to pass)
+- **No patented work** (`docs/patent-guardrails.md`): no distributed ledger or blockchain of any kind, no anchoring on a
+  network, no registry or smart contract, no token; no hosted platform through which third parties request records;
+  no extraction or presentation of instrument operating logs or operator signatures. Ledgers stay local, single-writer,
+  signed files joined only at audit time. Before building any new feature, search for patents on it and read their
+  independent claims; if in doubt, do not build it and ask the founder.
 - Banned on the site and in shipped strings: "immutable"/"immutability" as a property (the name "Immutable QC" is
   fine), "can't be changed/altered", "guarantee", "proof"/"proofs" (except "zero-knowledge proofs"), "trustless",
   "unbreakable", "revolutionary", "compliant"/"compliance", "crypto" in any word on the pages (so not

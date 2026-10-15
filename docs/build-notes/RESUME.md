@@ -21,7 +21,7 @@ Branch `claude/nifty-gates-h5guqf`. Nothing goes live until it is merged to `mai
   (`dashboard/` points to `app/`).
 - `docs/instrument-integration-and-ghidra.md`: research memo (skeptic-corrected). Verdict: Ghidra is not the connector;
   the format-agnostic file-sealing agent is; AI-assisted format inference on the lab's own files is worth a small test
-  later; flags a patent to clear (US11502847) and that Node 20 is end of life.
+  later; flags a patent (US11502847; see `docs/patent-guardrails.md`) and that Node 20 is end of life.
 
 ## Integration: finished (after the pause)
 - `node --test core/test agent/test ui/test`: 123/123. `node --test app/test e2e`: 31/31 (incl. the cross-implementation
@@ -34,6 +34,8 @@ Branch `claude/nifty-gates-h5guqf`. Nothing goes live until it is merged to `mai
   paths; the landing page and app use 24 px desktop tap targets and an 11 px text floor (the docs use 44 px and 12 px).
 
 ## Next (in order)
+0. **No patented work** (founder, 2026-10-15): follow `docs/patent-guardrails.md`; remove anchoring on a network, the
+   registry contract, the Filecoin archive and privacy-on-networks items from every plan and page first.
 1. Check CI on GitHub (the site-check workflow) and re-measure the two Overview timing limits there.
 2. Fold `spec-addendum-agents.md` and `changes-after-research.md` into `docs/product-v1.md`, then build them:
    three verdicts (pass / review / fail; exit codes 0 / 3 / 1 / 2), `step` and `review` record kinds, the multi-ledger

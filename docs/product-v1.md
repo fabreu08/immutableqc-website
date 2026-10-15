@@ -17,7 +17,7 @@ Status: build spec (2026-10-13). Not published (the deploy allowlist takes no `.
    sample instrument folder in memory, seals it, lets you change a file, and audits it again, so a visitor sees a pass and
    a fail within a minute without installing anything.
 
-Out of v1 (each is "Upcoming" in any copy): anchoring heads on a public network, Merkle batches, an encrypted archive,
+Out of v1 (each is "Upcoming" in any copy): Merkle batches,
 per-person signatures, extracting values from inside files (per-result records), lineage, sealing inside the vendor's
 software before it writes the file, a Windows installer or service, an npm package, post-quantum signatures.
 
@@ -253,3 +253,11 @@ Docs (the document set), contact via joseqc.com, the status line and the indepen
   (the app and the end-to-end test, in Chromium): the demo's pass and fail; a folder sealed by the CLI audited in the
   browser with the same verdict, head, key id and file states as `iqc audit`, before and after a change and a removal;
   no network request from the app; axe with no violation; no horizontal overflow from 320 to 1920 px.
+
+## 9. Patent guardrails (the founder's rule: no patented work)
+
+Read `docs/patent-guardrails.md` before building anything. In short: no distributed ledger or blockchain of any kind
+(no anchoring on a network, no registry or smart contract, no token); no hosted exchange platform through which third
+parties request records; no extraction or presentation of instrument operating information. Ledgers stay local,
+single-writer, signed files joined only at audit time. Search for patents on any new feature before building it.
+
