@@ -1,5 +1,9 @@
 # Resume: repositioning for automated research labs (finished and reviewed, 2026-10-07)
 
+> **Superseded in part (2026-10-17).** `docs/patent-guardrails.md` overrides this log: anchoring on a public network, the
+> registry contract, the encrypted archive on Filecoin (storage tiers), privacy on public networks (salted commitments,
+> zero-knowledge proofs) and a shared registry are removed from the plans. Where this log describes them, it is history.
+
 State on branch `claude/new-session-wut618` (working tree; the last commit is the WIP checkpoint 26149b0):
 
 - **Finished.** Deliverable A (`docs/architecture-and-threat-model.md`, identical copy in `scratchpad/reposition/`) and Deliverable B (the site) are complete, reviewed (accuracy: auditor and cryptography; copy and design) and fixed. See "Review and fix pass" below.

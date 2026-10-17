@@ -108,7 +108,7 @@ order): this rules out duplicate keys, padding and any second reading of a line.
 ECDSA P-256 with SHA-256 (WebCrypto `{name:'ECDSA', hash:'SHA-256'}`) over the 32 bytes of the record's **link `h_n`**
 (header: over `g`), IEEE P1363 `r || s` as 128 hex, **low-S only** (a signer normalizes `s` to `n - s` when `s > n/2`; a
 verifier rejects high-S). Signing the link, not the fingerprint, means removing, reordering or inserting a record breaks a
-signature without needing an anchor (the docs pages' demo signs `r_n`; this is the v1 improvement).
+signature without needing a pinned head (the docs pages' demo signs `r_n`; this is the v1 improvement).
 
 ### 3.7 Verification (`verifyLedger`)
 Check the header (shape, every rule above, `keyId`, `g`, signature), then every record in order: shape, field rules, event
@@ -228,8 +228,8 @@ Docs (the document set), contact via joseqc.com, the status line and the indepen
 ## 7. Rules that carry over (from `site/HANDOFF.md`; they apply to every new page, the app and every shipped string)
 
 - Banned wording (lint in `site/build.mjs`, section 7): "immutable/immutability" as a property (the name "Immutable QC"
-  and the domain are fine), "can't/cannot be changed/altered", "guarantee", "proof/proofs" (except "zero-knowledge
-  proofs"), "trustless", "unbreakable", "revolutionary", "compliant"/"compliance", "crypto" in any word on the pages
+  and the domain are fine), "can't/cannot be changed/altered", "guarantee", "proof/proofs" (no exception
+  since the patent cleanup), "trustless", "unbreakable", "revolutionary", "compliant"/"compliance", "crypto" in any word on the pages
   (so not "cryptographic": say "SHA-256 fingerprint", "signature"), token, wallet, stake, mint, NFT, price, pilot,
   "customers" (except "no customers yet"), and vendor or product names of instruments and lab software.
 - Present tense only for what works today. Everything else carries the one label "Upcoming".

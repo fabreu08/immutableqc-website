@@ -34,8 +34,12 @@ Branch `claude/nifty-gates-h5guqf`. Nothing goes live until it is merged to `mai
   paths; the landing page and app use 24 px desktop tap targets and an 11 px text floor (the docs use 44 px and 12 px).
 
 ## Next (in order)
-0. **No patented work** (founder, 2026-10-15): follow `docs/patent-guardrails.md`; remove anchoring on a network, the
-   registry contract, the Filecoin archive and privacy-on-networks items from every plan and page first.
+0. **No patented work** (founder, 2026-10-15): follow `docs/patent-guardrails.md`. **Done 2026-10-17 (Draft 8):** anchoring
+   on a network, the registry contract (`contracts/`, `dashboard/registry-*.js`, deleted), the Filecoin archive,
+   privacy-on-networks and the shared registry are gone from every plan and page; `site/build.mjs` section 7h lints
+   against their return (see `site/HANDOFF.md`, "Draft 8"). Open for the founder: the Overview H1 "Tokenized lab data."
+   and whether the document set's simulated "anchor" should be renamed "pinned head". Archive `iqc-alpha`, `iqc-token`
+   and `immutable.polsia.app` (not touched here).
 1. Check CI on GitHub (the site-check workflow) and re-measure the two Overview timing limits there.
 2. Fold `spec-addendum-agents.md` and `changes-after-research.md` into `docs/product-v1.md`, then build them:
    three verdicts (pass / review / fail; exit codes 0 / 3 / 1 / 2), `step` and `review` record kinds, the multi-ledger
