@@ -33,7 +33,7 @@
 <p class="hx-p">{{rG}}</p>
 <p>Change one character of any field and the fingerprint changes completely. Anyone who has the five fields can recompute it in a UTF-8 terminal:</p>
 <pre class="rc-p"><code>{{payloadCmd}}</code></pre>
-<p>On macOS, use <code>shasum -a 256</code>. Section 9 explains why a fingerprint is not encryption.</p>
+<p>On macOS, use <code>shasum -a 256</code>. A fingerprint is not encryption: a plain SHA-256 of a few guessable fields (an instrument id, a measurement type, a peak area in a known range, a capture time to the second) can in principle be matched by trying likely values, so the records stay with the lab.</p>
 <p class="note"><span class="k">Basis</span>SHA-256, FIPS 180-4, over the UTF-8 bytes as they are, with no Unicode normalization.</p>
 </div>
 </section>
@@ -53,14 +53,14 @@
 <div class="body">
 <p>A checker recomputes each record’s link from the previous link that record stores, its recomputed fingerprint and its position. It compares the result with the link the record stores, which is also the link the next record carries. So a changed value fails that record’s fingerprint and signature and breaks only the link into the next record. The later records still pass their own checks.</p>
 <p>The change still shows across the whole history. Replayed from 64 zeros over the recomputed fingerprints, the link of the newest record comes out different, so the head no longer matches the anchored fingerprint (section 7).</p>
-<p>The links do not show a record that was removed when every later link was rewritten. Each signature covers only its own record’s fingerprint, so that rewrite needs no key. Only a fingerprint anchored beforehand would show it. Signatures that cover each record’s position are an <a href="roadmap.html#position">upcoming feature</a>.</p>
+<p>The links do not show a record that was removed when every later link was rewritten. Each signature covers only its own record’s fingerprint, so that rewrite needs no key. Only an anchor taken beforehand (section 7) would show it. Signatures that cover each record’s position are an <a href="roadmap.html#position">upcoming feature</a>.</p>
 </div>
 </section>
 <section class="sec sec--side" id="signature" aria-labelledby="s5-h">
 <h2 id="s5-h"><span class="no">5</span>The signature (demo)</h2>
 <div class="body">
 <p>Each fingerprint is signed with ECDSA P-256 over its 32 bytes. On these pages, records 1 to {{N}} were signed when the site was built, by a demo key whose private half was then discarded. Its public key is published on the pages that check it. That shows the method, but it is not independent evidence. In use, the public key would be published outside the lab’s system. {{demoSig}}</p>
-<p>In the record checker, an edited record’s signature still fails after the history is rewritten, but only because the demo key was discarded. In the alpha, whoever holds the one server key could re-sign an edited record; only a fingerprint anchored outside the lab beforehand would still disagree.</p>
+<p>In the record checker, an edited record’s signature still fails after the history is rewritten, but only because the demo key was discarded. In the alpha, whoever holds the one server key could re-sign an edited record; only an anchor taken beforehand, outside the lab’s system, would still disagree.</p>
 <p>Where your browser can check signatures, every record on these pages is signed, so a record with no signature fails.</p>
 <p>A signature made with a system key on a record’s bytes is neither an electronic signature nor a digital signature as 21 CFR Part 11 uses those terms: both identify a person.</p>
 <p class="note"><span class="k">Basis</span>ECDSA, FIPS 186-5. IEEE P1363 encoding, in its low-S form only. Demo key id {{keyIdShort}}…</p>
@@ -76,12 +76,11 @@
 </div>
 </section>
 <section class="sec sec--side" id="anchoring" aria-labelledby="s7-h">
-<h2 id="s7-h"><span class="no">7</span><span>Anchoring a batch <span class="tag">Upcoming</span></span></h2>
+<h2 id="s7-h"><span class="no">7</span>The anchor (simulated)</h2>
 <div class="body">
-<p>Anchoring is an upcoming feature. It will write a batch fingerprint, with a time, somewhere the lab does not control, so that a later rewrite of the history shows. On these pages the batch fingerprint is the link of record {{AN}}, the newest record in the batch, replayed from 64 zeros. It is stored on the page as the anchored fingerprint (simulated, no network call).</p>
+<p>An anchor is a copy of a batch fingerprint kept outside the lab’s system, so that a later rewrite of the history would show against it. On these pages the batch fingerprint is the link of record {{AN}}, the newest record in the batch, replayed from 64 zeros. It is stored on the page as the anchored fingerprint (simulated, no network call).</p>
 <p class="hx-p">{{ancG}}</p>
-<p>The first network will be {{network}}. The registry code for that network (a smart contract) is written, but nothing on this site or in the app writes to a network, and no shared registry exists yet. Every anchor here is simulated.</p>
-<p>Anchoring will put only a fingerprint on the network, never the values. A registry entry would show that a fingerprint existed by a given time, and the address that wrote it, which links a lab’s anchors to one another; as the registry code is written today, it would also show the first and last record numbers of the batch. It would show no value, and it would not keep the records.</p>
+<p>In use, a lab would pin that fingerprint by its own means: a pin file on another drive or share, a printout or a notebook entry. Nothing on this site or in the app writes to a network, and no ledger or outside service would be involved. The anchor would hold no value, only a 64-character code.</p>
 </div>
 </section>
 <section class="sec sec--side" id="pass-fail" aria-labelledby="s8-h">
@@ -95,18 +94,8 @@
 </dl>
 </div>
 </section>
-<section class="sec sec--side" id="privacy" aria-labelledby="s9-h">
-<h2 id="s9-h"><span class="no">9</span>Privacy on public networks</h2>
-<div class="body">
-<p>A fingerprint hides nothing that can be guessed. A plain SHA-256 of a few guessable fields (an instrument id, a measurement type, a peak area in a known range, a capture time to the second) can in principle be matched by trying likely values.</p>
-<p>Nothing on this site or in the app writes to a public network. When anchoring becomes available, it will write only a batch fingerprint, never the values. A batch fingerprint of guessable fields can still be tried. So can two anchors one record apart: from the head before and the head after, the one record between them can be found by trying likely values.</p>
-<p><span class="tag tag--in">Upcoming</span> Salted (hiding) commitments in place of plain fingerprints, so that what is published reveals nothing without the salt the lab keeps; as the leaves of a Merkle batch, they would also let a lab show that one record is in an anchored batch without revealing the others’ contents. Later, zero-knowledge proofs, so that a lab can show a property, such as “within specification” or “reviewed before release”, without disclosing the value.</p>
-<p>Storage would follow the same rule as anchoring: nothing readable leaves the lab. An encrypted archive on Filecoin is upcoming; each batch would be encrypted in the lab before upload, with keys that stay in the lab, so the network would hold ciphertext and never results, and content addressing would let anyone who fetches a copy check that it is, byte for byte, the ciphertext the lab archived under that address.</p>
-<p><a class="xref" href="roadmap.html#privacy"><span class="id">IQC-RD-01 §2.6</span><span>Privacy on public networks</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
-</div>
-</section>
-<section class="sec sec--side" id="alpha" aria-labelledby="s10-h">
-<h2 id="s10-h"><span class="no">10</span>What works today, and what is upcoming</h2>
+<section class="sec sec--side" id="alpha" aria-labelledby="s9-h">
+<h2 id="s9-h"><span class="no">9</span>What works today, and what is upcoming</h2>
 <div class="body">
 <table class="st-t">
 <caption class="sr-only">What works today, and what is upcoming</caption>
@@ -114,6 +103,7 @@
 <tbody>
 <tr><th scope="row">Five-field SHA-256 fingerprint, linked to the previous record</th><td><b>Today.</b> On these pages and in the alpha app’s HPLC import.</td></tr>
 <tr><th scope="row">Every check recomputed in your browser</th><td><b>Today.</b> On these pages.</td></tr>
+<tr><th scope="row">Anchor</th><td><b>Simulated.</b> On these pages.</td></tr>
 <tr><th scope="row">Signatures</th><td><b>Demo.</b> These pages: a build-time key, discarded, and a one-time key made in your browser for a correction in Check a record. The alpha app: one server key.</td></tr>
 <tr><th scope="row">Corrections appended with a reason</th><td><b>Demo.</b> On these pages; not in the alpha app.</td></tr>
 <tr><th scope="row">Sealing at capture (SiLA 2, OPC UA LADS adapters)</th><td><span class="tag tag--in">Upcoming</span></td></tr>
@@ -121,16 +111,12 @@
 <tr><th scope="row">Lineage and recall</th><td><span class="tag tag--in">Upcoming</span></td></tr>
 <tr><th scope="row">Agentic workflows</th><td><span class="tag tag--in">Upcoming</span></td></tr>
 <tr><th scope="row">Merkle batches with salted leaves</th><td><span class="tag tag--in">Upcoming</span></td></tr>
-<tr><th scope="row">Privacy on public networks</th><td><span class="tag tag--in">Upcoming</span></td></tr>
-<tr><th scope="row">Anchoring on a public test network</th><td><span class="tag tag--in">Upcoming</span> Simulated on these pages.</td></tr>
-<tr><th scope="row">Encrypted archive on Filecoin</th><td><span class="tag tag--in">Upcoming</span></td></tr>
 <tr><th scope="row">Per-analyst signatures</th><td><span class="tag tag--in">Upcoming</span></td></tr>
 <tr><th scope="row">Signatures that cover each record’s position</th><td><span class="tag tag--in">Upcoming</span></td></tr>
 <tr><th scope="row">Reviewer sign-off</th><td><span class="tag tag--in">Upcoming</span></td></tr>
 <tr><th scope="row">Server-side verification in the app</th><td><span class="tag tag--in">Upcoming</span></td></tr>
 <tr><th scope="row">Sample and method metadata in the seal</th><td><span class="tag tag--in">Upcoming</span></td></tr>
-<tr><th scope="row">A shared registry</th><td><span class="tag tag--in">Upcoming</span></td></tr>
-<tr><th scope="row">Post-quantum signatures and encryption</th><td><span class="tag tag--in">Upcoming</span></td></tr>
+<tr><th scope="row">Post-quantum signatures</th><td><span class="tag tag--in">Upcoming</span></td></tr>
 <tr><th scope="row">Electronic signatures, validation</th><td><b>Not claimed.</b></td></tr>
 </tbody>
 </table>
