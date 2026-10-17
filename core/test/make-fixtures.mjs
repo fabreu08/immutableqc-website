@@ -6,6 +6,11 @@
 //   fixtures/tampered-file/            the same ledger; files changed, reverted, deleted and added after sealing: fail
 //   fixtures/tampered-ledger/          a file edited, and its record edited to match (sha256 and bytes): fail, line 8
 //   fixtures/expected.json             per variant: verdict, head, key id, problems (line, code), notes, file states
+//   fixtures/lab/                      a lab folder audited as a whole (auditMany): two instrument folders with their
+//                                      ledgers (bio-line-2, hplc-3), an agent workspace with its step ledger
+//                                      (agent-workspace), and a reviewer's ledger (reviews/j-rivera.ledger.jsonl): pass
+//   fixtures/lab-keys.DO-NOT-USE.json  the TEST-ONLY private keys of the lab's four ledgers (one per actor)
+//   fixtures/expected-lab.json         the lab's ledgers (as discoverLedgers finds them), verdict, steps and lineage
 //
 //   node core/test/make-fixtures.mjs --write   (re)write everything (the key is kept if it exists)
 //   node core/test/make-fixtures.mjs --check   exit 1 if the data files, the ledgers (signatures aside) or
@@ -20,6 +25,8 @@ import * as IQC from '../immutableqc.mjs'
 const HERE = dirname(fileURLToPath(import.meta.url))
 export const FIXTURES = join(HERE, 'fixtures')
 const KEY_FILE = join(FIXTURES, 'test-key.DO-NOT-USE.jwk')
+const LAB_KEYS = join(FIXTURES, 'lab-keys.DO-NOT-USE.json')
+const LAB_ACTORS = ['bio-line-2', 'hplc-3', 'agent', 'reviewer']
 const STATION = 'LAB-PC-07'
 const AGENT = 'immutableqc-cli/0.1.0'
 const T = (sec) => new Date(Date.UTC(2026, 9, 1, 8, 0, 0) + sec * 1000).toISOString()
@@ -158,6 +165,109 @@ async function make(jwk) {
   return out
 }
 
+
+// ------------------------------------------------------------------------------------------------- the lab fixture
+const PLATE07 = 'well,signal\nA1,0.912\nA2,0.455\nA3,0.231\nA4,0.118\n'
+const PLATE08 = 'well,signal\nA1,0.897\nA2,0.471\nA3,0.240\nA4,0.121\n'
+const HPLC01 = 'sample,retention_min,area,unit\nS-0914-01,4.212,1523.4,mAU*s\n'
+const HPLC02 = 'sample,retention_min,area,unit\nS-0914-02,4.208,1498.0,mAU*s\n'
+const NORM07 = 'well,normalized\nA1,1.000\nA2,0.499\nA3,0.253\nA4,0.129\n'
+const NORM08 = 'well,normalized\nA1,1.000\nA2,0.525\nA3,0.268\nA4,0.135\n'
+const IC50 = 'plate,ic50_uM\nplate-07,2.04\nplate-08,2.21\n'
+const SUMMARY = '# Plates 07 and 08\n\nIC50: 2.04 uM (plate-07), 2.21 uM (plate-08). Reference injection S-0914-01 area 1523.4.\n'
+const LAB_README = README
+export const LAB = join(FIXTURES, 'lab')
+
+// raw relative path (under lab/) -> bytes, the data files only
+export function labFiles() {
+  return {
+    'bio-line-2/plate-07.csv': PLATE07,
+    'bio-line-2/plate-08.csv': PLATE08,
+    'hplc-3/run-0914/injection-01.csv': HPLC01,
+    'hplc-3/run-0914/injection-02.csv': HPLC02,
+    'agent-workspace/inputs/plate-07.csv': PLATE07,
+    'agent-workspace/inputs/plate-08.csv': PLATE08,
+    'agent-workspace/inputs/injection-01.csv': HPLC01,
+    'agent-workspace/analysis/plate-07-normalized.csv': NORM07,
+    'agent-workspace/analysis/plate-08-normalized.csv': NORM08,
+    'agent-workspace/analysis/ic50.csv': IC50,
+    'agent-workspace/report/summary.md': SUMMARY,
+  }
+}
+
+const ref = (path, content) => ({ path: IQC.encodePath(path), sha256: sha(bytesOf(content)), bytes: bytesOf(content).length })
+const labId = (name) => sha(`immutableqc lab fixture ${name}`).slice(0, 32)
+
+async function labLedger(jwk, station, ledgerId, items, agent = AGENT) {
+  const privateKey = await IQC.importPrivateJwk(jwk)
+  const header = await IQC.createHeader({ station, privateKey, publicKeyHex: IQC.publicKeyHexOfJwk(jwk), agent, createdAt: T(10), ledgerId })
+  const records = await IQC.createRecords({ head: { n: 0, h: header.g }, items, privateKey })
+  return { text: [header, ...records].map((o) => IQC.serializeLine(o)).join(''), header, records }
+}
+
+async function makeLab(keys) {
+  const out = {}
+  const inst = (st, files, sec) => [
+    { kind: 'session', f: { station: st, event: 'watch-started', at: T(sec), agent: AGENT } },
+    ...files.map(([raw, c], i) => ({ kind: 'file', f: { station: st, path: IQC.encodePath(raw), sha256: sha(bytesOf(c)), bytes: String(bytesOf(c).length), observedAt: T(sec + 10 + i), event: 'added' } })),
+    { kind: 'session', f: { station: st, event: 'watch-stopped', at: T(sec + 3600), agent: AGENT } },
+  ]
+  const bio = await labLedger(keys['bio-line-2'], 'bio-line-2', labId('bio-line-2'), inst('bio-line-2', [['plate-07.csv', PLATE07], ['plate-08.csv', PLATE08]], 100))
+  const hplc = await labLedger(keys['hplc-3'], 'hplc-3', labId('hplc-3'), inst('hplc-3', [['run-0914/injection-01.csv', HPLC01], ['run-0914/injection-02.csv', HPLC02]], 200))
+  const A = 'analysis-server'
+  const steps = [
+    { kind: 'session', f: { station: A, event: 'mcp-started', at: T(4000), agent: AGENT } },
+    IQC.planStep({ station: A, actor: 'analysis-agent', tool: 'normalize.py 2.1', action: 'Normalized plates 07 and 08 to well A1', inputs: [ref('inputs/plate-07.csv', PLATE07), ref('inputs/plate-08.csv', PLATE08)], outputs: [ref('analysis/plate-07-normalized.csv', NORM07), ref('analysis/plate-08-normalized.csv', NORM08)], at: T(4010) }),
+    IQC.planStep({ station: A, actor: 'analysis-agent', tool: 'fit-ic50 0.9', action: 'Fitted a four-parameter curve per plate and wrote the IC50 table', inputs: [ref('analysis/plate-07-normalized.csv', NORM07), ref('analysis/plate-08-normalized.csv', NORM08)], outputs: [ref('analysis/ic50.csv', IC50)], at: T(4020) }),
+    IQC.planStep({ station: A, actor: 'analysis-agent', tool: 'claude-opus-5-5', action: 'Wrote the run summary from the IC50 table and the reference injection', inputs: [ref('analysis/ic50.csv', IC50), ref('inputs/injection-01.csv', HPLC01)], outputs: [ref('report/summary.md', SUMMARY)], at: T(4030) }),
+    { kind: 'session', f: { station: A, event: 'mcp-stopped', at: T(4040), agent: AGENT } },
+  ]
+  const agent = await labLedger(keys.agent, A, labId('agent-workspace'), steps)
+  const subjects = agent.records.filter((r) => r.kind === 'step').map((r) => ({ ledgerId: agent.header.ledgerId, n: r.n, h: r.h }))
+  const rev = await labLedger(keys.reviewer, 'Browser', labId('reviewer'), [IQC.planReview({ station: 'Browser', reviewer: 'J. Rivera', subjects, decision: 'approved', note: 'Checked the normalization and the fit against the plate maps.', at: T(5000) })], 'immutableqc-app/0.1.0')
+  for (const [raw, c] of Object.entries(labFiles())) out[`lab/${raw}`] = bytesOf(c)
+  for (const [dir, L] of [['bio-line-2', bio], ['hplc-3', hplc], ['agent-workspace', agent]]) {
+    out[`lab/${dir}/ImmutableQC/README.txt`] = bytesOf(LAB_README)
+    out[`lab/${dir}/ImmutableQC/ledger.jsonl`] = bytesOf(L.text)
+  }
+  out['lab/reviews/j-rivera.ledger.jsonl'] = bytesOf(rev.text)
+  return out
+}
+
+// audits the lab folder as the CLI and the app will: discoverLedgers over its files, each ledger's files under its root
+export async function labAudit(dir = LAB, opts = {}) {
+  const all = [...readFolder(dir).keys()].map((p) => IQC.decodePath(p))
+  const found = IQC.discoverLedgers(all)
+  const entries = []
+  for (const d of found) {
+    const v = await IQC.verifyLedger(new Uint8Array(readFileSync(join(dir, d.ledgerPath))))
+    let files = null
+    if (d.root !== null) {
+      files = readFolder(d.root === '' ? dir : join(dir, d.root))
+      for (const k of [...files.keys()]) if (d.nested.some((nr) => k === nr || k.startsWith(nr + '/'))) files.delete(k)
+    }
+    entries.push({ verified: v, root: d.root, files, ledgerPath: d.ledgerPath })
+  }
+  return { found, report: IQC.auditMany(entries, { auditedAt: T(90000), tool: `immutableqc-core/${IQC.VERSION}`, ...opts }) }
+}
+
+export async function expectedLab(dir = LAB) {
+  const { found, report: r } = await labAudit(dir)
+  return {
+    _note: 'Made by core/test/make-fixtures.mjs from fixtures/lab/ (auditMany over the ledgers discoverLedgers finds). The keys in lab-keys.DO-NOT-USE.json are published for tests only.',
+    discovered: found,
+    verdict: r.verdict,
+    summary: r.summary,
+    problems: r.problems.map((p) => p.code),
+    forReview: r.forReview.map((g) => g.code),
+    notes: r.notes.map((n) => n.code),
+    counts: Object.fromEntries(['ledgers', 'records', 'sealed', 'match', 'steps', 'inputs', 'measuredInputs', 'derivedInputs', 'untracedInputs', 'outputs', 'reviews', 'stepsApproved', 'stepsAwaiting'].map((k) => [k, r.counts[k]])),
+    ledgers: r.ledgers.map((L) => ({ ledgerPath: L.ledgerPath, root: L.root, role: L.role, station: L.station, ledgerId: L.ledgerId, keyId: L.keyId, records: L.records, head: L.head ? IQC.formatHead(L.head) : null, verdict: L.verdict })),
+    steps: r.steps.map((s) => ({ ledger: s.ledger, n: s.n, actor: s.actor, tool: s.tool, action: s.action, inputs: s.inputs.map((x) => `${x.state} ${x.path}`), outputs: s.outputs.map((x) => `${x.state} ${x.path}`), review: s.review.state, lineage: s.lineage.sentence })),
+    lineage: r.lineage.outputs.map((o) => ({ path: o.path, tracesToMeasured: o.tracesToMeasured, measured: o.measured, sentence: o.sentence })),
+  }
+}
+
 const stripSig = (text) => text.split('\n').map((l) => (l ? IQC.canonicalJSON({ ...JSON.parse(l), sig: undefined }) : l)).join('\n')
 const listFiles = (dir) => (existsSync(dir) ? [...readFolder(dir).keys()].map((p) => IQC.decodePath(p)) : [])
 
@@ -172,19 +282,38 @@ async function main(arg) {
     const kp = await IQC.generateKeyPair({ extractable: true })
     jwk = await IQC.exportPrivateJwk(kp.privateKey)
   } else { console.error('no fixture key'); return 1 }
-  const files = await make(jwk)
-  const variants = ['sample', 'tampered-file', 'tampered-ledger']
+  let labKeys
+  if (existsSync(LAB_KEYS)) labKeys = JSON.parse(readFileSync(LAB_KEYS, 'utf8'))
+  else if (arg === '--write') {
+    labKeys = {}
+    for (const a of LAB_ACTORS) { const kp = await IQC.generateKeyPair({ extractable: true }); const k = await IQC.exportPrivateJwk(kp.privateKey); labKeys[a] = { kty: k.kty, crv: k.crv, x: k.x, y: k.y, d: k.d } }
+  } else { console.error('no lab fixture keys'); return 1 }
+  const files = { ...(await make(jwk)), ...(await makeLab(labKeys)) }
+  const variants = ['sample', 'tampered-file', 'tampered-ledger', 'lab']
   if (arg === '--write') {
     mkdirSync(FIXTURES, { recursive: true })
-    for (const v of variants) rmSync(join(FIXTURES, v), { recursive: true, force: true })
     writeFileSync(KEY_FILE, JSON.stringify({ kty: jwk.kty, crv: jwk.crv, x: jwk.x, y: jwk.y, d: jwk.d }, null, 1) + '\n')
+    writeFileSync(LAB_KEYS, JSON.stringify(labKeys, null, 1) + '\n')
     writeFileSync(join(FIXTURES, '.gitattributes'), '# fixture bytes are hashed: never convert line endings\n* -text\n')
-    for (const [p, b] of Object.entries(files)) { mkdirSync(dirname(join(FIXTURES, p)), { recursive: true }); writeFileSync(join(FIXTURES, p), b) }
+    // a ledger whose content is unchanged (signatures aside) keeps its signatures, so a rewrite changes only what changed
+    const keep = new Map()
+    for (const [p, b] of Object.entries(files)) {
+      const f = join(FIXTURES, p)
+      if (p.endsWith('.jsonl') && existsSync(f)) { const have = readFileSync(f); if (stripSig(have.toString('utf8')) === stripSig(new TextDecoder().decode(b))) keep.set(p, have) }
+    }
+    for (const v of variants) rmSync(join(FIXTURES, v), { recursive: true, force: true })
+    for (const [p, b] of Object.entries(files)) { mkdirSync(dirname(join(FIXTURES, p)), { recursive: true }); writeFileSync(join(FIXTURES, p), keep.get(p) || b) }
   }
   const expected = { _note: 'Made by core/test/make-fixtures.mjs. Paths are encoded (ledger format v1, section 3.2). The key in test-key.DO-NOT-USE.jwk is published for tests only.', format: IQC.FORMAT, version: IQC.FORMAT_VERSION, variants: {} }
-  for (const v of variants) expected.variants[v] = await expectedFor(join(FIXTURES, v))
+  for (const v of variants.filter((x) => x !== 'lab')) expected.variants[v] = await expectedFor(join(FIXTURES, v))
   const expText = JSON.stringify(expected, null, 1) + '\n'
-  if (arg === '--write') { writeFileSync(join(FIXTURES, 'expected.json'), expText); console.log(`wrote ${Object.keys(files).length + 3} files in ${relative(process.cwd(), FIXTURES) || FIXTURES}`); return 0 }
+  const labText = JSON.stringify(await expectedLab(), null, 1) + '\n'
+  if (arg === '--write') {
+    writeFileSync(join(FIXTURES, 'expected.json'), expText)
+    writeFileSync(join(FIXTURES, 'expected-lab.json'), labText)
+    console.log(`wrote ${Object.keys(files).length + 5} files in ${relative(process.cwd(), FIXTURES) || FIXTURES}`)
+    return 0
+  }
   // --check
   const bad = []
   for (const [p, b] of Object.entries(files)) {
@@ -197,6 +326,8 @@ async function main(arg) {
   for (const v of variants) for (const p of listFiles(join(FIXTURES, v))) if (!(`${v}/${p}` in files)) bad.push(`extra ${v}/${p}`)
   const have = existsSync(join(FIXTURES, 'expected.json')) ? readFileSync(join(FIXTURES, 'expected.json'), 'utf8') : ''
   if (have !== expText) bad.push('differs expected.json')
+  const haveLab = existsSync(join(FIXTURES, 'expected-lab.json')) ? readFileSync(join(FIXTURES, 'expected-lab.json'), 'utf8') : ''
+  if (haveLab !== labText) bad.push('differs expected-lab.json')
   for (const b of bad) console.error(b)
   return bad.length ? 1 : 0
 }

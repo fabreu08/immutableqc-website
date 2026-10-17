@@ -26,7 +26,7 @@ test('round trip: a ledger made by core verifies, with its head, files, sessions
   assert.equal(v.goodCount, 13)
   assert.deepEqual(v.head, { n: 13, h: L.records[12].h })
   assert.equal(v.keyId, IQC.keyIdOf(L.pk))
-  assert.deepEqual(v.kinds, { file: 7, 'file-removed': 2, session: 3, reading: 1 })
+  assert.deepEqual(v.kinds, { file: 7, 'file-removed': 2, session: 3, reading: 1, step: 0, review: 0 })
   const a = v.files.get('run-0914/injection-01.csv')
   assert.deepEqual(a.versions.map((x) => [x.n, x.event]), [[2, 'existing'], [6, 'changed']])
   assert.equal(a.latest.sha256, sha('sample,area\nS-01,1523.4\nS-02,1498.0\n'))

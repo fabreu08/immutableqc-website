@@ -140,8 +140,10 @@ for (const [name, entry] of ENTRIES) {
         const v = await verified(W.data)
         assert.equal(v.ok, true)
         assert.deepEqual(v.sessions.at(-1).clean, true)
+        // a.csv changed and new/n.csv removed while watched: recorded changes, so the audit is review (exit 3)
         const au = await run(entry, ['audit', W.data, ...IGNORE], { home: W.home })
-        assert.equal(au.code, 0, au.out)
+        assert.equal(au.code, 3, au.out)
+        assert.match(au.out, /REVIEW {2}1 file was changed after it was first sealed and 1 file was removed\. Each change is recorded\./)
       } finally {
         if (w) await w.stop('SIGKILL')
         W.cleanup()

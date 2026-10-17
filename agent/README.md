@@ -107,8 +107,9 @@ verdict: pass, or exactly what does not match. `--report audit.html` writes a se
 A4 and Letter; `--json audit.json` writes the machine-readable report (`--json -` writes it to the standard output and
 the human lines to the standard error). `--expect-head <n>:<h>` fails unless record n's link is h (a head pinned
 earlier; a ledger that has grown since still passes). `--expect-key <keyId>` fails unless the ledger is signed with
-that key. `--strict` counts notes (a file sealed more than once, a change found while nothing was watching, a file not
-sealed, a watch that did not stop cleanly, gaps between sessions) as failures. An audit writes nothing to the folder or
+that key. A file sealed more than once (changed after its first seal) or removed is a recorded change: the verdict is
+review (exit 3), with each change listed. `--strict` counts those and the notes (a change found while nothing was
+watching, a file not sealed, a watch that did not stop cleanly, gaps between sessions) as failures. An audit writes nothing to the folder or
 the ledger, and needs no key.
 
 The same audit runs in a browser: open [immutableqc.com/app/](https://immutableqc.com/app/) and drop the data folder.
@@ -314,10 +315,13 @@ Copy or back up the data folder together with its `ImmutableQC` folder: the audi
 
 | Command | 0 | 1 | 2 |
 |---|---|---|---|
-| `audit` | pass | fail (the ledger has a problem, a file changed or is missing, an expectation does not match, or a note with `--strict`) | usage error, or the folder or ledger cannot be read |
+| `audit` | pass | fail (the ledger has a problem, a file changed or is missing, an expectation does not match, or a note or an item for review with `--strict`) | usage error, or the folder or ledger cannot be read |
 | `watch`, `seal` | done (a watch stopped cleanly; a seal finished, warnings or not) | refused or failed: a broken ledger, a missing or wrong key, another agent running, a write error, a seal interrupted | usage error, or the folder cannot be read |
 | `head` | printed | the ledger does not verify | usage error, or the folder or ledger cannot be read |
 | `status` | printed | the ledger does not verify | usage error, or the folder cannot be read |
+
+`audit` exits **3** for review: nothing failed, but a sealed file was changed after its first seal or was removed, and
+each such change is recorded (look at each one).
 
 A second Ctrl+C stops a watch at once (exit 130), without its stop record.
 

@@ -31,7 +31,7 @@ Node.js 20 or later; nothing to install.
 ```
 node download/iqc.mjs seal  <folder>     # seal every file once, then exit
 node download/iqc.mjs watch <folder>     # seal now, then keep sealing new, changed and removed files until Ctrl+C
-node download/iqc.mjs audit <folder>     # check the ledger and every file: exit 0 pass, 1 fail, 2 usage or read error
+node download/iqc.mjs audit <folder>     # check the ledger and every file: exit 0 pass, 3 review, 1 fail, 2 usage or read error
         --report audit.html  --json audit.json  --expect-head <n>:<h>  --expect-key <keyId>  --strict
 node download/iqc.mjs head  <folder>     # print the head, to pin somewhere else
 node download/iqc.mjs status <folder>

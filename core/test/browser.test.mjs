@@ -8,6 +8,7 @@ import { readFileSync, existsSync } from 'node:fs'
 import { join, dirname, normalize } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
+import { labFiles as labFileList } from './make-fixtures.mjs'
 
 const CORE = dirname(dirname(fileURLToPath(import.meta.url)))
 const require = createRequire(import.meta.url)
@@ -44,7 +45,10 @@ test('browser: core runs in Chromium and agrees with Node on the fixtures', { sk
     page.on('pageerror', (e) => errors.push(String(e)))
     await page.goto(base + '/')
     const expected = JSON.parse(readFileSync(join(CORE, 'test', 'fixtures', 'expected.json'), 'utf8'))
-    const out = await page.evaluate(async ({ expected }) => {
+    const expectedLab = JSON.parse(readFileSync(join(CORE, 'test', 'fixtures', 'expected-lab.json'), 'utf8'))
+    const labLedgers = expectedLab.discovered.map((d) => d.ledgerPath)
+    const labFiles = Object.keys(labFileList())
+    const out = await page.evaluate(async ({ expected, labLedgers, labFiles }) => {
       const IQC = await import('/immutableqc.mjs')
       const r = { secure: isSecureContext, sha: IQC.sha256Hex('abc'), variants: {} }
       for (const [name, want] of Object.entries(expected.variants)) {
@@ -88,8 +92,24 @@ test('browser: core runs in Chromium and agrees with Node on the fixtures', { sk
       const recs = await IQC.createRecords({ head: v0.head, items, privateKey: kp.privateKey })
       const v1 = await IQC.verifyLedger(IQC.serializeLine(header) + recs.map((x) => IQC.serializeLine(x)).join(''))
       r.made = { ok: v1.ok, verdict: IQC.audit(v1, files).verdict, extractable: kp.privateKey.extractable, events: items.map((x) => x.f.event) }
+      // the lab fixture: every ledger discoverLedgers finds, audited together (files are the published hashes)
+      const lab = []
+      for (const d of IQC.discoverLedgers(labLedgers)) {
+        const v = await IQC.verifyLedger(new Uint8Array(await (await fetch(`/test/fixtures/lab/${d.ledgerPath}`)).arrayBuffer()))
+        let fm = null
+        if (d.root !== null) {
+          fm = new Map()
+          for (const p of labFiles.filter((x) => x.startsWith(d.root + '/') && !x.startsWith(d.root + '/ImmutableQC/'))) {
+            const b = new Uint8Array(await (await fetch(`/test/fixtures/lab/${p.split('/').map(encodeURIComponent).join('/')}`)).arrayBuffer())
+            fm.set(IQC.encodePath(p.slice(d.root.length + 1)), { sha256: IQC.toHex(new Uint8Array(await crypto.subtle.digest('SHA-256', b))), bytes: b.length })
+          }
+        }
+        lab.push({ verified: v, root: d.root, files: fm, ledgerPath: d.ledgerPath })
+      }
+      const m = IQC.auditMany(lab, { where: 'browser' })
+      r.lab = { verdict: m.verdict, summary: m.summary, steps: m.steps.map((x) => x.review.state), html: !IQC.renderReportHTML(m).includes('<script') }
       return r
-    }, { expected })
+    }, { expected, labLedgers, labFiles })
     assert.deepEqual(errors, [])
     assert.equal(out.secure, true)
     assert.equal(out.sha, 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad')
@@ -104,6 +124,7 @@ test('browser: core runs in Chromium and agrees with Node on the fixtures', { sk
       assert.deepEqual(out.workers[name], { head: want.head, problems: want.problems }, `${name}, signatures checked in Web Workers`)
     }
     assert.deepEqual(out.made, { ok: true, verdict: 'pass', extractable: false, events: ['scan', 'existing'] })
+    assert.deepEqual(out.lab, { verdict: expectedLab.verdict, summary: expectedLab.summary, steps: expectedLab.steps.map((x) => x.review), html: true }, 'auditMany in the browser agrees with expected-lab.json')
   } finally {
     await browser.close()
     server.close()

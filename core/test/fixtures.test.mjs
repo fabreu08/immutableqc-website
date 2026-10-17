@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import * as IQC from '../immutableqc.mjs'
-import { FIXTURES, readFolder, expectedFor, checkFixtures } from './make-fixtures.mjs'
+import { FIXTURES, LAB, readFolder, expectedFor, checkFixtures, expectedLab, labAudit } from './make-fixtures.mjs'
 
 const expected = JSON.parse(readFileSync(join(FIXTURES, 'expected.json'), 'utf8'))
 const key = JSON.parse(readFileSync(join(FIXTURES, 'test-key.DO-NOT-USE.jwk'), 'utf8'))
@@ -18,7 +18,8 @@ test('fixtures: each committed variant verifies and audits to expected.json', as
 
 test('fixtures: what the variants show, checked by hand', async () => {
   const S = expected.variants.sample, F = expected.variants['tampered-file'], L = expected.variants['tampered-ledger']
-  assert.equal(S.verdict, 'pass')
+  assert.equal(S.verdict, 'review', 'instrument.log was sealed again and scratch.csv removed: recorded changes')
+  assert.equal(S.summary, 'Review: 1 file was changed after it was first sealed and 1 file was removed. Each change is recorded.')
   assert.equal(S.records, 12)
   assert.equal(S.head.n, 12)
   assert.equal(S.keyId, IQC.keyIdOf(IQC.publicKeyHexOfJwk(key)), 'signed by the test key')
@@ -80,4 +81,35 @@ test('fixtures: the sample ledger follows the spec formulas, recomputed with nod
     prev = o.h
   }
   assert.equal(`${lines.length - 1}:${prev}`, expected.variants.sample.headString)
+})
+
+test('fixtures: the lab folder (two instruments, an agent workspace, a reviewer) audits to expected-lab.json', async () => {
+  const want = JSON.parse(readFileSync(join(FIXTURES, 'expected-lab.json'), 'utf8'))
+  assert.deepEqual(await expectedLab(), want)
+  assert.equal(want.verdict, 'pass')
+  assert.deepEqual(want.discovered.map((d) => [d.ledgerPath, d.root]), [['agent-workspace/ImmutableQC/ledger.jsonl', 'agent-workspace'], ['bio-line-2/ImmutableQC/ledger.jsonl', 'bio-line-2'], ['hplc-3/ImmutableQC/ledger.jsonl', 'hplc-3'], ['reviews/j-rivera.ledger.jsonl', null]])
+  assert.deepEqual(want.ledgers.map((L) => L.role), ['agent', 'measured', 'measured', 'reviewer'])
+  assert.equal(new Set(want.ledgers.map((L) => L.keyId)).size, 4, 'one key per actor')
+  assert.deepEqual(want.steps.map((s) => s.review), ['approved', 'approved', 'approved'])
+  assert.deepEqual(want.lineage.find((o) => o.path === 'report/summary.md'), { path: 'report/summary.md', tracesToMeasured: true, measured: 3, sentence: 'traces to 3 measured files' })
+  const { report: r } = await labAudit(LAB)
+  const html = IQC.renderReportHTML(r)
+  assert.ok(html.includes('class="verdict pass"') && !/<script/i.test(html))
+  // a copy of the lab with one agent output edited fails; without the instrument that measured an input, review
+  const { mkdtempSync, cpSync, writeFileSync, rmSync } = await import('node:fs')
+  const { tmpdir } = await import('node:os')
+  const tmp = mkdtempSync(join(tmpdir(), 'iqc-lab-'))
+  try {
+    cpSync(LAB, join(tmp, 'lab'), { recursive: true })
+    writeFileSync(join(tmp, 'lab/agent-workspace/analysis/ic50.csv'), 'plate,ic50_uM\nplate-07,1.04\nplate-08,2.21\n')
+    let x = (await labAudit(join(tmp, 'lab'))).report
+    assert.equal(x.verdict, 'fail')
+    assert.deepEqual(x.problems.map((p) => [p.code, p.path]), [['output-changed', 'analysis/ic50.csv']])
+    rmSync(join(tmp, 'lab/agent-workspace'), { recursive: true })
+    cpSync(join(LAB, 'agent-workspace'), join(tmp, 'lab/agent-workspace'), { recursive: true })
+    rmSync(join(tmp, 'lab/hplc-3'), { recursive: true })
+    x = (await labAudit(join(tmp, 'lab'))).report
+    assert.equal(x.verdict, 'review')
+    assert.equal(x.summary, 'Review: 1 agent step used inputs nothing measured. Each is recorded below.')
+  } finally { rmSync(tmp, { recursive: true, force: true }) }
 })

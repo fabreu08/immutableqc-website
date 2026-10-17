@@ -89,7 +89,7 @@ async function auditFolder(page, dir) {
 async function jsonReport(page, mode) {
   const [dl] = await Promise.all([page.waitForEvent('download'), page.click(`#${mode} [data-view="result"]:not([hidden]) [data-act="report-json"]`)])
   const r = JSON.parse(readFileSync(await dl.path(), 'utf8'))
-  assert.match(dl.suggestedFilename(), /^immutableqc-audit-[\w.-]+-\d{4}-\d{2}-\d{2}-(?:pass|fail)\.json$/)
+  assert.match(dl.suggestedFilename(), /^immutableqc-audit-[\w.-]+-\d{4}-\d{2}-\d{2}-(?:pass|review|fail)\.json$/)
   return r
 }
 async function htmlReport(page, mode) {
@@ -127,18 +127,20 @@ async function noOverflow(page, what, widths = [320, 375, 390, 768, 1024, 1280, 
 }
 
 // ---------------------------------------------------------------------------------------------- the audit
-test('audit: the sample folder passes, with the same head and key id as the agent’s fixtures', { skip: SKIP, timeout: 120000 }, async () => {
+test('audit: the sample folder is a review (a file sealed again, a removal), with the same head and key id as the agent’s fixtures', { skip: SKIP, timeout: 120000 }, async () => {
   const want = EXPECTED.variants.sample
   const page = await open('/app/')
   await axeCheck(page, 'audit ready')
   await auditFolder(page, join(FX, 'sample'))
-  // focus moves to the verdict; the verdict says pass in words, with an icon
+  // focus moves to the verdict; the verdict says review in words, with an icon, in amber
   assert.equal(await page.evaluate(() => document.activeElement && document.activeElement.classList.contains('verdict')), true)
-  assert.match(await page.textContent(`${RESULT('audit')} .tag`), /Pass/)
-  assert.equal(await page.textContent(`${RESULT('audit')} h1`), 'All 6 files match their seals. Ledger intact.')
+  assert.match(await page.textContent(`${RESULT('audit')} .tag`), /Review/)
+  assert.equal(await page.$$eval(`${RESULT('audit')}.verdict-review`, (e) => e.length), 1)
+  assert.equal(await page.textContent(`${RESULT('audit')} h1`), '1 file was changed after it was first sealed and 1 file was removed. Each change is recorded.')
+  assert.match((await page.textContent('#audit [data-view="result"]')).replace(/\s+/g, ' '), /For review 2 · recorded, not failures/)
   const r = await jsonReport(page, 'audit')
   assert.equal(r.format, 'immutableqc-audit')
-  assert.equal(r.verdict, 'pass')
+  assert.equal(r.verdict, 'review')
   assert.equal(r.summary, want.summary)
   assert.deepEqual(r.ledger.head, want.head)
   assert.equal(r.ledger.keyId, want.keyId)
@@ -158,8 +160,8 @@ test('audit: the sample folder passes, with the same head and key id as the agen
   const side = await page.textContent('#audit [data-view="result"] .col-side')
   assert.ok(side.includes('immutableqc-cli/0.1.0') && side.includes('(not sealed)') && /None given\. Pin one with iqc head/.test(side.replace(/\s+/g, ' ')))
   assert.ok((await page.textContent('#audit [data-view="result"] .rerun pre')).includes(`node iqc.mjs audit "sample" --expect-head ${want.headString} --json audit.json`))
-  await axeCheck(page, 'audit pass')
-  await noOverflow(page, 'audit pass')
+  await axeCheck(page, 'audit review')
+  await noOverflow(page, 'audit review')
   // keyboard: the Notes filter and the search work from the keyboard
   await page.focus('#audit [data-view="result"] [data-filter="notes"]')
   await page.keyboard.press('Enter')
@@ -185,7 +187,7 @@ test('audit: the tampered folder fails, with the expected state for every file',
   const body = (await page.textContent('#audit [data-view="result"]')).replace(/\s+/g, ' ')
   assert.ok(body.includes('A fail is a finding, not a verdict on anyone: compare the changed files with your backups, and keep the report with the run.'))
   assert.ok(body.includes('Problems 3 · each one fails the audit'))
-  assert.ok(/4 notes \(not failures\): 1 file sealed more than once, 1 change found by a later scan, 1 file never sealed, 1 gap between sessions\./.test(body), body.slice(0, 2000))
+  assert.ok(/3 notes \(not failures\): 1 change found by a later scan, 1 file never sealed, 1 gap between sessions\./.test(body), body.slice(0, 2000))
   assert.ok(body.includes('76 bytes instead of 115.') && body.includes('60 bytes, the same size as sealed: only the content differs.'))
   assert.ok(body.includes('They match the version sealed in record 2, not the latest one'))
   const r = await jsonReport(page, 'audit')
@@ -243,7 +245,7 @@ test('audit: no ledger in the folder, the app asks for the ledger file; a file t
   await page.setInputFiles('#audit-ledger', ledger)
   await page.waitForSelector(RESULT('audit'))
   const r = await jsonReport(page, 'audit')
-  assert.equal(r.verdict, 'pass')
+  assert.equal(r.verdict, 'review')
   assert.deepEqual(r.ledger.head, EXPECTED.variants.sample.head)
   assert.deepEqual(states(r), wantStates(EXPECTED.variants.sample))
   await page.done()
@@ -257,7 +259,7 @@ test('audit: a pinned head and an expected key id pass when they match, fail whe
   await page.fill('#audit-key', want.keyId)
   await auditFolder(page, join(FX, 'sample'))
   let r = await jsonReport(page, 'audit')
-  assert.equal(r.verdict, 'pass')
+  assert.equal(r.verdict, 'review', 'the expectations match; the recorded changes stay in review')
   assert.equal(r.expectations.head.ok, true)
   assert.equal(r.expectations.keyId.ok, true)
   assert.ok((await page.textContent('#audit [data-view="result"] .col-side')).includes('Matches'))
@@ -336,7 +338,7 @@ test('audit: a canceled audit goes back to the drop target, and the next one run
   assert.match(await page.textContent('#live'), /Audit canceled/)
   await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 })
   await auditFolder(page, join(FX, 'sample'))
-  assert.equal((await jsonReport(page, 'audit')).verdict, 'pass')
+  assert.equal((await jsonReport(page, 'audit')).verdict, 'review')
   await page.done()
 })
 
@@ -462,6 +464,9 @@ test('seal: the browser seals a folder; the ledger it downloads verifies in Node
   let r = await jsonReport(page, 'audit')
   assert.equal(r.verdict, 'pass')
   assert.deepEqual(r.ledger.head, v.head)
+  assert.match(await page.textContent(`${RESULT('audit')} .tag`), /Pass/)
+  await axeCheck(page, 'audit pass')
+  await noOverflow(page, 'audit pass', [320, 1440])
   // change a file in the folder, seal again: this browser holds the key, so a scan and the change are appended
   writeFileSync(join(dir, EDIT.path), Buffer.from(readFileSync(join(dir, EDIT.path), 'utf8').replace(`A01,${EDIT.before}`, `A01,${EDIT.after}`)))
   await page.click('.modes a[data-mode="seal"]')
@@ -479,8 +484,8 @@ test('seal: the browser seals a folder; the ledger it downloads verifies in Node
   await page.click('#audit [data-view="result"]:not([hidden]) [data-act="reset"]')
   await auditFolder(page, dir)
   r = await jsonReport(page, 'audit')
-  assert.equal(r.verdict, 'pass')
-  assert.ok(r.notes.some((n) => n.code === 'sealed-more-than-once'))
+  assert.equal(r.verdict, 'review', 'the change is recorded: review')
+  assert.ok(r.forReview.some((n) => n.code === 'sealed-more-than-once'))
   await page.done()
   await ctx.close()
 })
@@ -493,7 +498,7 @@ test('seal: a folder whose ledger this browser cannot sign is refused, with a wa
   assert.match(await page.textContent('#seal [data-view="error"]'), new RegExp(EXPECTED.variants.sample.keyId))
   await page.click('#seal [data-act="audit-this"]')
   await page.waitForSelector(RESULT('audit'))
-  assert.equal((await jsonReport(page, 'audit')).verdict, 'pass')
+  assert.equal((await jsonReport(page, 'audit')).verdict, 'review')
   await page.done()
 })
 
@@ -619,6 +624,6 @@ test('the page: one CSP with connect-src none, no request off the origin, no CSP
   assert.equal(blocked, true)
   issues.splice(0, issues.length, ...issues.filter((x) => !/connect-src/.test(x) && !/Refused to connect/.test(x)))
   await page.context().close()
-  for (const s of ['audit ready', 'audit running', 'audit pass', 'audit fail', 'audit fail, ledger', 'ask for the ledger', 'ask, wrong file', 'field error', 'error', 'demo pass', 'demo fail', 'seal ready', 'seal result', 'start failure']) assert.ok(statesSeen.has(s), `axe ran on: ${s}`)
+  for (const s of ['audit ready', 'audit running', 'audit pass', 'audit review', 'audit fail', 'audit fail, ledger', 'ask for the ledger', 'ask, wrong file', 'field error', 'error', 'demo pass', 'demo fail', 'seal ready', 'seal result', 'start failure']) assert.ok(statesSeen.has(s), `axe ran on: ${s}`)
   assert.deepEqual(issues, [])
 })

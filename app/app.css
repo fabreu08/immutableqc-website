@@ -340,3 +340,6 @@ code{overflow-wrap:anywhere}
   .ftable td,.ftable th{color:#000}
   .tree li.is-edited,.probs>li{background:#fff}
 }
+/* a review: recorded changes to look at (amber, the note color; no glow) */
+.verdict-review{background:linear-gradient(120deg,rgba(242,196,109,.12),rgba(242,196,109,.03) 60%);border-color:var(--note-line)}
+.verdict-review .verdict-ic{color:var(--note)}

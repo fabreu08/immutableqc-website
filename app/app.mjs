@@ -391,7 +391,7 @@ function afterVerdict(box, res) {
   const v = $('.verdict', box)
   focusEl(v)
   const r = res.report
-  announce(`Audit finished. ${r.verdict === 'pass' ? 'Pass' : 'Fail'}: ${headline(r)}`)
+  announce(`Audit finished. ${r.verdict === 'pass' ? 'Pass' : r.verdict === 'review' ? 'Review' : 'Fail'}: ${headline(r)}`)
 }
 
 // --------------------------------------------------------------------------------------------- the result view
@@ -405,7 +405,14 @@ function headline(r) {
     if (c.match === 1) return '1 file matches its seal. Ledger intact.'
     return `All ${fmtN(c.match)} files match their seals. Ledger intact.`
   }
-  return cap(String(r.summary).replace(/^Fail: /, ''))
+  return cap(String(r.summary).replace(/^(?:Review|Fail): /, ''))
+}
+
+// a review: recorded changes (a file sealed again, a recorded removal), not failures, each one listed
+function reviewPanel(id, r) {
+  const groups = r.forReview || []
+  if (!groups.length) return ''
+  return `<section class="panel" aria-labelledby="${id}-rev-h"><h2 id="${id}-rev-h">For review <span class="label">${esc(fmtN(groups.length))} · recorded, not failures</span></h2><ul class="notes">${groups.map((n) => `<li><span class="tag tag-note">${ic('note')}Review</span><div><p>${esc(n.message)}</p>${noteItems(n)}</div></li>`).join('')}</ul></section>`
 }
 
 const NOTE_SHORT = {
@@ -674,7 +681,7 @@ function placeTimeline(box) {
 
 let uid = 0
 function renderResult(box, res, { mode, level = 'h1', demo = false, exp = null } = {}) {
-  const r = res.report, pass = r.verdict === 'pass'
+  const r = res.report, pass = r.verdict === 'pass', review = r.verdict === 'review'
   const id = `r${++uid}`
   const rows = rowsOf(res)
   const byPath = new Map(r.files.map((f) => [f.path, f]))
@@ -690,10 +697,10 @@ function renderResult(box, res, { mode, level = 'h1', demo = false, exp = null }
   if (res.skipped && res.skipped.length) notices.push(`<div class="callout callout-note">${ic('note')}<div><p>${esc(`${plural(res.skipped.length, 'file was', 'files were')} left out:`)}</p><ul class="note-items">${res.skipped.slice(0, 5).map((u) => `<li>${esc(`${u.raw}: ${u.why}`)}</li>`).join('')}</ul></div></div>`)
   const head = L.head && L.head.n > 0 ? L.head : null
   box.innerHTML = `<div class="result" data-verdict="${r.verdict}">
-<div class="verdict ${pass ? 'verdict-pass' : 'verdict-fail'}" tabindex="-1" role="group" aria-labelledby="${id}-vh">
-<div class="verdict-ic" aria-hidden="true"><svg viewBox="0 0 64 64" focusable="false"><circle class="v-ring" cx="32" cy="32" r="28"/>${pass ? '<path class="v-mark" d="M20 33l8 8 16-17"/>' : '<path class="v-mark" d="M23 23l18 18M41 23L23 41"/>'}</svg></div>
+<div class="verdict ${pass ? 'verdict-pass' : review ? 'verdict-review' : 'verdict-fail'}" tabindex="-1" role="group" aria-labelledby="${id}-vh">
+<div class="verdict-ic" aria-hidden="true"><svg viewBox="0 0 64 64" focusable="false"><circle class="v-ring" cx="32" cy="32" r="28"/>${pass ? '<path class="v-mark" d="M20 33l8 8 16-17"/>' : review ? '<path class="v-mark" d="M32 19v17M32 44v1"/>' : '<path class="v-mark" d="M23 23l18 18M41 23L23 41"/>'}</svg></div>
 <div class="verdict-text">
-<span class="tag tag-l ${pass ? 'tag-pass' : 'tag-fail'}">${ic(pass ? 'check' : 'x')}${pass ? 'Pass' : 'Fail'}</span>
+<span class="tag tag-l ${pass ? 'tag-pass' : review ? 'tag-note' : 'tag-fail'}">${ic(pass ? 'check' : review ? 'note' : 'x')}${pass ? 'Pass' : review ? 'Review' : 'Fail'}</span>
 <${H} id="${id}-vh">${esc(headline(r))}</${H}>
 ${metaLedger ? `<p class="verdict-meta">${esc(metaLedger)}</p>` : ''}<p class="verdict-meta">${esc(where)}</p>
 ${pass && r.filesChecked ? '<p class="v-why">Each file is byte for byte the one that was sealed, and the ledger was not edited, reordered or cut since it was signed. It does not show a file was right when it was written. <a href="../sealed.html">What a seal covers</a></p>' : ''}
@@ -705,11 +712,12 @@ ${demo && pass ? `<button class="btn btn-primary btn-s" type="button" data-act="
 </div>
 </div>
 ${statsHTML(r, rows)}
-${pass ? '' : `<p class="callout callout-fail fail-note">${ic('note')}<span>A fail is a finding, not a verdict on anyone: compare the changed files with your backups, and keep the report with the run.</span></p>`}
+${pass || review ? '' : `<p class="callout callout-fail fail-note">${ic('note')}<span>A fail is a finding, not a verdict on anyone: compare the changed files with your backups, and keep the report with the run.</span></p>`}
 ${notices.join('\n')}
 <div class="cols">
 <div class="col-main">
 ${problemsPanel(id, res, byPath)}
+${reviewPanel(id, r)}
 ${notesPanel(id, r)}
 ${timelinePanel(id, res)}
 ${demo ? '' : rerunPanel(id, res, exp)}
@@ -837,7 +845,7 @@ function renderSeal(box, res) {
   const steps = res.appended
     ? `<li><span><b>Download</b> the new <code>ledger.jsonl</code>. It keeps every earlier line and adds ${esc(plural(res.records.length, 'record', 'records'))}.</span></li><li><span><b>Replace</b> <code>${esc(dest)}</code> with it.</span></li><li><span><b>Audit</b> the folder on <a href="#audit">Audit</a>, now or any time later.</span></li>`
     : `<li><span><b>Download</b> <code>ledger.jsonl</code>.</span></li><li><span><b>Put it in the data folder</b> as <code>${esc(dest)}</code>: make the <code>ImmutableQC</code> folder inside <code>${esc(root)}</code> if it is not there.</span></li><li><span><b>Audit</b> the folder on <a href="#audit">Audit</a>, now or any time later. To catch a rewrite, copy the head and keep it somewhere else too (an email, a lab notebook entry).</span></li>`
-  const check = res.report.verdict === 'pass'
+  const check = res.report.verdict !== 'fail'
     ? `<p class="callout callout-pass">${ic('check')}<span>${esc(`Checked in this tab: the new ledger verifies, and ${res.report.counts.match === 1 ? 'the file matches it' : `all ${fmtN(res.report.counts.match)} files match it`}.`)}</span></p>`
     : `<p class="callout callout-fail">${ic('x')}<span>${esc(`The check of the new ledger did not pass: ${res.report.summary} Do not use it; seal again.`)}</span></p>`
   const rows = rowsOf({ ...res, unreadable: res.unreadable || [] })

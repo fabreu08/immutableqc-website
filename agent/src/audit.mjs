@@ -1,10 +1,10 @@
 // iqc audit: verify the ledger whole, read every file in the folder (streaming SHA-256), and give core's verdict.
-// Exit 0 pass, 1 fail, 2 usage or read error. --report writes core's HTML report, --json its JSON (- for standard
+// Exit 0 pass, 3 review, 1 fail, 2 usage or read error. --report writes core's HTML report, --json its JSON (- for standard
 // output). Nothing is written to the ledger or the data folder, and no lock is taken.
 import { writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { audit, renderReportHTML, ignoreMatcher, formatBytes, formatCount } from '../../core/immutableqc.mjs'
-import { AGENT, UserError, EXIT_OK, EXIT_FAIL, EXIT_USAGE, pool, plural } from './util.mjs'
+import { AGENT, UserError, EXIT_OK, EXIT_FAIL, EXIT_USAGE, EXIT_REVIEW, pool, plural } from './util.mjs'
 import { dataFolder, locate, displayPath } from './paths.mjs'
 import { readLedgerSettled } from './ledger.mjs'
 import { peekLock, lockState, describeLock } from './lock.mjs'
@@ -80,21 +80,30 @@ export async function runAudit({ folder, opts, out, stdout = process.stdout }) {
   if (opts.json === '-') stdout.write(JSON.stringify(report, null, 2) + '\n')
   else if (opts.json) save(opts.json, JSON.stringify(report, null, 2) + '\n', 'JSON report')
   printReport(report, { out, loc, written })
-  return report.verdict === 'pass' ? EXIT_OK : EXIT_FAIL
+  return report.verdict === 'pass' ? EXIT_OK : report.verdict === 'review' ? EXIT_REVIEW : EXIT_FAIL
 }
 
 function printReport(report, { out, loc, written }) {
-  const pass = report.verdict === 'pass'
+  const pass = report.verdict === 'pass', review = report.verdict === 'review'
   const c = report.counts
-  const sentence = report.summary.replace(/^(?:Pass|Fail): /, '').replace(/^./, (ch) => ch.toUpperCase())
-  const verdict = `${pass ? out.paint('green', out.paint('bold', 'PASS')) : out.paint('red', out.paint('bold', 'FAIL'))}  ${sentence}`
-  // with --quiet, a pass prints nothing (the exit code says it); a fail prints its verdict and problems
+  const sentence = report.summary.replace(/^(?:Pass|Review|Fail): /, '').replace(/^./, (ch) => ch.toUpperCase())
+  const word = pass ? out.paint('green', out.paint('bold', 'PASS')) : review ? out.paint('yellow', out.paint('bold', 'REVIEW')) : out.paint('red', out.paint('bold', 'FAIL'))
+  const verdict = `${word}  ${sentence}`
+  // with --quiet, a pass prints nothing (the exit code says it); a review or a fail prints its verdict and reasons
   const say = pass ? (s) => out.print(s) : (s) => out.result(s)
   say(verdict)
   if (report.problems.length) {
     say(out.paint('bold', 'Problems'))
     for (const p of report.problems.slice(0, MAX_PROBLEMS)) say(`  ${out.paint('red', '✗')} ${p.message}`)
     if (report.problems.length > MAX_PROBLEMS) say(`  …and ${formatCount(report.problems.length - MAX_PROBLEMS)} more (every one is in the report: --report or --json).`)
+  }
+  if (report.forReview && report.forReview.length) {
+    say(out.paint('bold', report.strict ? 'For review (failures in strict mode)' : 'For review (recorded changes, not failures)'))
+    for (const g of report.forReview) {
+      say(`  ${out.paint('yellow', '!')} ${g.message}`)
+      for (const x of g.items.slice(0, MAX_ITEMS)) say(`      ${x}`)
+      if (g.items.length > MAX_ITEMS) say(`      …and ${formatCount(g.items.length - MAX_ITEMS)} more`)
+    }
   }
   if (report.notes.length) {
     const strictFail = report.strict

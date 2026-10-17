@@ -16,12 +16,13 @@ Usage:  node iqc.mjs <command> [folder] [options]
   watch  [folder]   Seal everything now, then keep sealing new, changed and removed files
                     until Ctrl+C.
   seal   [folder]   Seal once and exit (for a scheduler or a pipeline).
-  audit  [folder]   Check the ledger and every file. Exit 0 pass, 1 fail, 2 usage or read error.
+  audit  [folder]   Check the ledger and every file. Exit 0 pass, 3 review, 1 fail,
+                    2 usage or read error.
                     --report <file.html>   write the audit report (one HTML file, prints well)
                     --json <file.json>     write the machine-readable report (- for the output)
                     --expect-head <n>:<h>  fail unless record n's link is h (a head pinned earlier)
                     --expect-key <keyId>   fail unless the ledger is signed with this key id
-                    --strict               count notes as failures
+                    --strict               count items for review and notes as failures
   head   [folder]   Print the current head, to pin somewhere else (an email, an ELN entry,
                     a printout).
   status [folder]   Ledger, key, records, last session, and what changed since the last seal.
@@ -75,13 +76,14 @@ Example: node iqc.mjs seal /data/plate-reader --quiet`,
   audit: `iqc audit [folder] [options]
 
 Checks the ledger (every signature and link) and reads every file to compare it with its seal.
-Prints the verdict; exit 0 pass, 1 fail, 2 usage or read error. Writes nothing unless asked.
+Prints the verdict; exit 0 pass, 3 review (recorded changes to look at), 1 fail, 2 usage or read error.
+Writes nothing unless asked.
 
   --report <file.html>   the audit report: one self-contained HTML file
   --json <file.json>     the machine-readable report (- writes it to the standard output)
   --expect-head <n>:<h>  fail unless record n's link is h (a head pinned earlier with iqc head)
   --expect-key <keyId>   fail unless the ledger is signed with this key id
-  --strict               count notes as failures
+  --strict               count items for review and notes as failures
   --ledger --ignore --quiet --no-color
 
 Example: node iqc.mjs audit "D:\\Results" --report audit.html --expect-head 1234:9f86d081…`,

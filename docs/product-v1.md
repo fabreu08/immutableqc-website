@@ -16,9 +16,15 @@ Status: build spec (2026-10-13). Not published (the deploy allowlist takes no `.
 3. **Try it in the browser.** The app can seal a folder too (key kept in the browser) and has a demo that builds a small
    sample instrument folder in memory, seals it, lets you change a file, and audits it again, so a visitor sees a pass and
    a fail within a minute without installing anything.
+4. **Verify what agents did (being built).** Every actor keeps its own ledger and key: an instrument station seals
+   files, an agent or pipeline records each step (what it read, what it wrote, what it did), a human reviewer signs off
+   on steps. The audit joins the ledgers by content, so a measured value is told apart from a derived one, and an input
+   nothing measured is caught (section 3.10). The format and the audit are in core today; the CLI (`iqc record`,
+   `iqc review`, `iqc trace`, `iqc mcp`, the multi-ledger `iqc audit`), the app (agent activity, review mode) and the
+   landing page parts are being built (`docs/build-notes/spec-addendum-agents.md`, D to F).
 
 Out of v1 (each is "Upcoming" in any copy): Merkle batches,
-per-person signatures, extracting values from inside files (per-result records), lineage, sealing inside the vendor's
+per-person signatures, extracting values from inside files (per-result records), sealing inside the vendor's
 software before it writes the file, a Windows installer or service, an npm package, post-quantum signatures.
 
 What a seal does and does not show (say this plainly wherever it matters): a pass shows each file is byte-for-byte the
@@ -88,6 +94,12 @@ order): this rules out duplicate keys, padding and any second reading of a line.
 | `file-removed` | `station, path, observedAt, event` | `iqc-file-removed-v1\|station\|path\|observedAt\|event` | `removed`, `removed-unwatched` |
 | `session` | `station, event, at, agent` | `iqc-session-v1\|station\|event\|at\|agent` | `watch-started`, `watch-stopped`, `scan` |
 | `reading` | `instrumentId, sensorType, value, unit, capturedAt` | `instrumentId\|sensorType\|value\|unit\|capturedAt` | none. The construction used by the docs pages and the old alpha app; verified, never produced by v1. |
+| `step` | `station, actor, tool, action, inputs, outputs, at` | `iqc-step-v1\|station\|actor\|tool\|action\|inputs\|outputs\|at` | none (3.4.1) |
+| `review` | `station, reviewer, subjects, decision, note, at` | `iqc-review-v1\|station\|reviewer\|subjects\|decision\|note\|at` | none (3.4.1) |
+
+`session` events also include `mcp-started` and `mcp-stopped`: a step ledger may bracket an MCP server's life with them.
+They are kept apart from watch sessions (no gap is counted between them), each counts the steps recorded while it was
+open, and one that does not stop before the next `mcp-started` is an unclean stop (a note), as for a watch.
 
 - `sha256`: of the file's bytes. `bytes`: decimal size, `0` or no leading zeros. `observedAt`: when the agent finished
   reading the file. `agent`: for example `immutableqc-cli/0.1.0` or `immutableqc-app/0.1.0`.
@@ -98,6 +110,23 @@ order): this rules out duplicate keys, padding and any second reading of a line.
 - `reading` fields keep the docs pages' rules (numbers as text, `capturedAt` as there, which may lack milliseconds).
 - Field order and tags make payloads of different kinds unable to collide (different first field or field count, and no
   field can hold `|`).
+
+#### 3.4.1 Agent steps and reviews (`step`, `review`)
+Every actor keeps its own ledger and key (an instrument station: `file`, `file-removed`, `session`; an agent or pipeline:
+`step`; a human reviewer: `review`), so an agent cannot write an instrument's `file` records, and a measured value is
+always told apart from a derived one. The section 3.2 rules apply to every field; lists are encoded so no field holds `|`.
+- **File reference** (`ref`): `<sha256>:<bytes>:<path>`, where `path` is the encoded path (3.2) relative to the actor's
+  root, with `,` also written `%2C`. A ref list is the refs joined by `,`, in the order given, without duplicates; an
+  empty list is `-`; at most 1,000 refs. `encodeRef`/`parseRef` and `encodeRefList`/`parseRefList` in core.
+- **Record reference** (a review subject): `<ledgerId>:<n>:<h>`, naming one record by its link, so a rewritten record no
+  longer matches. A subject list is 1 to 1,000 of them joined by `,`, without duplicates. `encodeSubject`/`parseSubject`.
+- `step`: `actor` 1 to 64 characters (`analysis-agent`, `pipeline/normalize`); `tool` 1 to 128, the model or program
+  and its version (`claude-opus-5-5`, `normalize.py 2.1`), `-` when not known; `action` 1 to 500, one line, what the step
+  did; `inputs` a ref list (may be `-`), `outputs` a ref list with at least one ref; `at` when the step was recorded.
+- `review`: `reviewer` 1 to 64 characters (a name or initials); `subjects` a subject list; `decision` one of `approved`,
+  `question`, `rejected`; `note` 1 to 500 characters, or `-` when there is none; `at` when.
+- Lengths count characters (Unicode code points). `planStep` and `planReview` in core build the sealed fields and check
+  every rule (a plain sentence when one fails); `verifyLedger` checks the same rules, with the line number.
 
 ### 3.5 Fingerprint and link
 - `r_n = SHA-256(payload_n)` as hex.
@@ -115,8 +144,8 @@ Check the header (shape, every rule above, `keyId`, `g`, signature), then every 
 allowed for its kind, `n`, `r`, `prev`, `h`, `sig`. Report **every** problem with its line number and a plain sentence
 (not only the first), but treat the ledger as broken from the first failing record on: per-file state is built only from
 the records before it. Output: header, records, problems, the head `{n, h}` of the last good record, per-path state
-(latest version, every version with its record number, time and event), and watch sessions (start, stop, whether each
-ended cleanly, gaps between them).
+(latest version, every version with its record number, time and event), watch sessions (start, stop, whether each
+ended cleanly, gaps between them), MCP server sessions (kept apart), and the count of records of each kind.
 
 ### 3.8 Audit (`audit`)
 Input: a verified ledger, optionally a map of the files present (`path → {bytes, sha256}`), and optional expectations.
@@ -134,18 +163,93 @@ the audit covers the ledger only.
 Expectations: `expectHead {n, h}` must match record `n`'s link (a ledger that has grown since still passes);
 `expectKeyId` must equal the header's.
 
-Verdict: **fail** if the ledger has any problem, a file is changed or missing, or an expectation does not match;
-otherwise **pass**. Notes (never failures unless `strict`): files sealed more than once (changed after their first seal),
-any `-unwatched` event, files not sealed, files back after removal, a watch session that did not end cleanly (no
-`watch-stopped` before the next start), gaps between sessions. `strict` turns notes into failures.
+Verdict, three levels (an edited file must never pass silently, and a recorded change is not a failure):
+- **fail**: the ledger has any problem; a file changed against its latest seal (an unrecorded change); a sealed file is
+  missing with no removal record; an expectation does not match.
+- **review**: no failure, but at least one sealed file has more than one sealed version (changed after its first seal:
+  `changed` or `changed-unwatched`) or was removed (`removed`, `removed-unwatched`), unless its path matches an
+  `allowChanges` glob (files the lab expects to change: logs, project files; the ignore rule's syntax, 4). Each such
+  change is listed with its record number, time and event (`forReview`, with the records it rests on); changes that
+  match `allowChanges` are listed apart (`allowChanges.matched`). Wording: "Review: 3 files were changed after they were
+  first sealed. Each change is recorded."
+- **pass**: neither. Notes stay notes, never failures unless `strict`: any `-unwatched` event, files not sealed, files
+  back after removal, a watch (or MCP server) session that did not end cleanly (no stop before the next start), gaps
+  between sessions.
+- `strict`: review and notes both become failures.
+- An audit's exit code on the command line: 0 pass, 3 review, 1 fail, 2 usage or read error. The palette: cyan pass,
+  amber review, coral fail; notes neutral.
 
 ### 3.9 Report
 `renderReportHTML(report)` returns one self-contained HTML document: inline CSS, no script, no external request, prints
-well on A4 and Letter. It says, in this order: the verdict in one sentence; counts; problems; notes; ledger (ledger id,
+well on A4 and Letter. It says, in this order: the verdict (pass, review or fail, in a word and a color) in one sentence;
+counts; problems; for review (each recorded change, and those that match `allowChanges`); notes; ledger (ledger id,
 station, key id, records, head `n` and `h`, created); watch sessions; every file with its state, size, SHA-256 and
 version count; method (what was recomputed, format version, the tool and its version, when, and "in a browser" or "on
 the command line"); how to re-run the audit. `JSON.stringify(report)` is the machine-readable form; it carries
-`format: "immutableqc-audit"`, `version: 1`.
+`format: "immutableqc-audit"`, `version: 1`. For an `auditMany` report (3.10) it says: the verdict; counts; problems; for
+review; notes; the ledgers audited (one row each: role, station, key id, head, records); agent steps (each: actor, tool,
+action, time, its inputs with their trace state, its outputs with their state, its review state; at most 500); the trace
+of each output back to measurements (at most 200 outputs); reviews (at most 500); expectations and pins; the files
+(problems first, at most 1,000); method; how to re-run. What a recorded step shows, said in the report: what the agent
+said it read and wrote, and that those bytes are unchanged; not that the analysis was right, or that the agent reported
+every file it touched.
+
+### 3.10 Audit across ledgers (`auditMany`)
+Input: several verified ledgers, each with its **root** (the folder holding its `ImmutableQC` folder, or the folder
+given for a ledger kept elsewhere; none for a reviewer's `*.ledger.jsonl`) and the files present under that root; options
+`expectHeads`, `expectKeyIds`, `allowChanges`, `pinLines`, `strict` (and `maxDepth`, 32). Ledgers are local files, each
+signed by its own key, joined only here, by content; identity is the SHA-256, paths are labels.
+1. Each ledger is audited as in 3.8, its files against its own root (files a step of that ledger names are not "not
+   sealed").
+2. **Lineage.** Every `file` record version is indexed by SHA-256 (measured), every step output by SHA-256 (derived).
+   Each input of each step is `measured` (matches a sealed measurement: which station, path, record and time; and
+   whether that file was sealed again later, "the file changed after this step used it", or before the step, "the step
+   used an earlier version"), `derived` (matches the output of another recorded step, preferably the latest one recorded
+   at or before the step), or `untraced` (matches nothing in the ledgers audited). Each output, a path relative to its
+   step ledger's root, is compared with the file there: `match`, `changed`, `missing`, `not checked`, or `superseded`
+   (a later step of the same ledger wrote that path again; the latest one is compared). Per output: its trace back to
+   measurements as a tree (cycle-safe, at most `maxDepth` steps deep, at most 200 nodes per tree and 50,000 in all), and
+   a complete summary: how many measured files it traces to, how many inputs nothing measured, whether it goes through
+   a cycle of steps. A step does not say which input made which output, so an output's trace covers all its step's
+   inputs. The summaries are computed once per group of steps (strongly connected components), linear in steps and refs.
+3. **Reviews.** Each subject resolves to a record of an audited ledger by ledger id, `n` and `h`. A subject whose `h` no
+   longer matches (or whose record is gone or after its ledger's first problem) is a problem: the record changed after it
+   was reviewed. A subject in a ledger not audited is a note. Each step gets a review state from the latest decision of
+   each reviewer (by time; all decisions are shown): `rejected` if any reviewer's latest is rejected, else `question`,
+   else `approved`, else `awaiting review`.
+4. **Pins** (`pinLines`, from a pin file): `immutableqc-head <ledgerId> <n>:<h> <time>`, one per line. For a ledger
+   audited, record `n` must still have link `h` (else fail); a pin for a ledger id not audited is a note ("another
+   ledger was pinned from this station, or its ledger was not included"); a line that does not read fails.
+   `parsePinLines` and `formatPinLine` in core. `expectHeads` take `n:h` (any audited ledger) or `<ledgerId> n:h`;
+   `expectKeyIds`: each must be the key of an audited ledger (else fail); a ledger signed by another key is a note.
+5. **Verdict** across everything:
+   - **fail**: any ledger problem; a file or a step output changed against its latest seal; a sealed file or output
+     missing with no removal record; an expectation (head, key id, pin) that does not match; a review whose subject no
+     longer matches.
+   - **review**: no failure, but at least one of: a recorded file change or removal not in `allowChanges` (3.8); a step
+     with an `untraced` input; a step in a cycle of steps (its inputs are, through other steps, its own outputs); a step
+     whose input file was sealed again after (or before) the step used it; a step marked `question` or `rejected`.
+   - **pass**: neither. Notes: each ledger's, steps awaiting review, outputs not checked, reviews or pins of ledgers not
+     audited, unexpected keys, a ledger given twice.
+   - `strict`: review and notes become failures. Every reason is listed with the records it rests on, and the verdict
+     is one sentence: "Review: 2 agent steps used inputs nothing measured and 1 file was changed after it was first
+     sealed. Each is recorded below."
+6. The report is the audit report (3.9, `format: "immutableqc-audit"`, `version: 1`) with `kind: "many"`, `ledgers`
+   (one row per ledger: label, root, role by the kinds it holds, measured / agent / reviewer / mixed / empty, station,
+   key id, head, records, its own audit), `steps`, `reviews`, `lineage`, `expectations` (heads, key ids, pins).
+
+### 3.11 Ledger discovery (`discoverLedgers`)
+One rule for the CLI and the app: under a dropped or given folder, every `ImmutableQC/ledger.jsonl` with at most 6
+folders above its `ImmutableQC` folder (symbolic links are not followed: the caller does not list them), plus every file
+named `*.ledger.jsonl` (a reviewer's ledger saved from the app) with at most 6 folders above it. A ledger's root is the
+folder holding its `ImmutableQC` folder; a `*.ledger.jsonl` has no file root. Each ledger with a root also lists the
+roots of the ledgers inside it (`nested`), whose files the caller leaves out of its file map. `discoverLedgers(paths)` in
+core takes the relative file paths of the folder and returns `[{ledgerPath, root, nested}]`.
+
+The command-line and app sides of 3.10 and 3.11 (`iqc audit` over a lab folder with `--allow-changes`, `--pin-file`,
+`--ledger`; the app's agent activity, ledgers and review mode; the landing page's agent story) are being built
+(`docs/build-notes/spec-addendum-agents.md`, D to F). Today `iqc audit` audits one ledger with the three verdicts (exit 3
+for review), and the app shows a review in amber.
 
 ## 4. The agent (`iqc`)
 
@@ -154,7 +258,7 @@ Node 20+, no dependencies. Run as `node download/iqc.mjs <command>` (the one-fil
 ```
 iqc watch [folder]   Seal everything now, then keep sealing new, changed and removed files until Ctrl+C.
 iqc seal  [folder]   Seal once and exit (for a scheduler or a pipeline).
-iqc audit [folder]   Check the ledger and every file. Exit 0 pass, 1 fail, 2 usage or read error.
+iqc audit [folder]   Check the ledger and every file. Exit 0 pass, 3 review, 1 fail, 2 usage or read error.
             --report <file.html>  --json <file.json>  --expect-head <n>:<h>  --expect-key <keyId>  --strict
 iqc head  [folder]   Print the current head, to pin somewhere else (an email, an ELN entry, a printout).
 iqc status [folder]  Ledger, key, records, last session, and what changed since the last seal.

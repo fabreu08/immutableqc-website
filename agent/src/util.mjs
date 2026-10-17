@@ -10,6 +10,7 @@ export const AGENT = `immutableqc-cli/${VERSION}`
 export const EXIT_OK = 0
 export const EXIT_FAIL = 1
 export const EXIT_USAGE = 2
+export const EXIT_REVIEW = 3
 
 // An error meant for the person at the terminal: its message is shown as is, without a stack trace.
 export class UserError extends Error {

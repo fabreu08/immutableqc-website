@@ -6,8 +6,8 @@
   "sample": {
    "folder": "sample",
    "ledger": "sample/ImmutableQC/ledger.jsonl",
-   "verdict": "pass",
-   "summary": "Pass: all 6 files match their seals, and the ledger is intact (3 notes).",
+   "verdict": "review",
+   "summary": "Review: 1 file was changed after it was first sealed and 1 file was removed. Each change is recorded.",
    "keyId": "c5e3895eadb5edb4",
    "ledgerId": "aab589826235356a8357ea6dc279c725",
    "records": 12,
@@ -18,7 +18,6 @@
    "headString": "12:9a0ed7c9599325a01f77bc1ad72b3cbee088aa2f30c7f0cbc8bb2352e6692c8e",
    "problems": [],
    "notes": [
-    "sealed-more-than-once",
     "unwatched",
     "gaps"
    ],
@@ -83,7 +82,6 @@
    "headString": "12:9a0ed7c9599325a01f77bc1ad72b3cbee088aa2f30c7f0cbc8bb2352e6692c8e",
    "problems": [],
    "notes": [
-    "sealed-more-than-once",
     "unwatched",
     "not-sealed",
     "gaps"

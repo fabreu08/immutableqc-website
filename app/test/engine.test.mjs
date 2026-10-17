@@ -211,7 +211,8 @@ test('seal: appending to a ledger whose key the browser holds, refusing one it d
   assert.ok(again.text.startsWith(first.text))
   assert.deepEqual(again.records.map((r) => [r.n, r.f.event, r.f.path || null]), [[7, 'scan', null], [8, 'changed-unwatched', EDIT.path]])
   assert.deepEqual(again.counts, { new: 0, changed: 1, removed: 0 })
-  assert.equal(again.report.verdict, 'pass')
+  assert.equal(again.report.verdict, 'review', 'every file matches; the change is recorded, so the check is a review')
+  assert.equal(again.report.counts.match, 5)
   assert.equal((await IQC.verifyLedger(again.text)).ok, true)
   // nothing changed: only a scan record
   const same = await runSeal(locate(demoListing({ edited: true, ledgerText: again.text })), { station: 'Browser', pool, keys })

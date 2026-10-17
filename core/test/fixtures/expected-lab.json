@@ -1,0 +1,167 @@
+{
+ "_note": "Made by core/test/make-fixtures.mjs from fixtures/lab/ (auditMany over the ledgers discoverLedgers finds). The keys in lab-keys.DO-NOT-USE.json are published for tests only.",
+ "discovered": [
+  {
+   "ledgerPath": "agent-workspace/ImmutableQC/ledger.jsonl",
+   "root": "agent-workspace",
+   "nested": []
+  },
+  {
+   "ledgerPath": "bio-line-2/ImmutableQC/ledger.jsonl",
+   "root": "bio-line-2",
+   "nested": []
+  },
+  {
+   "ledgerPath": "hplc-3/ImmutableQC/ledger.jsonl",
+   "root": "hplc-3",
+   "nested": []
+  },
+  {
+   "ledgerPath": "reviews/j-rivera.ledger.jsonl",
+   "root": null
+  }
+ ],
+ "verdict": "pass",
+ "summary": "Pass: all 4 ledgers are intact, all 4 files match their seals and 3 agent steps are recorded with every input traced.",
+ "problems": [],
+ "forReview": [],
+ "notes": [],
+ "counts": {
+  "ledgers": 4,
+  "records": 14,
+  "sealed": 4,
+  "match": 4,
+  "steps": 3,
+  "inputs": 6,
+  "measuredInputs": 3,
+  "derivedInputs": 3,
+  "untracedInputs": 0,
+  "outputs": 4,
+  "reviews": 1,
+  "stepsApproved": 3,
+  "stepsAwaiting": 0
+ },
+ "ledgers": [
+  {
+   "ledgerPath": "agent-workspace/ImmutableQC/ledger.jsonl",
+   "root": "agent-workspace",
+   "role": "agent",
+   "station": "analysis-server",
+   "ledgerId": "edaa8a4472ae8bb7498931a68c73d5e9",
+   "keyId": "1351b8b82159ad4f",
+   "records": 5,
+   "head": "5:ee533a7597c777045f2b797587565ce502ea7f5b251da0ad338a7312603fdfe0",
+   "verdict": "pass"
+  },
+  {
+   "ledgerPath": "bio-line-2/ImmutableQC/ledger.jsonl",
+   "root": "bio-line-2",
+   "role": "measured",
+   "station": "bio-line-2",
+   "ledgerId": "78f00a005a55fdf7162daf82f89fab15",
+   "keyId": "faf52aa1656ff32a",
+   "records": 4,
+   "head": "4:f0a5a666765dedce6ebd9d41b8908f429a6eec557b12e903fbe64ac985720b8b",
+   "verdict": "pass"
+  },
+  {
+   "ledgerPath": "hplc-3/ImmutableQC/ledger.jsonl",
+   "root": "hplc-3",
+   "role": "measured",
+   "station": "hplc-3",
+   "ledgerId": "e1dd7ab1754096df0463421f43fe4260",
+   "keyId": "4960e0fd9ed78cbc",
+   "records": 4,
+   "head": "4:f951289b33b03e105076d61b74cd164ff85ff532c403f10823c0853e37bd1441",
+   "verdict": "pass"
+  },
+  {
+   "ledgerPath": "reviews/j-rivera.ledger.jsonl",
+   "root": null,
+   "role": "reviewer",
+   "station": "Browser",
+   "ledgerId": "9d99d8bd3b2a9b6ae743d683c6b6886f",
+   "keyId": "49bc7fd1ac908ddf",
+   "records": 1,
+   "head": "1:e2a2b552b1ed5a2992af995fc08527e431a19e0ef580affdcae1b05dbdcbf9cb",
+   "verdict": "pass"
+  }
+ ],
+ "steps": [
+  {
+   "ledger": 0,
+   "n": 2,
+   "actor": "analysis-agent",
+   "tool": "normalize.py 2.1",
+   "action": "Normalized plates 07 and 08 to well A1",
+   "inputs": [
+    "measured inputs/plate-07.csv",
+    "measured inputs/plate-08.csv"
+   ],
+   "outputs": [
+    "match analysis/plate-07-normalized.csv",
+    "match analysis/plate-08-normalized.csv"
+   ],
+   "review": "approved",
+   "lineage": "traces to 2 measured files"
+  },
+  {
+   "ledger": 0,
+   "n": 3,
+   "actor": "analysis-agent",
+   "tool": "fit-ic50 0.9",
+   "action": "Fitted a four-parameter curve per plate and wrote the IC50 table",
+   "inputs": [
+    "derived analysis/plate-07-normalized.csv",
+    "derived analysis/plate-08-normalized.csv"
+   ],
+   "outputs": [
+    "match analysis/ic50.csv"
+   ],
+   "review": "approved",
+   "lineage": "traces to 2 measured files"
+  },
+  {
+   "ledger": 0,
+   "n": 4,
+   "actor": "analysis-agent",
+   "tool": "claude-opus-5-5",
+   "action": "Wrote the run summary from the IC50 table and the reference injection",
+   "inputs": [
+    "derived analysis/ic50.csv",
+    "measured inputs/injection-01.csv"
+   ],
+   "outputs": [
+    "match report/summary.md"
+   ],
+   "review": "approved",
+   "lineage": "traces to 3 measured files"
+  }
+ ],
+ "lineage": [
+  {
+   "path": "analysis/plate-07-normalized.csv",
+   "tracesToMeasured": true,
+   "measured": 2,
+   "sentence": "traces to 2 measured files"
+  },
+  {
+   "path": "analysis/plate-08-normalized.csv",
+   "tracesToMeasured": true,
+   "measured": 2,
+   "sentence": "traces to 2 measured files"
+  },
+  {
+   "path": "analysis/ic50.csv",
+   "tracesToMeasured": true,
+   "measured": 2,
+   "sentence": "traces to 2 measured files"
+  },
+  {
+   "path": "report/summary.md",
+   "tracesToMeasured": true,
+   "measured": 3,
+   "sentence": "traces to 3 measured files"
+  }
+ ]
+}

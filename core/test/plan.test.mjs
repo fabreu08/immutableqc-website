@@ -49,7 +49,9 @@ test('planSeal, watch: added, changed, removed; unchanged and touched files are 
   assert.deepEqual(items[3].f, { station: STATION, path: 'gone.csv', observedAt: T(500), event: 'removed' })
   const E = await extend(L, v, items)
   assert.equal(E.v.ok, true)
-  assert.equal(IQC.audit(E.v, files).verdict, 'pass')
+  // the edit and the removals are recorded: review, unless those files are expected to change
+  assert.equal(IQC.audit(E.v, files).verdict, 'review')
+  assert.equal(IQC.audit(E.v, files, { allowChanges: ['edit.csv', 'gone.csv', 'back.csv'] }).verdict, 'pass')
 })
 
 test('planSeal, unwatched: the -unwatched events; mode first on a path with history; per-file observedAt; pending files', async () => {
