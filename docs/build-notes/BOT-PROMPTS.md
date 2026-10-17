@@ -41,21 +41,17 @@ Rules:
 ## 1. Docs bot (start now)
 
 Owns: `site/` (pages, data, partials, `build.mjs` pins), the generated root pages (`overview.html`, `sealed.html`,
-`check.html`, `regulatory.html`, `roadmap.html`, `about.html`, `404.html`), `contracts/`, `dashboard/registry-*.js`,
-`README.md`, `site/HANDOFF.md`.
+`check.html`, `regulatory.html`, `roadmap.html`, `about.html`, `404.html`), `site/HANDOFF.md`. Not `docs/product-v1.md`.
 
-Task: the patent cleanup. Remove from the document set and its sources every mention that plans to put records or
-fingerprints on a network: anchoring on a public network, the registry contract, the encrypted archive on Filecoin,
-privacy on public networks (salted commitments and zero-knowledge proofs on a network). Delete `contracts/` and
-`dashboard/registry-*.js` (git history keeps them) and their entries in `site/tools/deploy.mjs` and `README.md`. Rewrite
-each affected sentence truthfully (what the seal shows without an anchor; a head pinned elsewhere is the check against a
-rewrite by the key holder), renumber the Roadmap, and update every pin in `site/build.mjs` to the new wording. Then make
-the docs shorter where you can without losing a true statement: the founder found the old pages too verbose. Run
-`node site/build.mjs` (writes) and the checks. One PR.
+Task (the patent cleanup is already done): make the document set short and clear. The founder found the old pages too
+verbose. Cut each page to what a lab director or auditor needs, roughly half its current length, without losing a true
+statement or adding a new claim. Keep the in-browser checks, figures and the walkthrough that work. Plain sentences,
+one idea each. Update every pin in `site/build.mjs` to the new wording; never loosen a lint. One PR.
 
 ## 2. QA bot (start now)
 
-Owns: `.github/workflows/`, `site/tools/check.mjs`, test files only (`*/test/*`, `e2e/`), never product code.
+Owns: `.github/workflows/`, `site/tools/check.mjs`, `e2e/`. Not `core/`, `agent/` or `app/` (the lead is changing
+them now): report problems there in the PR instead of editing.
 
 Task: make CI trustworthy. Read the latest `site-check` runs on `claude/nifty-gates-h5guqf` and report each failure with
 its cause. Two Overview timing checks failed only on a slow machine ("story cost" 53.6 ms vs 50 ms; LCP 1,728 ms vs
