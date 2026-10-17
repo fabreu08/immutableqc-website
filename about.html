@@ -24,7 +24,7 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preload" href="fonts/archivo-c-115-620.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="assets/site.css?v=c93bb831">
+<link rel="stylesheet" href="assets/site.css?v=e734df99">
 <script>(function(d){var c=d.documentElement.classList;c.add('js');try{if(!matchMedia('(prefers-reduced-motion: reduce)').matches)c.add('motion')}catch(e){}var r=d.documentElement,h=innerHeight;r.style.setProperty('--svh',h+'px');if(innerWidth>=960&&h>=(innerWidth>=1180?600:700)&&'IntersectionObserver'in window)c.add('stage');var q=function(s){return d.querySelector(s)},b=function(){return q('.menu-btn')},n=function(){return q('.nav')},o=function(){var x=b();return!!x&&x.getAttribute('aria-expanded')==='true'},s=function(v){var x=b(),y=n();if(x&&y){x.setAttribute('aria-expanded',String(v));y.classList.toggle('open',v)}};d.addEventListener('click',function(e){var t=e.target,x=b(),y=n();if(!t||!t.closest)return;if(q('base')&&t.closest('.skip')){e.preventDefault();var m=d.getElementById('main');if(m){m.focus();m.scrollIntoView()}return}if(!x||!y)return;if(x.contains(t))s(!o());else if(o()&&!y.contains(t))s(false)});d.addEventListener('keydown',function(e){if(e.key==='Escape'&&o()){s(false);b().focus()}});d.addEventListener('focusout',function(e){var x=b(),y=n(),r=e.relatedTarget;if(o()&&r&&(y.contains(e.target)||x.contains(e.target))&&!y.contains(r)&&!x.contains(r))s(false)})})(document)</script>
 <script defer src="assets/iqc.js?v=c5a57112"></script>
 </head>
@@ -54,8 +54,8 @@
 <div class="wrap">
 <dl class="dochead">
 <div><dt>Document</dt><dd><span class="nw">IQC-AB-01</span></dd></div>
-<div><dt>Revision</dt><dd>Draft 7</dd></div>
-<div><dt>Updated</dt><dd>2026-10-13</dd></div>
+<div><dt>Revision</dt><dd>Draft 8</dd></div>
+<div><dt>Updated</dt><dd>2026-10-17</dd></div>
 <div class="st"><dt>Status</dt><dd>Independent project · Open alpha · Synthetic demo data · No customers yet</dd></div>
 <div class="use"><dt>Use</dt><dd>Informational draft. Not a controlled document; not a regulatory assessment or a validation statement.</dd></div>
 </dl>
@@ -99,7 +99,7 @@
 </div>
 <h3 id="q3"><span class="no">5.3</span>Is my data put on a blockchain?</h3>
 <div class="body">
-<p>No. Nothing on this site or in the app writes to any network, and the values you enter and the files you drop stay in your browser. Anchoring is an upcoming feature. By default it will put only one batch fingerprint, a 64-character code for a whole run of records, on a public test network (a blockchain run for testing). A lab that chooses the encrypted archive, also upcoming, would store its records on Filecoin too, encrypted in the lab first and never readable there. On this site the anchor is simulated.</p>
+<p>No. Nothing on this site or in the app writes to any network, and the values you enter and the files you drop stay in your browser. Records never go on a blockchain or a shared ledger: each record history is a signed file the lab keeps. To make a later rewrite show, a lab would keep a copy of one batch fingerprint, a 64-character code for a whole run of records, outside its system: a pin file on another drive or share, a printout or a notebook entry. On this site that anchor is simulated.</p>
 </div>
 <h3 id="q4"><span class="no">5.4</span>Does it replace my orchestrator, ELN, CDS, LIMS or audit trail?</h3>
 <div class="body">
@@ -111,14 +111,14 @@
 </div>
 <h3 id="q6"><span class="no">5.6</span>What if someone edits the database directly?</h3>
 <div class="body">
-<p>The edited record no longer matches its fingerprint, its signature fails, and the link into the next record breaks. Someone who also rewrites every later link and re-signs with the signing key can make the history consistent again. Deleting a record and relinking the ones after it needs no key at all, because each signature covers only its own record’s fingerprint. In the alpha one server key signs, so whoever holds it could do either. Only a fingerprint anchored outside the lab beforehand would still show it, and anchoring is upcoming.</p>
+<p>The edited record no longer matches its fingerprint, its signature fails, and the link into the next record breaks. Someone who also rewrites every later link and re-signs with the signing key can make the history consistent again. Deleting a record and relinking the ones after it needs no key at all, because each signature covers only its own record’s fingerprint. In the alpha one server key signs, so whoever holds it could do either. Only an anchor taken beforehand, a fingerprint the lab pinned outside its system, would still show it.</p>
 </div>
 <h3 id="q7"><span class="no">5.7</span>What about sabotage and espionage?</h3>
 <div class="body">
 <p>Most bad data is not malicious: a script, a sync conflict, a crash, a restored backup, a migration or a model that filled in a blank. Sabotage is the minority case, and the same checks cover it, within limits.</p>
-<p>Detected today, wherever the checks are run (these pages or the recipe in How a record is sealed; checking in the alpha app is upcoming): a sealed value changed after sealing by anyone without the signing key, whoever it was and why; the fingerprint, the signature and the link into the next record fail. A history rewritten with the key would show only against an anchor taken earlier. A record deleted, moved or copied, with the rest relinked, needs no key today; it would show against an earlier anchor too, and through signatures that cover each record’s position when done by anyone without the key. Both are upcoming.</p>
+<p>Detected today, wherever the checks are run (these pages or the recipe in How a record is sealed; checking in the alpha app is upcoming): a sealed value changed after sealing by anyone without the signing key, whoever it was and why; the fingerprint, the signature and the link into the next record fail. A history rewritten with the key would show only against an anchor taken earlier. A record deleted, moved or copied, with the rest relinked, needs no key today; it would show against an earlier anchor too, and through signatures that cover each record’s position when done by anyone without the key, which are upcoming.</p>
 <p>Not detected: anything before sealing, such as a swapped sample, a miscalibrated instrument or compromised robot software. In the alpha app, records are sealed at import; sealing at capture (upcoming) would narrow that window, not close it.</p>
-<p>Espionage is not detected: a seal makes a change show, not a copy. What limits it is that nothing readable leaves the lab. Anchoring would put only a fingerprint on a public network, and once salted (upcoming) it would reveal no value; values would leave only encrypted in the lab, with keys that stay there, and only if the lab chooses the encrypted archive (upcoming). Protecting the records, the keys and the people who hold them stays with the lab; Immutable QC would be one part of that, not a security program.</p>
+<p>Espionage is not detected: a seal makes a change show, not a copy. What limits it is that nothing leaves the lab: the records, the ledger and the anchor stay where the lab keeps them, and Immutable QC hosts no records and runs no service that sends them to anyone. Protecting the records, the keys and the people who hold them stays with the lab; Immutable QC would be one part of that, not a security program.</p>
 </div>
 </section>
 <section class="sec sec--side" id="sources" aria-labelledby="s6-h">
@@ -134,6 +134,7 @@
 <caption class="sr-only">Revision history of this document set</caption>
 <thead><tr><th scope="col">Revision</th><th scope="col">Date</th><th scope="col">Change</th></tr></thead>
 <tbody>
+<tr><td class="nw">Draft 8</td><td class="mono">2026-10-17</td><td>Patent guardrails: every item that would have put records or their fingerprints on a network, and any shared service for records, is removed from the plans and the pages. The record history stays a signed file the lab keeps; the anchor on these pages stays simulated, and in use it would be a fingerprint the lab pins by its own means. The Roadmap renumbers its items.</td></tr>
 <tr><td class="nw">Draft 7</td><td class="mono">2026-10-13</td><td>The Overview moved from index.html to overview.html, and a new landing page at index.html and the app at app/ replace the alpha console, whose old address now leads to the app.</td></tr>
 <tr><td class="nw">Draft 6</td><td class="mono">2026-10-07</td><td>Repositioned for automated research labs: the Scope names the audience; the Overview gains section 2, “Why: one wrong value snowballs”, with the founder’s line, redraws Where it fits for an automated lab (today beside an HPLC CSV export; sealing at the orchestrator or driver, upcoming), moves the regulatory position to “When your process moves into GMP” and renumbers the later sections; the Roadmap adds sealing at capture, measured and derived records, lineage and recall, Merkle batches with salted leaves and post-quantum signatures and encryption, and rewrites Filecoin integration as an encrypted archive on Filecoin, all Upcoming, with the automated-lab items first; How a record is sealed says a pass does not show that a value was ever measured, what a registry entry would show, and that nothing readable leaves the lab; About adds two questions, on the kinds of labs it is for and on sabotage and espionage, and folds “What does a fingerprint cover?” into the question on the orchestrator, ELN, CDS and LIMS.</td></tr>
 <tr><td class="nw">Draft 5</td><td class="mono">2026-10-07</td><td>The Overview gains section 2, “How a result becomes a sealed record”, which walks record 6 through seven animated steps (captured, fingerprinted, signed, linked, a change, a correction, and what is upcoming) with every value computed at build; the later sections and figures are renumbered.</td></tr>
@@ -152,7 +153,7 @@
 <footer class="foot">
 <div class="wrap">
 <p class="ind">Immutable QC is an independent project built on the founder’s own time. It is not affiliated with or endorsed by any employer. Founder: <span class="nw">José A. Fernández Abreu</span> · <a href="https://joseqc.com">joseqc.com</a></p>
-<p class="meta"><span class="m-doc"><span class="nw">IQC-AB-01</span> · Draft 7 · Updated 2026-10-13 · <a href="about.html#history">Revision history</a></span><span class="m-fonts">Fonts, SIL Open Font License: <a href="fonts/OFL-IBM-Plex-Sans.txt">IBM Plex Sans</a> <a href="fonts/OFL-IBM-Plex-Mono.txt">IBM Plex Mono</a> <a href="fonts/OFL-Archivo.txt">Archivo</a></span></p>
+<p class="meta"><span class="m-doc"><span class="nw">IQC-AB-01</span> · Draft 8 · Updated 2026-10-17 · <a href="about.html#history">Revision history</a></span><span class="m-fonts">Fonts, SIL Open Font License: <a href="fonts/OFL-IBM-Plex-Sans.txt">IBM Plex Sans</a> <a href="fonts/OFL-IBM-Plex-Mono.txt">IBM Plex Mono</a> <a href="fonts/OFL-Archivo.txt">Archivo</a></span></p>
 </div>
 </footer>
 

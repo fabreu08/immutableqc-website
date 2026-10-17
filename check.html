@@ -24,7 +24,7 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preload" href="fonts/archivo-c-115-620.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="assets/site.css?v=c93bb831">
+<link rel="stylesheet" href="assets/site.css?v=e734df99">
 <script>(function(d){var c=d.documentElement.classList;c.add('js');try{if(!matchMedia('(prefers-reduced-motion: reduce)').matches)c.add('motion')}catch(e){}var r=d.documentElement,h=innerHeight;r.style.setProperty('--svh',h+'px');if(innerWidth>=960&&h>=(innerWidth>=1180?600:700)&&'IntersectionObserver'in window)c.add('stage');var q=function(s){return d.querySelector(s)},b=function(){return q('.menu-btn')},n=function(){return q('.nav')},o=function(){var x=b();return!!x&&x.getAttribute('aria-expanded')==='true'},s=function(v){var x=b(),y=n();if(x&&y){x.setAttribute('aria-expanded',String(v));y.classList.toggle('open',v)}};d.addEventListener('click',function(e){var t=e.target,x=b(),y=n();if(!t||!t.closest)return;if(q('base')&&t.closest('.skip')){e.preventDefault();var m=d.getElementById('main');if(m){m.focus();m.scrollIntoView()}return}if(!x||!y)return;if(x.contains(t))s(!o());else if(o()&&!y.contains(t))s(false)});d.addEventListener('keydown',function(e){if(e.key==='Escape'&&o()){s(false);b().focus()}});d.addEventListener('focusout',function(e){var x=b(),y=n(),r=e.relatedTarget;if(o()&&r&&(y.contains(e.target)||x.contains(e.target))&&!y.contains(r)&&!x.contains(r))s(false)})})(document)</script>
 <script defer src="assets/iqc.js?v=c5a57112"></script>
 </head>
@@ -54,8 +54,8 @@
 <div class="wrap">
 <dl class="dochead">
 <div><dt>Document</dt><dd><span class="nw">IQC-CK-01</span></dd></div>
-<div><dt>Revision</dt><dd>Draft 7</dd></div>
-<div><dt>Updated</dt><dd>2026-10-13</dd></div>
+<div><dt>Revision</dt><dd>Draft 8</dd></div>
+<div><dt>Updated</dt><dd>2026-10-17</dd></div>
 <div class="st"><dt>Status</dt><dd>Independent project · Open alpha · Synthetic demo data · No customers yet</dd></div>
 <div class="use"><dt>Use</dt><dd>Informational draft. Not a controlled document; not a regulatory assessment or a validation statement.</dd></div>
 </dl>
@@ -229,7 +229,7 @@
 <li><span class="k">Signature</span><span><span class="nw">ECDSA P-256</span> with <span class="nw">SHA-256</span> over the 32 bytes of r<sub>n</sub> (<span class="nw">FIPS 186-5</span>), IEEE P1363 encoding in its low-S form only (the high-S twin of a signature is refused), checked against the recomputed fingerprint. Where your browser checks signatures, a record with no signature fails. Records 1 to 8 were signed at build time with a demo key whose private half was then discarded. Demo key id <code>7A15F56288146023D45A47796F6A5553</code> (first 16 bytes of <span class="nw">SHA-256</span> of its SPKI). Public key, uncompressed point:</span><code class="p">0458f36cfc0c1e0df9d1b97e3cd6e3e3ca7bc3acd4fa6b835584f63aa4551ef83855cbc7609030d0ddbe6a92bdb73176884a951eb6ba33eece29bdcb30d6b7c66f</code></li>
 <li><span class="k">Anchor</span><span>The whole history replayed from 64 zeros over the recomputed fingerprints; the replayed link of record 8 against the anchored fingerprint stored on this page (simulated, no network call). A correction moves the head on; it stays “not yet anchored” until a new anchor.</span></li>
 <li><span class="k">Pass</span><span>A record passes when its fingerprint and link match and its signature does not fail. Without the browser’s own checking tools (an http:// page), fingerprints and links are recomputed with a <span class="nw">SHA-256</span> built into the page and signatures are not checked, so no record is called unchanged.</span></li>
-<li><span class="k">Limits</span><span>On this page the public key and the anchor come with the records, so they show the method, not independent evidence. Whoever can rewrite the page can replace the key, the signatures and the anchor together. In use, both would come from outside the lab’s system: a key published elsewhere, and a fingerprint anchored on a public network, which is upcoming. Signatures cover each record’s own fingerprint, not its position, so a removed record with every later link rewritten passes every check but the anchor. A correction’s one-time key travels with the correction, so its signature shows only that the correction has not changed since it was signed.</span></li>
+<li><span class="k">Limits</span><span>On this page the public key and the anchor come with the records, so they show the method, not independent evidence. Whoever can rewrite the page can replace the key, the signatures and the anchor together. In use, both would come from outside the lab’s system: a key published elsewhere, and a fingerprint the lab pinned by its own means (a pin file on another drive or share, a printout or a notebook entry). Signatures cover each record’s own fingerprint, not its position, so a removed record with every later link rewritten passes every check but the anchor. A correction’s one-time key travels with the correction, so its signature shows only that the correction has not changed since it was signed.</span></li>
 </ul>
 <p class="note"><span class="k">Basis</span>The same payload and link rule as the alpha app’s HPLC import; the same link rule as the record figure on joseqc.com.</p>
 </div>
@@ -241,7 +241,7 @@
 <footer class="foot">
 <div class="wrap">
 <p class="ind">Immutable QC is an independent project built on the founder’s own time. It is not affiliated with or endorsed by any employer. Founder: <span class="nw">José A. Fernández Abreu</span> · <a href="https://joseqc.com">joseqc.com</a></p>
-<p class="meta"><span class="m-doc"><span class="nw">IQC-CK-01</span> · Draft 7 · Updated 2026-10-13 · <a href="about.html#history">Revision history</a></span><span class="m-fonts">Fonts, SIL Open Font License: <a href="fonts/OFL-IBM-Plex-Sans.txt">IBM Plex Sans</a> <a href="fonts/OFL-IBM-Plex-Mono.txt">IBM Plex Mono</a> <a href="fonts/OFL-Archivo.txt">Archivo</a></span></p>
+<p class="meta"><span class="m-doc"><span class="nw">IQC-CK-01</span> · Draft 8 · Updated 2026-10-17 · <a href="about.html#history">Revision history</a></span><span class="m-fonts">Fonts, SIL Open Font License: <a href="fonts/OFL-IBM-Plex-Sans.txt">IBM Plex Sans</a> <a href="fonts/OFL-IBM-Plex-Mono.txt">IBM Plex Mono</a> <a href="fonts/OFL-Archivo.txt">Archivo</a></span></p>
 </div>
 </footer>
 
