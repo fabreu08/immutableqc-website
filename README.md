@@ -22,7 +22,6 @@ is not published (the deploy allowlist takes no `.md`).
 | `site/` | The docs build, its lints, and the tools: `serve.mjs`, `deploy.mjs` (the publish allowlist), `check.mjs` (browser checks). `site/HANDOFF.md` is the running design and decision log. | no |
 | `e2e/` | The end-to-end test across implementations: a folder sealed by `download/iqc.mjs`, audited in the app and by `iqc audit`. | no |
 | `docs/` | The spec and the briefs. | no |
-| `contracts/` | The registry contract kept for the upcoming anchoring (not used by v1). | no |
 | `.github/workflows/` | `site-check.yml` (tests and checks on every push) and `pages.yml` (publishes from `main`). | no |
 
 ## Run the agent
