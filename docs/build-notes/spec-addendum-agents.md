@@ -152,5 +152,5 @@ reviewer (one click, then sign off). "A pass shows / It does not show" updated f
 agent said it read and wrote, and that those bytes are unchanged; it does not show the analysis was right, or that the
 agent reported every file it touched). Install section gains the agent and MCP lines. Upcoming list loses the items now
 built (lineage, measured vs derived records, reviewer sign-off) and keeps the rest (per-person keys, Merkle
-batches, encrypted archive, value extraction, sealing inside vendor software, Windows installer/service, npm package,
+batches, value extraction, sealing inside vendor software, Windows installer/service, npm package,
 post-quantum signatures). Exit codes in copy: 0 pass, 3 review, 1 fail, 2 usage or read error.

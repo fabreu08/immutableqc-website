@@ -35,7 +35,8 @@ job is to pick it up and carry it forward to a high standard.
 - The founder gave freedom to implement good ideas beyond theirs. Use judgment, but stay honest (rules below).
 
 ## Your tasks, in order
-0. **Patent cleanup first** (`docs/patent-guardrails.md`). Remove from every plan and every page the items that would put
+0. **Patent cleanup first** (`docs/patent-guardrails.md`). *Done on the branch 2026-10-17 (Draft 8; `site/HANDOFF.md`); keep it
+   that way: `site/build.mjs` section 7h fails if any of it returns.* Remove from every plan and every page the items that would put
    instrument data or its records on a distributed ledger, or serve records to third parties: "Anchoring heads on a
    public network" and any other anchoring, the registry contract and its scripts (`contracts/`, `dashboard/registry-*.js`;
    delete them, git history keeps them), the encrypted archive on Filecoin, privacy on public networks (salted
@@ -81,7 +82,7 @@ job is to pick it up and carry it forward to a high standard.
   signed files joined only at audit time. Before building any new feature, search for patents on it and read their
   independent claims; if in doubt, do not build it and ask the founder.
 - Banned on the site and in shipped strings: "immutable"/"immutability" as a property (the name "Immutable QC" is
-  fine), "can't be changed/altered", "guarantee", "proof"/"proofs" (except "zero-knowledge proofs"), "trustless",
+  fine), "can't be changed/altered", "guarantee", "proof"/"proofs" (no exception), "trustless",
   "unbreakable", "revolutionary", "compliant"/"compliance", "crypto" in any word on the pages (so not
   "cryptographic"), token, wallet, stake, mint, NFT, price, pilot, "customers" (except "No customers yet"), and any
   instrument or lab-software vendor or product name.

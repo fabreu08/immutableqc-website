@@ -25,7 +25,7 @@ Rules:
   contract or token; no hosted service that serves lab records to third parties; no extraction of instrument operating
   logs or operator signatures.
 - Banned on the site and in shipped strings (the build checks): "immutable" as a property (the name "Immutable QC" is
-  fine), "guarantee", "proof"/"proofs" (except "zero-knowledge proofs"), "trustless", "unbreakable", "revolutionary",
+  fine), "guarantee", "proof"/"proofs" (no exception), "trustless", "unbreakable", "revolutionary",
   "compliant"/"compliance", "crypto" in any word, token, wallet, stake, mint, NFT, price, pilot, "customers" (except "No
   customers yet"), and any vendor or product name of instruments or lab software. No email address. Contact via
   joseqc.com. Never name the founder's employer. US spelling. Present tense only for what works today; everything else
