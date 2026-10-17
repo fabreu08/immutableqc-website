@@ -13,7 +13,7 @@
     { "rev": "Draft 1", "date": "2026-10-06", "change": "Prototype of the document set: Overview and Check a record in full; How a record is sealed, Regulatory map, Roadmap and About in outline. Not published." }
   ],
   "copy": {
-    "h1": "Tokenized lab data.",
+    "h1": "Lab records that verify themselves.",
     "definition": "Each result becomes a sealed record: a SHA-256 fingerprint of five of its recorded fields, signed and linked to the record before it, so a later change shows. Built for automated research labs in biotechnology, microbiology, chemistry and materials science, where results arrive faster than people can review them and models train on them. The records and their history stay with the lab; nothing is written to a network.",
     "whyNow": "Most bad data is not malicious. But when results arrive faster than people can review them, and models train on them and choose the next experiment, an ordinary mistake travels before anyone sees it.",
     "status": "Independent project · Open alpha · Synthetic demo data · No customers yet",

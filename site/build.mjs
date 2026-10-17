@@ -896,7 +896,7 @@ for (const [file, html] of Object.entries(pagesHTML)) {
   for (const re of [...BANNED, ...BANNED_SITE]) ok(`${file}: no banned wording ${re}`, !re.test(scrub(t)) && !re.test(scrub(tg)))
   ok(`${file}: "blockchain" only in About’s question`, file === 'about.html' ? count(t, /blockchain/gi) === 2 && tg.includes('Is my data put on a blockchain?') : !/blockchain/i.test(t))
   const tok = count(t, /tokeni[sz]/gi)
-  ok(`${file}: "tokeniz" at most once, and only as the H1`, tok <= 1 && (tok === 0 || /<h1>Tokenized lab data\.<\/h1>/.test(html)))
+  ok(`${file}: no "tokeniz" anywhere (the H1 is "Lab records that verify themselves.")`, tok === 0)
   tally.ie.push(...Array(count(t, /intelligence explosion/gi)).fill(file))
   ok(`${file}: no founder’s line (since Draft 7 it lives on the landing page, index.html)`, count(t, /intelligence explosion/gi) === 0)
   tally.fc.push(...Array(count(t, /Filecoin Calibration/gi)).fill(file))
@@ -1332,7 +1332,7 @@ ok(`"Filecoin Calibration" nowhere on the site since Draft 8, patent guardrails 
 const T = Object.fromEntries(Object.entries(pagesHTML).map(([f, h]) => [f, textOf(h, true)]))
 ok('document control: every page says it is informational, not a controlled document', Object.values(pagesHTML).every((h) => h.includes('<div class="use"><dt>Use</dt><dd>Informational draft. Not a controlled document')))
 const ov = pagesHTML['overview.html'], ck = pagesHTML['check.html']
-ok('overview: definition directly under the H1', /<h1>Tokenized lab data\.<\/h1>[\s\S]{0,200}<h2 id="s1-h"><span class="no">1<\/span>Scope<\/h2>\s*<div class="body">\s*<p class="lead">Each result becomes a sealed record/.test(ov))
+ok('overview: definition directly under the H1', /<h1>Lab records that verify themselves\.<\/h1>[\s\S]{0,200}<h2 id="s1-h"><span class="no">1<\/span>Scope<\/h2>\s*<div class="body">\s*<p class="lead">Each result becomes a sealed record/.test(ov))
 ok('overview: the definition says the records stay with the lab and nothing goes on a network, and never implies a fingerprint reveals nothing', T['overview.html'].includes('The records and their history stay with the lab; nothing is written to a network.') && !/values stay with the lab|fingerprint reveals nothing/.test(T['overview.html']))
 ok('copy: the Scope definition says what works (fingerprint of five fields, signed, linked), names the audience and the snowball, and says the records stay with the lab (since Draft 8 no anchoring on a network)', C.definition.startsWith('Each result becomes a sealed record: a SHA-256 fingerprint of five of its recorded fields, signed and linked to the record before it, so a later change shows. Built for automated research labs in biotechnology, microbiology, chemistry and materials science, where results arrive faster than people can review them and models train on them. ') && C.definition.endsWith('The records and their history stay with the lab; nothing is written to a network.') && !/anchor|test network|public network/i.test(C.definition))
 ok('copy: the Overview title and description name automated research labs', /automated research labs/.test(site.pages[0].title) && /automated research labs in biotechnology, microbiology, chemistry and materials science/.test(site.pages[0].description))
