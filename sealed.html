@@ -6,14 +6,14 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-QGLyMocFs/dkxzBWIRJqgCyleXT7quFM9/nfaNur/JE='; style-src 'self'; style-src-attr 'unsafe-inline'; font-src 'self'; img-src 'self'; connect-src 'none'; base-uri 'self'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <title>How a record is sealed · Immutable QC</title>
-<meta name="description" content="The five sealed fields, the SHA-256 fingerprint, the link rule, demo signatures, corrections with a reason, what a check shows, anchoring (upcoming) and the privacy note.">
+<meta name="description" content="The five sealed fields, the SHA-256 fingerprint, the link rule, demo signatures, corrections with a reason, the simulated anchor and what a check shows.">
 <meta name="color-scheme" content="light">
 <meta name="theme-color" content="#F4F6F5">
 <link rel="canonical" href="https://immutableqc.com/sealed.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Immutable QC">
 <meta property="og:title" content="How a record is sealed · Immutable QC">
-<meta property="og:description" content="The five sealed fields, the SHA-256 fingerprint, the link rule, demo signatures, corrections with a reason, what a check shows, anchoring (upcoming) and the privacy note.">
+<meta property="og:description" content="The five sealed fields, the SHA-256 fingerprint, the link rule, demo signatures, corrections with a reason, the simulated anchor and what a check shows.">
 <meta property="og:url" content="https://immutableqc.com/sealed.html">
 <meta property="og:image" content="https://immutableqc.com/og.png">
 <meta property="og:image:width" content="1200">
@@ -24,7 +24,7 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preload" href="fonts/archivo-c-115-620.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="assets/site.css?v=c93bb831">
+<link rel="stylesheet" href="assets/site.css?v=e734df99">
 <script>(function(d){var c=d.documentElement.classList;c.add('js');try{if(!matchMedia('(prefers-reduced-motion: reduce)').matches)c.add('motion')}catch(e){}var r=d.documentElement,h=innerHeight;r.style.setProperty('--svh',h+'px');if(innerWidth>=960&&h>=(innerWidth>=1180?600:700)&&'IntersectionObserver'in window)c.add('stage');var q=function(s){return d.querySelector(s)},b=function(){return q('.menu-btn')},n=function(){return q('.nav')},o=function(){var x=b();return!!x&&x.getAttribute('aria-expanded')==='true'},s=function(v){var x=b(),y=n();if(x&&y){x.setAttribute('aria-expanded',String(v));y.classList.toggle('open',v)}};d.addEventListener('click',function(e){var t=e.target,x=b(),y=n();if(!t||!t.closest)return;if(q('base')&&t.closest('.skip')){e.preventDefault();var m=d.getElementById('main');if(m){m.focus();m.scrollIntoView()}return}if(!x||!y)return;if(x.contains(t))s(!o());else if(o()&&!y.contains(t))s(false)});d.addEventListener('keydown',function(e){if(e.key==='Escape'&&o()){s(false);b().focus()}});d.addEventListener('focusout',function(e){var x=b(),y=n(),r=e.relatedTarget;if(o()&&r&&(y.contains(e.target)||x.contains(e.target))&&!y.contains(r)&&!x.contains(r))s(false)})})(document)</script>
 <script defer src="assets/iqc.js?v=c5a57112"></script>
 </head>
@@ -54,8 +54,8 @@
 <div class="wrap">
 <dl class="dochead">
 <div><dt>Document</dt><dd><span class="nw">IQC-HS-01</span></dd></div>
-<div><dt>Revision</dt><dd>Draft 7</dd></div>
-<div><dt>Updated</dt><dd>2026-10-13</dd></div>
+<div><dt>Revision</dt><dd>Draft 8</dd></div>
+<div><dt>Updated</dt><dd>2026-10-17</dd></div>
 <div class="st"><dt>Status</dt><dd>Independent project · Open alpha · Synthetic demo data · No customers yet</dd></div>
 <div class="use"><dt>Use</dt><dd>Informational draft. Not a controlled document; not a regulatory assessment or a validation statement.</dd></div>
 </dl>
@@ -95,7 +95,7 @@
 <p class="hx-p"><span>eb1690bc</span><wbr><span>5922a312</span><wbr><span>d90ee139</span><wbr><span>fdf8e20b</span><wbr><span>92bf2cb0</span><wbr><span>feae8ee0</span><wbr><span>e70bd24f</span><wbr><span>bd2b54d7</span></p>
 <p>Change one character of any field and the fingerprint changes completely. Anyone who has the five fields can recompute it in a UTF-8 terminal:</p>
 <pre class="rc-p"><code>printf '%s' 'HPLC-02|<wbr>hplc|<wbr>1508811|<wbr>counts|<wbr>2026-09-14T08:47:50Z' <span class="nw">| sha256sum</span></code></pre>
-<p>On macOS, use <code>shasum -a 256</code>. Section 9 explains why a fingerprint is not encryption.</p>
+<p>On macOS, use <code>shasum -a 256</code>. A fingerprint is not encryption: a plain <span class="nw">SHA-256</span> of a few guessable fields (an instrument id, a measurement type, a peak area in a known range, a capture time to the second) can in principle be matched by trying likely values, so the records stay with the lab.</p>
 <p class="note"><span class="k">Basis</span><span class="nw">SHA-256</span>, <span class="nw">FIPS 180-4</span>, over the UTF-8 bytes as they are, with no Unicode normalization.</p>
 </div>
 </section>
@@ -115,14 +115,14 @@
 <div class="body">
 <p>A checker recomputes each record’s link from the previous link that record stores, its recomputed fingerprint and its position. It compares the result with the link the record stores, which is also the link the next record carries. So a changed value fails that record’s fingerprint and signature and breaks only the link into the next record. The later records still pass their own checks.</p>
 <p>The change still shows across the whole history. Replayed from 64 zeros over the recomputed fingerprints, the link of the newest record comes out different, so the head no longer matches the anchored fingerprint (section 7).</p>
-<p>The links do not show a record that was removed when every later link was rewritten. Each signature covers only its own record’s fingerprint, so that rewrite needs no key. Only a fingerprint anchored beforehand would show it. Signatures that cover each record’s position are an <a href="roadmap.html#position">upcoming feature</a>.</p>
+<p>The links do not show a record that was removed when every later link was rewritten. Each signature covers only its own record’s fingerprint, so that rewrite needs no key. Only an anchor taken beforehand (section 7) would show it. Signatures that cover each record’s position are an <a href="roadmap.html#position">upcoming feature</a>.</p>
 </div>
 </section>
 <section class="sec sec--side" id="signature" aria-labelledby="s5-h">
 <h2 id="s5-h"><span class="no">5</span>The signature (demo)</h2>
 <div class="body">
 <p>Each fingerprint is signed with <span class="nw">ECDSA P-256</span> over its 32 bytes. On these pages, records 1 to 8 were signed when the site was built, by a demo key whose private half was then discarded. Its public key is published on the pages that check it. That shows the method, but it is not independent evidence. In use, the public key would be published outside the lab’s system. Demo signatures. In the alpha, one server key signs imported rows; per-analyst signatures are upcoming.</p>
-<p>In the record checker, an edited record’s signature still fails after the history is rewritten, but only because the demo key was discarded. In the alpha, whoever holds the one server key could re-sign an edited record; only a fingerprint anchored outside the lab beforehand would still disagree.</p>
+<p>In the record checker, an edited record’s signature still fails after the history is rewritten, but only because the demo key was discarded. In the alpha, whoever holds the one server key could re-sign an edited record; only an anchor taken beforehand, outside the lab’s system, would still disagree.</p>
 <p>Where your browser can check signatures, every record on these pages is signed, so a record with no signature fails.</p>
 <p>A signature made with a system key on a record’s bytes is neither an electronic signature nor a digital signature as <span class="nw">21 CFR Part 11</span> uses those terms: both identify a person.</p>
 <p class="note"><span class="k">Basis</span>ECDSA, <span class="nw">FIPS 186-5</span>. IEEE P1363 encoding, in its low-S form only. Demo key id 7A15F562…</p>
@@ -138,12 +138,11 @@
 </div>
 </section>
 <section class="sec sec--side" id="anchoring" aria-labelledby="s7-h">
-<h2 id="s7-h"><span class="no">7</span><span>Anchoring a batch <span class="tag">Upcoming</span></span></h2>
+<h2 id="s7-h"><span class="no">7</span>The anchor (simulated)</h2>
 <div class="body">
-<p>Anchoring is an upcoming feature. It will write a batch fingerprint, with a time, somewhere the lab does not control, so that a later rewrite of the history shows. On these pages the batch fingerprint is the link of record 8, the newest record in the batch, replayed from 64 zeros. It is stored on the page as the anchored fingerprint (simulated, no network call).</p>
+<p>An anchor is a copy of a batch fingerprint kept outside the lab’s system, so that a later rewrite of the history would show against it. On these pages the batch fingerprint is the link of record 8, the newest record in the batch, replayed from 64 zeros. It is stored on the page as the anchored fingerprint (simulated, no network call).</p>
 <p class="hx-p"><span>0a35688a</span><wbr><span>4c3ec82a</span><wbr><span>5e621ced</span><wbr><span>e1f173a6</span><wbr><span>d436ade0</span><wbr><span>e20f159d</span><wbr><span>ca92c2a3</span><wbr><span>711e3dc1</span></p>
-<p>The first network will be Filecoin Calibration (a public test network). The registry code for that network (a smart contract) is written, but nothing on this site or in the app writes to a network, and no shared registry exists yet. Every anchor here is simulated.</p>
-<p>Anchoring will put only a fingerprint on the network, never the values. A registry entry would show that a fingerprint existed by a given time, and the address that wrote it, which links a lab’s anchors to one another; as the registry code is written today, it would also show the first and last record numbers of the batch. It would show no value, and it would not keep the records.</p>
+<p>In use, a lab would pin that fingerprint by its own means: a pin file on another drive or share, a printout or a notebook entry. Nothing on this site or in the app writes to a network, and no ledger or outside service would be involved. The anchor would hold no value, only a 64-character code.</p>
 </div>
 </section>
 <section class="sec sec--side" id="pass-fail" aria-labelledby="s8-h">
@@ -157,18 +156,8 @@
 </dl>
 </div>
 </section>
-<section class="sec sec--side" id="privacy" aria-labelledby="s9-h">
-<h2 id="s9-h"><span class="no">9</span>Privacy on public networks</h2>
-<div class="body">
-<p>A fingerprint hides nothing that can be guessed. A plain <span class="nw">SHA-256</span> of a few guessable fields (an instrument id, a measurement type, a peak area in a known range, a capture time to the second) can in principle be matched by trying likely values.</p>
-<p>Nothing on this site or in the app writes to a public network. When anchoring becomes available, it will write only a batch fingerprint, never the values. A batch fingerprint of guessable fields can still be tried. So can two anchors one record apart: from the head before and the head after, the one record between them can be found by trying likely values.</p>
-<p><span class="tag tag--in">Upcoming</span> Salted (hiding) commitments in place of plain fingerprints, so that what is published reveals nothing without the salt the lab keeps; as the leaves of a Merkle batch, they would also let a lab show that one record is in an anchored batch without revealing the others’ contents. Later, zero-knowledge proofs, so that a lab can show a property, such as “within specification” or “reviewed before release”, without disclosing the value.</p>
-<p>Storage would follow the same rule as anchoring: nothing readable leaves the lab. An encrypted archive on Filecoin is upcoming; each batch would be encrypted in the lab before upload, with keys that stay in the lab, so the network would hold ciphertext and never results, and content addressing would let anyone who fetches a copy check that it is, byte for byte, the ciphertext the lab archived under that address.</p>
-<p><a class="xref" href="roadmap.html#privacy"><span class="id"><span class="nw">IQC-RD-01</span> §2.6</span><span>Privacy on public networks</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
-</div>
-</section>
-<section class="sec sec--side" id="alpha" aria-labelledby="s10-h">
-<h2 id="s10-h"><span class="no">10</span>What works today, and what is upcoming</h2>
+<section class="sec sec--side" id="alpha" aria-labelledby="s9-h">
+<h2 id="s9-h"><span class="no">9</span>What works today, and what is upcoming</h2>
 <div class="body">
 <table class="st-t">
 <caption class="sr-only">What works today, and what is upcoming</caption>
@@ -176,6 +165,7 @@
 <tbody>
 <tr><th scope="row">Five-field <span class="nw">SHA-256</span> fingerprint, linked to the previous record</th><td><b>Today.</b> On these pages and in the alpha app’s HPLC import.</td></tr>
 <tr><th scope="row">Every check recomputed in your browser</th><td><b>Today.</b> On these pages.</td></tr>
+<tr><th scope="row">Anchor</th><td><b>Simulated.</b> On these pages.</td></tr>
 <tr><th scope="row">Signatures</th><td><b>Demo.</b> These pages: a build-time key, discarded, and a one-time key made in your browser for a correction in Check a record. The alpha app: one server key.</td></tr>
 <tr><th scope="row">Corrections appended with a reason</th><td><b>Demo.</b> On these pages; not in the alpha app.</td></tr>
 <tr><th scope="row">Sealing at capture (<span class="nw">SiLA 2</span>, <span class="nw">OPC UA LADS</span> adapters)</th><td><span class="tag tag--in">Upcoming</span></td></tr>
@@ -183,16 +173,12 @@
 <tr><th scope="row">Lineage and recall</th><td><span class="tag tag--in">Upcoming</span></td></tr>
 <tr><th scope="row">Agentic workflows</th><td><span class="tag tag--in">Upcoming</span></td></tr>
 <tr><th scope="row">Merkle batches with salted leaves</th><td><span class="tag tag--in">Upcoming</span></td></tr>
-<tr><th scope="row">Privacy on public networks</th><td><span class="tag tag--in">Upcoming</span></td></tr>
-<tr><th scope="row">Anchoring on a public test network</th><td><span class="tag tag--in">Upcoming</span> Simulated on these pages.</td></tr>
-<tr><th scope="row">Encrypted archive on Filecoin</th><td><span class="tag tag--in">Upcoming</span></td></tr>
 <tr><th scope="row">Per-analyst signatures</th><td><span class="tag tag--in">Upcoming</span></td></tr>
 <tr><th scope="row">Signatures that cover each record’s position</th><td><span class="tag tag--in">Upcoming</span></td></tr>
 <tr><th scope="row">Reviewer sign-off</th><td><span class="tag tag--in">Upcoming</span></td></tr>
 <tr><th scope="row">Server-side verification in the app</th><td><span class="tag tag--in">Upcoming</span></td></tr>
 <tr><th scope="row">Sample and method metadata in the seal</th><td><span class="tag tag--in">Upcoming</span></td></tr>
-<tr><th scope="row">A shared registry</th><td><span class="tag tag--in">Upcoming</span></td></tr>
-<tr><th scope="row">Post-quantum signatures and encryption</th><td><span class="tag tag--in">Upcoming</span></td></tr>
+<tr><th scope="row">Post-quantum signatures</th><td><span class="tag tag--in">Upcoming</span></td></tr>
 <tr><th scope="row">Electronic signatures, validation</th><td><b>Not claimed.</b></td></tr>
 </tbody>
 </table>
@@ -205,7 +191,7 @@
 <footer class="foot">
 <div class="wrap">
 <p class="ind">Immutable QC is an independent project built on the founder’s own time. It is not affiliated with or endorsed by any employer. Founder: <span class="nw">José A. Fernández Abreu</span> · <a href="https://joseqc.com">joseqc.com</a></p>
-<p class="meta"><span class="m-doc"><span class="nw">IQC-HS-01</span> · Draft 7 · Updated 2026-10-13 · <a href="about.html#history">Revision history</a></span><span class="m-fonts">Fonts, SIL Open Font License: <a href="fonts/OFL-IBM-Plex-Sans.txt">IBM Plex Sans</a> <a href="fonts/OFL-IBM-Plex-Mono.txt">IBM Plex Mono</a> <a href="fonts/OFL-Archivo.txt">Archivo</a></span></p>
+<p class="meta"><span class="m-doc"><span class="nw">IQC-HS-01</span> · Draft 8 · Updated 2026-10-17 · <a href="about.html#history">Revision history</a></span><span class="m-fonts">Fonts, SIL Open Font License: <a href="fonts/OFL-IBM-Plex-Sans.txt">IBM Plex Sans</a> <a href="fonts/OFL-IBM-Plex-Mono.txt">IBM Plex Mono</a> <a href="fonts/OFL-Archivo.txt">Archivo</a></span></p>
 </div>
 </footer>
 

@@ -24,7 +24,7 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preload" href="fonts/archivo-c-115-620.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="assets/site.css?v=c93bb831">
+<link rel="stylesheet" href="assets/site.css?v=e734df99">
 <script>(function(d){var c=d.documentElement.classList;c.add('js');try{if(!matchMedia('(prefers-reduced-motion: reduce)').matches)c.add('motion')}catch(e){}var r=d.documentElement,h=innerHeight;r.style.setProperty('--svh',h+'px');if(innerWidth>=960&&h>=(innerWidth>=1180?600:700)&&'IntersectionObserver'in window)c.add('stage');var q=function(s){return d.querySelector(s)},b=function(){return q('.menu-btn')},n=function(){return q('.nav')},o=function(){var x=b();return!!x&&x.getAttribute('aria-expanded')==='true'},s=function(v){var x=b(),y=n();if(x&&y){x.setAttribute('aria-expanded',String(v));y.classList.toggle('open',v)}};d.addEventListener('click',function(e){var t=e.target,x=b(),y=n();if(!t||!t.closest)return;if(q('base')&&t.closest('.skip')){e.preventDefault();var m=d.getElementById('main');if(m){m.focus();m.scrollIntoView()}return}if(!x||!y)return;if(x.contains(t))s(!o());else if(o()&&!y.contains(t))s(false)});d.addEventListener('keydown',function(e){if(e.key==='Escape'&&o()){s(false);b().focus()}});d.addEventListener('focusout',function(e){var x=b(),y=n(),r=e.relatedTarget;if(o()&&r&&(y.contains(e.target)||x.contains(e.target))&&!y.contains(r)&&!x.contains(r))s(false)})})(document)</script>
 <script defer src="assets/iqc.js?v=c5a57112"></script>
 </head>
@@ -54,8 +54,8 @@
 <div class="wrap">
 <dl class="dochead">
 <div><dt>Document</dt><dd><span class="nw">IQC-OV-01</span></dd></div>
-<div><dt>Revision</dt><dd>Draft 7</dd></div>
-<div><dt>Updated</dt><dd>2026-10-13</dd></div>
+<div><dt>Revision</dt><dd>Draft 8</dd></div>
+<div><dt>Updated</dt><dd>2026-10-17</dd></div>
 <div class="st"><dt>Status</dt><dd>Independent project · Open alpha · Synthetic demo data · No customers yet</dd></div>
 <div class="use"><dt>Use</dt><dd>Informational draft. Not a controlled document; not a regulatory assessment or a validation statement.</dd></div>
 </dl>
@@ -66,7 +66,7 @@
 <section class="sec" aria-labelledby="s1-h">
 <h2 id="s1-h"><span class="no">1</span>Scope</h2>
 <div class="body">
-<p class="lead">Each result becomes a sealed record: a <span class="nw">SHA-256</span> fingerprint of five of its recorded fields, signed and linked to the record before it, so a later change shows. Built for automated research labs in biotechnology, microbiology, chemistry and materials science, where results arrive faster than people can review them and models train on them. Anchoring batches on a public network is an upcoming feature; only a fingerprint will go on the network, never the values.</p>
+<p class="lead">Each result becomes a sealed record: a <span class="nw">SHA-256</span> fingerprint of five of its recorded fields, signed and linked to the record before it, so a later change shows. Built for automated research labs in biotechnology, microbiology, chemistry and materials science, where results arrive faster than people can review them and models train on them. The records and their history stay with the lab; nothing is written to a network.</p>
 </div>
 <div class="body first">
 <p><a class="xref" href="check.html#verifier"><span>Change a value and watch the checks</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
@@ -150,7 +150,7 @@
 <li>an outage that dropped a batch</li>
 <li>a model that filled in a blank</li>
 </ul>
-<p>One wrong value does not stay put: it feeds an analysis, the analysis feeds a model, and the model picks the next experiment, so a concentration a script wrote in mg/mL where the pipeline expects µg/mL can end up in a dose-response fit, a training set and tomorrow’s plates. Today a seal shows a value changed after it was sealed; upcoming, a restored backup or a dropped batch would show against an anchor, a filled-in blank with measured and derived records, and lineage would find every analysis, model and decision recorded as using a wrong value.</p>
+<p>One wrong value does not stay put: it feeds an analysis, the analysis feeds a model, and the model picks the next experiment, so a concentration a script wrote in mg/mL where the pipeline expects µg/mL can end up in a dose-response fit, a training set and tomorrow’s plates. Today a seal shows a value changed after it was sealed; upcoming, a restored backup or a dropped batch would show against an anchor taken earlier, a filled-in blank with measured and derived records, and lineage would find every analysis, model and decision recorded as using a wrong value.</p>
 <p class="note"><span class="k">Deliberate changes</span>A value changed on purpose after sealing, by someone without the signing key, fails the same checks as one changed by accident. A history rewritten with the key, or a record deleted and the rest relinked (which needs no key), passes each record’s checks; <a href="about.html#q7">question 5.7 on the About page</a> says what would show it, and what is not covered.</p>
 </div>
 </section>
@@ -353,7 +353,7 @@
 <li class="step" id="st-7" data-step="7">
 <h3><span class="no">3.7</span><a class="step-a" href="#st-7"><span>What comes next <span class="tag">Upcoming</span></span></a></h3>
 <div class="step-t">
-<p>Upcoming: the head of a batch, here h<sub>8</sub>, written to a public network. Only that fingerprint would go on the network, never the values. Upcoming too: an AI agent that checks fingerprint, signature, link and anchor before it uses a result.</p>
+<p>Next, the head of a batch, here h<sub>8</sub>, would be pinned by the lab outside its system, on another drive, a printout or a notebook entry, with no network or ledger involved; a later rewrite of the history would show against it. Upcoming: an AI agent that checks fingerprint, signature, link and anchor before it uses a result.</p>
 <p><a class="xref" href="check.html#verifier"><span class="id"><span class="nw">IQC-CK-01</span></span><span>Check it yourself</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
 <p><a class="xref" href="roadmap.html#planned"><span class="id"><span class="nw">IQC-RD-01</span> §2</span><span>Roadmap: what is upcoming</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
 </div>
@@ -362,9 +362,9 @@
 <div class="plate-h"><p class="fig-no">Fig. 2.7</p><p class="plate-t">What comes next</p><p class="sim">Simulated · demo data</p></div>
 <div class="sc-b">
 <div class="sc-net up" data-on="7">
-<p class="lab">Public network <span class="tag">Upcoming</span></p>
+<p class="lab">Pinned outside the lab <span class="sub">· simulated</span></p>
 <p class="net-h" data-on="7" data-d="7:200"><span class="sub">h<sub>8</sub></span> <span class="h8" title="0a35688a4c3ec82a5e621cede1f173a6d436ade0e20f159dca92c2a3711e3dc1">0a35688a…</span></p>
-<p class="say">Only this fingerprint would go on the network, never the values.</p>
+<p class="say">A copy the lab would keep elsewhere: a later rewrite would show against it.</p>
 </div>
 <div class="sc-ag up" data-on="7">
 <p class="lab">AI agent <span class="tag">Upcoming</span></p>
@@ -382,7 +382,7 @@
 </div>
 </div>
 </div>
-<figcaption class="figcap" id="sf7-c"><b>Fig. 2.7</b> · Upcoming: h<sub>8</sub>, the head of records 1 to 8, written to a public network, and an AI agent that checks fingerprint, signature, link and anchor. Nothing here touches a network.</figcaption>
+<figcaption class="figcap" id="sf7-c"><b>Fig. 2.7</b> · h<sub>8</sub>, the head of records 1 to 8, as the lab would pin it outside its system (simulated here), and, upcoming, an AI agent that checks fingerprint, signature, link and anchor. Nothing here touches a network.</figcaption>
 </figure>
 </li>
 </ol>
@@ -401,9 +401,9 @@
 <p class="chr-x" aria-hidden="true"><span style="left:14.29%">4</span><span style="left:50%">5</span><span style="left:85.71%">6</span><span class="u">min</span></p>
 </div>
 <div class="sc-net up" data-on="7">
-<p class="lab">Public network <span class="tag">Upcoming</span></p>
+<p class="lab">Pinned outside the lab <span class="sub">· simulated</span></p>
 <p class="net-h" data-on="7" data-d="7:200"><span class="sub">h<sub>8</sub></span> <span class="h8" title="0a35688a4c3ec82a5e621cede1f173a6d436ade0e20f159dca92c2a3711e3dc1">0a35688a…</span></p>
-<p class="say">Only this fingerprint would go on the network, never the values.</p>
+<p class="say">A copy the lab would keep elsewhere: a later rewrite would show against it.</p>
 </div>
 <div class="sc-card" data-on="1 2 3 4 5 6 7" data-dim="7"><span class="fr" data-on="4 6 7" data-d="4:240 5:340"></span><span class="fr fr--x" data-on="5" data-d="5:340"></span>
 <div class="cd-h"><p class="lab">Record 6 <span class="sub sw"><span data-on="1 2">· five fields</span><span data-on="3" data-d="3:300">· signed</span><span data-on="4 7" data-d="4:240">· sealed</span><span data-on="5">· changed after sealing</span><span data-on="6">· stays as sealed</span></span></p><svg class="sn sn--seal" viewBox="0 0 20 20" aria-hidden="true" focusable="false" data-bad="5" data-d="5:340"><circle class="rg" cx="10" cy="10" r="6.5"/><circle class="dr" cx="10" cy="10" r="6.5" pathLength="1" data-draw="3 4 5 6 7" data-d="3:300"/><circle class="dt" cx="10" cy="10" r="2.75" data-on="4 6 7" data-d="4:240"/><path class="xx" d="M7.2 7.2l5.6 5.6m0-5.6l-5.6 5.6" data-on="5"/></svg></div>
@@ -499,8 +499,8 @@
 <li><span class="k">App · in your browser</span><span>Drop a data folder and your browser re-reads every file, recomputes its <span class="nw">SHA-256</span> fingerprint and checks it, and every signature and link, against the ledger in the folder, then gives one verdict. Nothing is uploaded. A demo builds a sample folder, seals it and shows a pass and a fail.</span></li>
 <li><span class="k">These pages</span><span>The same construction on one synthetic sequence, signed with a demo key at build. Your browser recomputes every check.</span></li>
 <li><span class="k">Alpha app · not public</span><span>Imports HPLC CSV exports. Each peak area becomes a record of instrument, measurement type, value, unit and capture time, fingerprinted, linked and signed by one server key. The capture time is an injection time typed at import, or the server’s clock if none is given.</span></li>
-<li><span class="k"><span class="tag tag--in">Upcoming</span></span><span>Sealing at capture (<span class="nw">SiLA 2</span> and <span class="nw">OPC UA LADS</span> adapters), measured and derived records, lineage and recall, agentic workflows, Merkle batches with salted leaves and inclusion checks, privacy on public networks, anchoring batch fingerprints on a public test network, an encrypted archive on Filecoin, per-analyst signatures, signatures that cover each record’s position, reviewer sign-off, server-side verification in the app, sample and method metadata in the seal, a shared registry, and post-quantum signatures and encryption, in the Roadmap’s order. Every anchor on this site is simulated.</span></li>
-<li><span class="k">Not claimed</span><span>No customers, no capture at the instrument or orchestrator, no electronic signatures and no validation. Nothing on this site or in the app writes to a public network.</span></li>
+<li><span class="k"><span class="tag tag--in">Upcoming</span></span><span>Sealing at capture (<span class="nw">SiLA 2</span> and <span class="nw">OPC UA LADS</span> adapters), measured and derived records, lineage and recall, agentic workflows, Merkle batches with salted leaves and inclusion checks, per-analyst signatures, signatures that cover each record’s position, reviewer sign-off, server-side verification in the app, sample and method metadata in the seal, and post-quantum signatures, in the Roadmap’s order. Every anchor on this site is simulated.</span></li>
+<li><span class="k">Not claimed</span><span>No customers, no capture at the instrument or orchestrator, no electronic signatures and no validation. Nothing on this site or in the app writes to a network.</span></li>
 </ul>
 <p class="note"><span class="k">Basis</span>The same five fields and link rule in the alpha app’s HPLC import and on these pages; in the alpha app, the instrument field is its internal instrument number. The app seals whole files instead: each file’s <span class="nw">SHA-256</span> fingerprint, path and size, signed and linked in a ledger kept in the folder.</p>
 </div>
@@ -556,7 +556,7 @@
 </div>
 </section>
 <section class="sec sec--side" id="public" aria-labelledby="s7-h">
-<h2 id="s7-h"><span class="no">7</span><span>What would go public <span class="tag">Upcoming</span></span></h2>
+<h2 id="s7-h"><span class="no">7</span>What leaves the lab</h2>
 <div class="body">
 <div class="pub">
 <div class="pub-c">
@@ -569,15 +569,14 @@
 </ul>
 </div>
 <div class="pub-c">
-<h3 class="pub-h">Would go on a public network</h3>
-<p>Nothing on this site writes to a network. Once anchoring becomes available, by default one batch fingerprint will go on it for a whole run of records. It is a 64-character code; here it is the link of record 8, which depends on records 1 to 8.</p>
+<h3 class="pub-h">Pinned outside the lab’s system</h3>
+<p>Nothing on this site or in the app writes to a network or sends a record anywhere. So that a later rewrite would show, a lab would pin one batch fingerprint for a whole run of records by its own means: a pin file on another drive or share, a printout or a notebook entry. It is a 64-character code; here it is the link of record 8, which depends on records 1 to 8.</p>
 <p class="hx-p"><span>0a35688a</span><wbr><span>4c3ec82a</span><wbr><span>5e621ced</span><wbr><span>e1f173a6</span><wbr><span>d436ade0</span><wbr><span>e20f159d</span><wbr><span>ca92c2a3</span><wbr><span>711e3dc1</span></p>
 <p class="say-p">Simulated here, with no network call. Anyone who holds the records can recompute it and see whether they still match.</p>
-<p>Only if a lab chooses the encrypted archive, also upcoming: its records as ciphertext, encrypted in the lab with keys that stay there, never readable on the network.</p>
 </div>
 </div>
-<p>A fingerprint is not encryption. How a record is sealed, section 9, explains why, and what is upcoming: salted batches, and an encrypted archive that would hold nothing readable.</p>
-<p><a class="xref" href="sealed.html#privacy"><span class="id"><span class="nw">IQC-HS-01</span> §9</span><span>Privacy on public networks</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
+<p>A fingerprint is not encryption: a plain <span class="nw">SHA-256</span> of a few guessable fields can in principle be matched by trying likely values. So the records stay with the lab, and a lab shares them only with whomever it chooses, by its own means.</p>
+<p><a class="xref" href="sealed.html#anchoring"><span class="id"><span class="nw">IQC-HS-01</span> §7</span><span>The anchor (simulated)</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
 </div>
 </section>
 <section class="sec sec--side" id="agents" aria-labelledby="s8-h">
@@ -594,7 +593,7 @@
 <h2 id="s9-h"><span class="no">9</span>The document set</h2>
 <div class="body">
 <ul class="docs">
-<li><a class="xref" href="sealed.html"><span class="id"><span class="nw">IQC-HS-01</span></span><span>How a record is sealed</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>The payload, the fingerprint, the link rule, demo signatures, corrections, what a check shows, upcoming anchoring and the privacy note.</p></li>
+<li><a class="xref" href="sealed.html"><span class="id"><span class="nw">IQC-HS-01</span></span><span>How a record is sealed</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>The payload, the fingerprint, the link rule, demo signatures, corrections, the simulated anchor and what a check shows.</p></li>
 <li><a class="xref" href="check.html"><span class="id"><span class="nw">IQC-CK-01</span></span><span>Check a record</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>Change any sealed field and watch the checks; rewrite the history to hide it, or append a correction instead.</p></li>
 <li><a class="xref" href="regulatory.html"><span class="id"><span class="nw">IQC-RM-01</span></span><span>Regulatory map</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>Expectation by expectation for <span class="nw">21 CFR Part 11</span>, <span class="nw">EU Annex 11</span>, <span class="nw">ISO/IEC 17025:2017</span>, ALCOA+, GMP and TNI, with what exists today and what is not covered. A reading aid, not an assessment.</p></li>
 <li><a class="xref" href="roadmap.html"><span class="id"><span class="nw">IQC-RD-01</span></span><span>Roadmap</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>What works today, and what is upcoming, the automated-lab items first.</p></li>
@@ -610,7 +609,7 @@
 <footer class="foot">
 <div class="wrap">
 <p class="ind">Immutable QC is an independent project built on the founder’s own time. It is not affiliated with or endorsed by any employer. Founder: <span class="nw">José A. Fernández Abreu</span> · <a href="https://joseqc.com">joseqc.com</a></p>
-<p class="meta"><span class="m-doc"><span class="nw">IQC-OV-01</span> · Draft 7 · Updated 2026-10-13 · <a href="about.html#history">Revision history</a></span><span class="m-fonts">Fonts, SIL Open Font License: <a href="fonts/OFL-IBM-Plex-Sans.txt">IBM Plex Sans</a> <a href="fonts/OFL-IBM-Plex-Mono.txt">IBM Plex Mono</a> <a href="fonts/OFL-Archivo.txt">Archivo</a></span></p>
+<p class="meta"><span class="m-doc"><span class="nw">IQC-OV-01</span> · Draft 8 · Updated 2026-10-17 · <a href="about.html#history">Revision history</a></span><span class="m-fonts">Fonts, SIL Open Font License: <a href="fonts/OFL-IBM-Plex-Sans.txt">IBM Plex Sans</a> <a href="fonts/OFL-IBM-Plex-Mono.txt">IBM Plex Mono</a> <a href="fonts/OFL-Archivo.txt">Archivo</a></span></p>
 </div>
 </footer>
 
