@@ -12,7 +12,7 @@ snippet at the end of this file.
 | `agent/` | The agent, `iqc` (`agent/bin/iqc.mjs`, `agent/src/`), its tests, its README and the MCPB manifest (`agent/mcpb/`). | no |
 | `download/iqc.mjs` | The agent in one file, built by `agent/tools/bundle.mjs`. Never edit it by hand. | yes |
 | `app/` | The web app at `/app/`: audit a lab folder, seal one, review mode, the demo. | yes (not `test/`) |
-| `index.html`, `ui/` | The landing page and its design assets. They belong to the landing page's owner: do not edit them. | yes (not `test/`) |
+| `index.html`, `ui/` | The landing page and the design assets it shares with the app. `index.html` and `ui/landing.*` belong to the landing page's owner: do not edit them. | yes (not `test/`) |
 | `site/` | The document set's build (`site/build.mjs`, its sources and lints), `site/tools/` (`serve.mjs`, `deploy.mjs`, the publish allowlist, `check.mjs`, the browser checks, `wording.mjs`, the shared wording rules). | no |
 | `agents.html`, `llms.txt`, `llms-full.txt`, `robots.txt`, `sitemap.xml` | The page and the plain-text files for AI agents and crawlers, built by `site/build.mjs`. | yes |
 | `skills/immutableqc-lab-records/` | The Agent Skill for AI agents that use iqc on lab data. | no |
@@ -31,8 +31,9 @@ node agent/tools/bundle.mjs                              # rebuild download/iqc.
 node agent/tools/mcpb.mjs --server-json                  # then rebuild the MCPB bundle and its SHA-256 in server.json
 ```
 
-`node agent/tools/bundle.mjs --stamp` also writes the download's SHA-256 into `index.html`; leave that to the landing
-page's owner. The tools need Node.js 22 or later; the browser tests need Playwright's Chromium.
+`node agent/tools/bundle.mjs --stamp` also writes the download's SHA-256 into `index.html`, and changes only that line.
+After a change to the download, run it or ask the landing page's owner to: until the line matches,
+`node site/build.mjs --check` fails on the `index.html` SHA-256 assertion. The tools need Node.js 22 or later; the browser tests need Playwright's Chromium.
 
 ## Rules
 
@@ -62,9 +63,11 @@ server first (any MCP client that starts local servers over standard input and o
 
 ```
 ## Lab data
-Before you use files under <lab folder>, call check_inputs on them. After you write files, call record_step once per
-step, naming every file you read and wrote. Tell a person about any untraced input, or any file that changed after it
-was sealed, before you rely on it. Never sign off your own steps.
+Before you use files under <lab folder>, call check_inputs on them. Only files a lab station sealed read as measured.
+Never run iqc seal or iqc watch on files yourself. After you write files, call record_step once per step, naming every
+file you read and wrote. Tell a person about any untraced input, or any file that changed after it was sealed, before
+you rely on it. Never sign off your own steps. A trace follows the steps as the agent recorded them: a step can name
+inputs it did not use, or outputs it did not compute from them. A person's review checks that.
 ```
 
 Protocol versions the server speaks: 2026-07-28, 2025-11-25, 2025-06-18, 2025-03-26, 2024-11-05.

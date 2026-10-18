@@ -7,8 +7,9 @@ only bytes, so it works with any instrument software and any file format.
 
 For each file it records the SHA-256 fingerprint, the size and the time it read the file, in a ledger inside the
 folder (`ImmutableQC/ledger.jsonl`). Each record is signed and linked to the one before it. An audit re-reads every
-file and checks every record: it passes when every file is byte for byte the one that was sealed and the ledger has not
-been edited, reordered or cut since it was signed.
+file and checks every record: it passes when every file is byte for byte the one that was sealed and no record the ledger
+still holds has been edited or reordered since it was signed. Records cut from the end of a ledger show only against a
+head pinned earlier (`iqc head`, then `iqc audit --expect-head`, or `--pin-file`).
 
 What a pass does not show: that a file was right when it was written (a wrong value written by the instrument software
 is sealed as written), or anything about a change made between the moment the software writes a file and the moment
