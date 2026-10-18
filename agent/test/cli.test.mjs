@@ -408,7 +408,7 @@ for (const [name, entry] of ENTRIES) {
         assert.match(s.stdout, /Notes \(failures in strict mode\)/)
         assert.match(s.stdout, /run\/unsealed\.csv/)
         // usage and read errors: 2
-        for (const args of [['audit', join(W.dir, 'nope')], ['audit', W.dir], ['audit', W.data, '--expect-head', 'twelve'], ['audit', W.data, '--expect-key', 'xyz'], ['audit', W.data, '--bogus'], ['audit', W.data, '--report', join(W.dir, 'no-such-folder', 'r.html')], ['audit', W.data, W.dir]]) {
+        for (const args of [['audit', join(W.dir, 'nope')], ['audit', W.home], ['audit', W.data, '--expect-head', 'twelve'], ['audit', W.data, '--expect-key', 'xyz'], ['audit', W.data, '--bogus'], ['audit', W.data, '--report', join(W.dir, 'no-such-folder', 'r.html')], ['audit', W.data, W.dir]]) {
           const r = await run(entry, args, { home: W.home })
           assert.equal(r.code, 2, `${args.join(' ')}: ${r.out}`)
           assert.match(r.stderr, /^error {2}/)
