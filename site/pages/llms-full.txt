@@ -46,6 +46,8 @@ What `node iqc.mjs help` and `node iqc.mjs help <command>` print, for iqc.mjs {{
 - Protocol versions: 2026-07-28, with no handshake (each request carries its version and the client's capabilities in _meta; server/discover), and the handshake versions {{legacyProtocols}} (initialize, then notifications/initialized; ping).
 - Results: a plain text summary, and the same data as JSON text; from 2025-06-18 also structuredContent, matching each tool's outputSchema. Annotations from 2025-03-26: every tool but record_step is read-only.
 - Errors: a bad argument or a refused path is a tool error (isError: true) with a sentence saying why; an unknown method, an unknown tool and a malformed message are JSON-RPC errors.
+- check_inputs and trace read the ledgers lab stations write with iqc watch or iqc seal, under the search folders. Measured means some ledger there sealed the bytes, whatever its key: compare measured.keyId with the lab's station key ids.
+- Starting the server creates <root>/ImmutableQC/ (the agent's own ledger) and, for a new ledger, a signing key in ~/.immutableqc/keys/. One writer per root at a time: one server or one iqc record.
 - The server's instructions, sent at the start of a session, give the loop below and name the root and the search folders it was started with.
 - In a client's configuration file the entry usually sits under a name; the file and its place depend on the client:
 
@@ -66,7 +68,7 @@ A pipeline step can record itself by calling iqc record with the standard librar
 A person signs off agent steps: approved, question or rejected, with a note.
 - On the command line: node iqc.mjs review <ledger id>:<n>[:<link>] --reviewer "J. Rivera" --decision approved --search /lab. iqc record prints each step's reference. The review goes in the reviewer's own ledger (./<reviewer>.ledger.jsonl by default); a reference whose link no longer matches is refused.
 - In the app: "Review and sign off" signs review records with the browser's key; "Download your review ledger" saves them. Keep that file in the lab folder: an audit finds every *.ledger.jsonl.
-- There is no review tool over MCP, so an agent cannot approve its own steps. A signing key identifies whoever holds it on that computer or in that browser, not a person.
+- There is no review tool over MCP. An agent with a shell could still run iqc review, and the reviewer's name is whatever is typed: check the review ledger's key id. A signing key identifies whoever holds it on that computer or in that browser, not a person.
 
 ## What the agent reads and writes
 

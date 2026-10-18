@@ -12,35 +12,32 @@ Works today:
 - iqc record, iqc trace, iqc review: record an AI agent's step (what it read, wrote and did) in the agent's own ledger, trace a file back to sealed files, sign off steps.
 - iqc audit: check every ledger and every file under a lab folder: exit 0 pass, 3 review, 1 fail, 2 usage or read error.
 - iqc mcp: the same for AI agents over MCP on standard input and output. Protocol versions 2026-07-28, 2025-11-25, 2025-06-18, 2025-03-26, 2024-11-05.
-- The app, https://immutableqc.com/app/: audits a lab folder in the browser with nothing uploaded, traces agent outputs back to sealed measurements, sends untraced inputs to review, and signs off steps in its review mode. The demo shows a pass, a review and a fail.
+- The app, https://immutableqc.com/app/: audits a lab folder in the browser with nothing uploaded, traces agent outputs back through recorded steps to sealed files, sends untraced inputs to review, and signs off steps in its review mode.
 
 Upcoming: an npm package; a Windows installer and service; values read from inside files; per-person keys and signatures; Merkle batches; sealing inside the vendor's software; post-quantum signatures.
 
-Try it in one click: https://immutableqc.com/app/#demo. Or in one command (Linux):
-curl -fsSO https://immutableqc.com/download/iqc.mjs && sha256sum iqc.mjs && node iqc.mjs help
-SHA-256 of iqc.mjs 0.1.0: dc17fd4c6ffa06f107acbfd554747931c8a274f084053647623596375a3c2df0
-macOS: shasum -a 256 iqc.mjs. Windows: certutil -hashfile iqc.mjs SHA256. If the two differ, do not run the file.
+Try it in one command (Linux; it runs only if the SHA-256 matches):
+curl -fsSO https://immutableqc.com/download/iqc.mjs && echo "dc17fd4c6ffa06f107acbfd554747931c8a274f084053647623596375a3c2df0  iqc.mjs" | sha256sum -c - && node iqc.mjs help
+macOS: shasum -a 256 -c. Windows: certutil -hashfile iqc.mjs SHA256, then compare. If they differ, do not run it.
 
 Connect it from any MCP client that starts local servers over standard input and output:
 {"command": "node", "args": ["/path/to/iqc.mjs", "mcp", "--root", "/lab/agent-workspace", "--search", "/lab"]}
 - --root: the folder the agent works in; every path a tool takes must be inside it.
 - --search (repeatable): where the instruments' ledgers are. Give the lab folder, or a file sealed outside the root reads as untraced.
-- Starting the server creates <root>/ImmutableQC/ (the agent's own ledger) and, for a new ledger, a signing key in ~/.immutableqc/keys/.
-- One writer per root at a time: one server or one iqc record.
 
 The four tools (each result says which folders it searched):
-- check_inputs {paths}: per file, measured (a station's ledger sealed these exact bytes; its station and key id), derived (a recorded step wrote them) or untraced, and whether a sealed file changed after it was sealed. Files must be sealed first by iqc watch or iqc seal. Reads only.
-- record_step {action, inputs, outputs, input_refs?}: appends one signed record of a step (files by SHA-256 and size); it cannot be taken back, only reviewed. Recorded even when an input is untraced, with a warning.
-- trace {path}: a file's tree back to sealed files, and tracesToMeasured. Reads only.
-- audit_summary {strict?}: pass, review or fail for every ledger under the search folders. Reads only.
+- check_inputs {paths}: per file, measured (a ledger sealed these exact bytes; its key id), derived (a recorded step wrote them) or untraced, and whether a sealed file changed after it was sealed. Only files a lab station sealed read as measured. Never run iqc seal or iqc watch on files yourself. Reads only.
+- record_step {action, inputs, outputs, input_refs?}: appends one signed record of a step (files by SHA-256 and size); the tool cannot remove it; a person reviews it. Recorded even when an input is untraced, with a warning.
+- trace {path}: a file's tree back to sealed files, and tracesToMeasured.
+- audit_summary {strict?}: pass, review or fail for every ledger under the search folders. Every tool but record_step reads only.
 
-The loop: check_inputs before you use lab files; tell the person about an untraced or changed input before you rely on it; record_step once per step, naming every file you read and wrote (from outside the root: copy it in, or use input_refs <sha256>:<bytes>:<label>); trace or audit_summary before you report. A person signs off steps (iqc review, or the app's review mode); there is no review tool over MCP.
+The loop: check_inputs before you use lab files; tell the person about an untraced or changed input before you rely on it; record_step once per step, naming every file you read and wrote (from outside the root: copy it in, or use input_refs <sha256>:<bytes>:<label>); trace or audit_summary before you report. A person signs off steps (iqc review, or the app's review mode); MCP has no review tool.
 
 Limits:
 - A pass does not show that a file was right when it was written, or a change made inside the settle window (10 s by default) before it was sealed.
-- Whoever holds a ledger's key could rewrite it; a head pinned elsewhere (iqc audit --expect-head, or --pin-file) exposes that.
-- Measured means a ledger sealed those bytes: compare its key id with your instruments' keys (iqc audit --expect-key).
-- A step records only the files it names.
+- Whoever holds a ledger's key could rewrite it, and a ledger cut short (its last records deleted) needs no key: both show only against a head pinned earlier (iqc head, then iqc audit --expect-head, or --pin-file); audit_summary checks none.
+- Measured means some ledger sealed those bytes, whatever its key: anyone, an agent included, can run iqc seal under any station name. Compare measured.keyId with the lab's station key ids (iqc status prints them); a built-in check is upcoming.
+- A step records only the files it names. A trace follows the steps as the agent recorded them: a step can name inputs it did not use, or outputs it did not compute from them. A person's review checks that.
 - A key identifies a computer or a browser, not a person; per-person signatures are upcoming.
 - Values inside files are not read; reading them is upcoming.
 - No license is published yet: ask through https://joseqc.com before you copy or redistribute iqc.mjs.
@@ -254,6 +251,8 @@ Client setup (JSON; the file and its place depend on the client):
 - Protocol versions: 2026-07-28, with no handshake (each request carries its version and the client's capabilities in _meta; server/discover), and the handshake versions 2025-11-25, 2025-06-18, 2025-03-26, 2024-11-05 (initialize, then notifications/initialized; ping).
 - Results: a plain text summary, and the same data as JSON text; from 2025-06-18 also structuredContent, matching each tool's outputSchema. Annotations from 2025-03-26: every tool but record_step is read-only.
 - Errors: a bad argument or a refused path is a tool error (isError: true) with a sentence saying why; an unknown method, an unknown tool and a malformed message are JSON-RPC errors.
+- check_inputs and trace read the ledgers lab stations write with iqc watch or iqc seal, under the search folders. Measured means some ledger there sealed the bytes, whatever its key: compare measured.keyId with the lab's station key ids.
+- Starting the server creates <root>/ImmutableQC/ (the agent's own ledger) and, for a new ledger, a signing key in ~/.immutableqc/keys/. One writer per root at a time: one server or one iqc record.
 - The server's instructions, sent at the start of a session, give the loop below and name the root and the search folders it was started with.
 - In a client's configuration file the entry usually sits under a name; the file and its place depend on the client:
 
@@ -295,7 +294,7 @@ print("recorded", ref)
 A person signs off agent steps: approved, question or rejected, with a note.
 - On the command line: node iqc.mjs review <ledger id>:<n>[:<link>] --reviewer "J. Rivera" --decision approved --search /lab. iqc record prints each step's reference. The review goes in the reviewer's own ledger (./<reviewer>.ledger.jsonl by default); a reference whose link no longer matches is refused.
 - In the app: "Review and sign off" signs review records with the browser's key; "Download your review ledger" saves them. Keep that file in the lab folder: an audit finds every *.ledger.jsonl.
-- There is no review tool over MCP, so an agent cannot approve its own steps. A signing key identifies whoever holds it on that computer or in that browser, not a person.
+- There is no review tool over MCP. An agent with a shell could still run iqc review, and the reviewer's name is whatever is typed: check the review ledger's key id. A signing key identifies whoever holds it on that computer or in that browser, not a person.
 
 ## What the agent reads and writes
 
