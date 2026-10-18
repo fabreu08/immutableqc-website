@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // iqc.mjs: the Immutable QC agent (iqc), version 0.1.0, in one file. Seals every file in a folder as it is written,
-// and audits the folder against its seals. Run it with Node.js 20 or later: node iqc.mjs help
-// No dependencies, and it never uses the network: it reads files, and writes its ledger, README.txt and lock file.
+// records the steps an AI agent takes on files, and audits a lab folder against its ledgers. Run it with Node.js 22 or
+// later: node iqc.mjs help
+// No dependencies, and it never uses the network: it reads files, and writes its ledgers, README.txt, lock files and
+// the pin file it is given.
 //
 // The SHA-256 of this file is printed on immutableqc.com, beside the download link. Compare it before you run the file:
 //   Windows: certutil -hashfile iqc.mjs SHA256    macOS: shasum -a 256 iqc.mjs    Linux: sha256sum iqc.mjs
@@ -2703,11 +2705,29 @@ const __iqc_args = (() => {
 const { parseHead, isSealedText } = __core
 const { usageError } = __iqc_util
 
-const COMMANDS = ['watch', 'seal', 'audit', 'head', 'status', 'help']
-const VALUE = ['ledger', 'key', 'station', 'interval', 'settle', 'ignore', 'report', 'json', 'expect-head', 'expect-key']
+const COMMANDS = ['watch', 'seal', 'audit', 'head', 'status', 'record', 'trace', 'review', 'mcp', 'help']
+const VALUE = ['ledger', 'key', 'station', 'interval', 'settle', 'ignore', 'report', 'json', 'expect-head', 'expect-key', 'allow-changes', 'pin-file',
+  'root', 'actor', 'action', 'tool', 'in', 'out', 'in-ref', 'search', 'reviewer', 'decision', 'note']
 const FLAG = ['quiet', 'no-color', 'strict', 'help', 'version']
-const AUDIT_ONLY = ['report', 'json', 'expect-head', 'expect-key', 'strict']
-const PATHS = ['ledger', 'key', 'report', 'json']
+// options that may be given more than once (a list); --ledger is a list only for iqc audit
+const REPEAT = ['ignore', 'allow-changes', 'in', 'out', 'in-ref', 'search', 'ledger']
+const PATHS = ['ledger', 'key', 'report', 'json', 'pin-file', 'root', 'in', 'out', 'search']
+// the options of each command (--quiet, --no-color, --help and --version go with every command)
+const OLD = ['ledger', 'key', 'station', 'interval', 'settle', 'ignore']
+const OPTIONS = {
+  watch: [...OLD, 'pin-file'],
+  seal: [...OLD, 'pin-file'],
+  audit: [...OLD, 'report', 'json', 'expect-head', 'expect-key', 'strict', 'allow-changes', 'pin-file'],
+  head: OLD,
+  status: OLD,
+  record: ['root', 'actor', 'action', 'tool', 'in', 'out', 'in-ref', 'search', 'ledger', 'key', 'station', 'json', 'pin-file'],
+  trace: ['search', 'json', 'ignore'],
+  review: ['reviewer', 'decision', 'note', 'search', 'ledger', 'key', 'station', 'json', 'pin-file'],
+  mcp: ['root', 'actor', 'tool', 'search', 'ledger', 'key', 'station', 'pin-file', 'ignore', 'allow-changes'],
+}
+const ALWAYS = ['quiet', 'no-color', 'help', 'version']
+const owners = (name) => Object.keys(OPTIONS).filter((c) => OPTIONS[c].includes(name))
+const orList = (a) => (a.length <= 2 ? a.join(' and ') : `${a.slice(0, -1).join(', ')} and ${a[a.length - 1]}`)
 
 // Windows: a quoted folder that ends in a backslash ("D:\Results\") reaches the program as D:\Results" (the backslash
 // escapes the quote), and a path quoted with single quotes in cmd.exe keeps its quotes. Both are cleaned up here, on
@@ -2750,9 +2770,12 @@ function parseArgs(argv, { platform = process.platform } = {}) {
           if (i + 1 >= argv.length) throw usageError(`--${name} needs a value.`)
           val = argv[++i]
         }
-        if (name === 'ignore') {
-          if (val === '') throw usageError('--ignore needs a pattern, for example --ignore "*.bak".')
-          opts.ignore.push(val)
+        if (name === 'ignore' || name === 'allow-changes') {
+          if (val === '') throw usageError(`--${name} needs a pattern, for example --${name} "*.bak".`)
+          ;(opts[name] ||= []).push(val)
+        } else if (REPEAT.includes(name)) {
+          if (val === '') throw usageError(`--${name} needs a value.`)
+          ;(opts[name] ||= []).push(PATHS.includes(name) ? cleanPathArg(val, platform) : val)
         } else {
           if (name in opts) throw usageError(`--${name} is given twice.`)
           opts[name] = PATHS.includes(name) ? cleanPathArg(val, platform) : val
@@ -2780,12 +2803,33 @@ function parseArgs(argv, { platform = process.platform } = {}) {
     folder = pos.length ? pos[0] : null
     return { command, topic: folder, folder: null, opts, help: true, version }
   }
+  if (command !== null) {
+    for (const k of Object.keys(opts)) {
+      if (ALWAYS.includes(k) || OPTIONS[command].includes(k) || (k === 'ignore' && !opts.ignore.length)) continue
+      const o = owners(k)
+      throw usageError(`--${k} is an option of ${orList(o.map((c) => `iqc ${c}`))}, not of iqc ${command}.`)
+    }
+  }
+  if (opts.ledger) {
+    if (command !== 'audit' && opts.ledger.length > 1) throw usageError(`--ledger is given twice. Only iqc audit takes more than one ledger.`)
+    if (command === 'audit') opts.ledgers = opts.ledger
+    opts.ledger = opts.ledger[0]
+  }
+  let subjects = null, file = null
+  if (command === 'review') {
+    subjects = pos.splice(0)
+  } else if (command === 'trace') {
+    if (pos.length !== 1) throw usageError(`iqc trace takes one file${pos.length ? `, but got ${pos.length}` : ''}: iqc trace <file> [--search <folder>].`)
+    file = cleanPathArg(pos.shift(), platform)
+    if (file === '') throw usageError('The file is empty. Give the file to trace.')
+  } else if ((command === 'record' || command === 'mcp') && pos.length) {
+    throw usageError(`iqc ${command} takes no folder: give it with --root <folder> (the default is the current folder), not ${JSON.stringify(pos[0])}.`)
+  }
   if (pos.length > 1) {
     throw usageError(`iqc ${command} takes one folder, but got ${pos.length}: ${pos.map((p) => JSON.stringify(p)).join(' ')}. A path with spaces needs quotes, for example "D:\\Instrument Data".`)
   }
   if (pos.length) folder = cleanPathArg(pos[0], platform)
   if (folder === '') throw usageError('The folder is empty. Give a folder, or leave it out to use the current one.')
-  for (const k of AUDIT_ONLY) if (k in opts && command !== 'audit' && command !== null) throw usageError(`--${k} is an option of iqc audit, not of iqc ${command}.`)
   if ('interval' in opts) opts.interval = seconds('interval', opts.interval, { min: 0.05, max: 86400 })
   if ('settle' in opts) opts.settle = seconds('settle', opts.settle, { min: 0, max: 86400 })
   if ('station' in opts) {
@@ -2802,8 +2846,17 @@ function parseArgs(argv, { platform = process.platform } = {}) {
     if (!/^[0-9a-fA-F]{16}$/.test(k)) throw usageError(`--expect-key ${JSON.stringify(opts['expect-key'])} is not a key id. A key id is 16 hex characters, as iqc head and iqc status print it.`)
     opts['expect-key'] = k.toLowerCase()
   }
-  for (const g of opts.ignore) if (/[\u0000-\u001f]/.test(g)) throw usageError(`--ignore ${JSON.stringify(g)} holds a control character.`)
-  return { command, folder, opts, help, version }
+  for (const k of ['ignore', 'allow-changes']) for (const g of opts[k] || []) if (/[\u0000-\u001f]/.test(g)) throw usageError(`--${k} ${JSON.stringify(g)} holds a control character.`)
+  if (command === 'record') {
+    for (const k of ['actor', 'action']) if (!(k in opts)) throw usageError(`iqc record needs --${k}. For example: iqc record --actor analysis-agent --action "Normalized plate 07" --in plate-07.csv --out plate-07-normalized.csv`)
+    if (!(opts.out || []).length) throw usageError('iqc record needs at least one --out <file>: the file (or files) the step wrote.')
+  }
+  if (command === 'review') {
+    if (!('reviewer' in opts)) throw usageError('iqc review needs --reviewer <name>: your name or initials, as it goes in the record.')
+    if (!('decision' in opts)) throw usageError('iqc review needs --decision approved, question or rejected.')
+    if (!subjects.length) throw usageError('iqc review needs the records it signs off, as <ledger id>:<record number>, for example 78f00a005a55fdf7162daf82f89fab15:3 (iqc record and iqc audit --json print them).')
+  }
+  return { command, folder, file, subjects, opts, help, version }
 }
 
 return { COMMANDS, cleanPathArg, stationProblem, parseArgs }
@@ -2897,8 +2950,8 @@ const __iqc_paths = (() => {
 // Where things are: the data folder, the ledger, its lock and README.txt, and how a file's path on disk becomes the
 // path stored in the ledger (relative, "/" between segments, NFC, percent-encoded as core's encodePath says).
 const { resolve, dirname, basename, join, sep, relative, isAbsolute } = __node_path
-const { statSync, existsSync } = __node_fs
-const { encodePath, LEDGER_DIR, LEDGER_FILE } = __core
+const { statSync, existsSync, lstatSync, realpathSync } = __node_fs
+const { encodePath, isLedgerFolderPath, LEDGER_DIR, LEDGER_FILE } = __core
 const { usageError } = __iqc_util
 
 // The stored path of `abs` inside `root`, using the path module `p` (node:path, or path.win32 / path.posix in tests).
@@ -2959,7 +3012,39 @@ function shownPath(root, abs) {
   return rel && !rel.startsWith('..') && !isAbsolute(rel) ? rel : abs
 }
 
-return { relPathOf, relPathOrNull, displayPath, dataFolder, locate, shownPath }
+// A file an agent step names (iqc record, the MCP server): `p` resolved against `base` (the current folder for the
+// command line, the root for the MCP server), refused unless it is a regular file inside `root`. Refused: a path that
+// leaves the root ("..", or an absolute path elsewhere), a symbolic link (links are never followed), a file reached
+// through a linked folder that leads outside the root, the ledger's own folder, and anything that is not a file.
+// Returns {abs, rel (raw, "/" between segments), path (the stored form, core's encodePath)}.
+function confinedFile(root, p, { base = root, what = 'file', own = new Set() } = {}) {
+  if (typeof p !== 'string' || p === '') throw usageError(`The ${what} path is empty.`)
+  if (/[\u0000]/.test(p)) throw usageError(`The ${what} path ${JSON.stringify(p)} holds a NUL character.`)
+  const abs = resolve(base, p)
+  const rel = relative(root, abs)
+  if (!rel || rel === '..' || rel.startsWith('..' + sep) || isAbsolute(rel)) {
+    throw usageError(`${JSON.stringify(p)} is outside the root ${root}: an agent step names only files under its root. Give a file inside it, or a wider --root.`)
+  }
+  let st
+  try { st = lstatSync(abs) } catch (e) {
+    throw usageError(e.code === 'ENOENT' ? `No ${what} at ${abs}.` : `Cannot look at the ${what} ${abs} (${e.code || e.message}).`)
+  }
+  if (st.isSymbolicLink()) throw usageError(`${JSON.stringify(p)} is a symbolic link: links are never followed. Name the file itself.`)
+  if (!st.isFile()) throw usageError(`${JSON.stringify(p)} is not a file${st.isDirectory() ? ' (it is a folder)' : ''}.`)
+  let real, realRoot
+  try { real = realpathSync(abs); realRoot = realpathSync(root) } catch (e) { throw usageError(`Cannot resolve ${abs} (${e.code || e.message}).`) }
+  const rr = relative(realRoot, real)
+  if (!rr || rr === '..' || rr.startsWith('..' + sep) || isAbsolute(rr)) {
+    throw usageError(`${JSON.stringify(p)} leads outside the root ${root} through a linked folder: links are never followed.`)
+  }
+  const raw = rel.split(sep).join('/')
+  let path
+  try { path = encodePath(raw) } catch (e) { throw usageError(`${JSON.stringify(p)} cannot be named in a record: ${e.message}`) }
+  if (isLedgerFolderPath(path) || own.has(path)) throw usageError(`${JSON.stringify(p)} is one of the ledger's own files, not data.`)
+  return { abs, rel: raw, path }
+}
+
+return { relPathOf, relPathOrNull, displayPath, dataFolder, locate, shownPath, confinedFile }
 })()
 
 // ---------------------------------------------------------------------------------------------- agent/src/lock.mjs
@@ -3162,7 +3247,7 @@ const __iqc_ledger = (() => {
 // and verified again.
 const { readFileSync, openSync, writeSync, fsyncSync, closeSync, statSync, ftruncateSync, renameSync, unlinkSync, existsSync, mkdirSync } = __node_fs
 const { dirname } = __node_path
-const { verifyLedger, extendVerified, createHeader, createRecords, serializeLine, formatCount } = __core
+const { verifyLedger, extendVerified, createHeader, createRecords, serializeLine, formatCount, formatPinLine } = __core
 const { AGENT, UserError, EXIT_USAGE } = __iqc_util
 
 const README_TEXT = `Immutable QC: the sealed record of this data folder
@@ -3187,7 +3272,7 @@ How to audit (check every file against its seal):
   (the folder that holds this ImmutableQC folder) on the page. Your browser
   reads every file; nothing is uploaded.
 
-  On the command line, with Node.js 20 or later and iqc.mjs (from
+  On the command line, with Node.js 22 or later and iqc.mjs (from
   https://immutableqc.com):
 
       node iqc.mjs audit "<the data folder>"
@@ -3205,10 +3290,10 @@ function ensureDir(dir) {
 }
 
 // README.txt beside the ledger, unless one is there already (it is never overwritten)
-function ensureReadme(file) {
+function ensureReadme(file, text = README_TEXT) {
   try {
     const fd = openSync(file, 'wx')
-    try { writeSync(fd, README_TEXT) } finally { closeSync(fd) }
+    try { writeSync(fd, text) } finally { closeSync(fd) }
     return true
   } catch {
     return false
@@ -3295,13 +3380,44 @@ function syncDir(dir) {
   } catch { /* not supported here */ }
 }
 
+// --pin-file: one line `immutableqc-head <ledgerId> <n>:<h> <time>` (core's formatPinLine) appended to a file kept
+// somewhere else (another drive, a share, a synced folder) after each batch of records, so a later audit with
+// --pin-file shows a ledger rewritten or restarted since. A pin that cannot be written is a warning (once per kind of
+// error until one is written again): sealing goes on.
+class PinFile {
+  constructor(file, { out } = {}) {
+    this.file = file
+    this.out = out
+    this.failed = null
+    this.written = 0
+  }
+
+  pin(ledgerId, head) {
+    const line = formatPinLine(ledgerId, head, new Date().toISOString()) + '\n'
+    let fd
+    try {
+      fd = openSync(this.file, 'a')
+      try { writeAll(fd, Buffer.from(line, 'utf8')); fsyncSync(fd) } finally { closeSync(fd) }
+      this.failed = null
+      this.written++
+      return true
+    } catch (e) {
+      const code = e.code || e.message
+      if (this.failed !== code && this.out) this.out.warn(`Cannot append the head to the pin file ${this.file} (${code}). Sealing goes on; the pin file misses this head (record ${head.n}).`)
+      this.failed = code
+      return false
+    }
+  }
+}
+
 class Appender {
-  constructor(file, verified, stat, { out } = {}) {
+  constructor(file, verified, stat, { out, pin = null } = {}) {
     this.file = file
     this.v = verified
     this.size = stat.size
     this.mtimeMs = stat.mtimeMs
     this.out = out
+    this.pinFile = pin
   }
 
   // Before planning and appending: if the ledger is not as the agent left it, read and verify it again. A ledger that
@@ -3356,12 +3472,13 @@ class Appender {
     } finally {
       try { closeSync(fd) } catch { /* closed */ }
       try { const st = statSync(this.file); this.size = st.size; this.mtimeMs = st.mtimeMs } catch { /* checked on the next sync */ }
+      if (this.pinFile && done.length) this.pinFile.pin(this.v.header.ledgerId, this.v.head)
     }
     return done
   }
 }
 
-return { README_TEXT, ensureDir, ensureReadme, readLedger, readLedgerSettled, brokenMessage, createLedger, Appender }
+return { README_TEXT, ensureDir, ensureReadme, readLedger, readLedgerSettled, brokenMessage, createLedger, PinFile, Appender }
 })()
 
 // ---------------------------------------------------------------------------------------------- agent/src/scan.mjs
@@ -3533,23 +3650,45 @@ const __iqc_session = (() => {
 // removal). A seal handles the files present when it starts, then exits; it waits for files that are being written
 // or are locked as long as other files make progress, and at most a minute without progress.
 const { hostname } = __node_os
-const { existsSync } = __node_fs
+const { existsSync, statSync } = __node_fs
+const { resolve, dirname } = __node_path
 const { isFirstScan, planSeal, formatBytes, formatHead, formatDuration, formatCount } = __core
 const { AGENT, UserError, EXIT_OK, EXIT_FAIL, EXIT_USAGE, Wake, sleep, pool, isoOf, plural } = __iqc_util
-const { dataFolder, locate, displayPath } = __iqc_paths
+const { dataFolder, locate, displayPath, relPathOrNull } = __iqc_paths
 const { acquireLock } = __iqc_lock
 const { createKey, loadKey } = __iqc_keys
-const { readLedger, brokenMessage, createLedger, ensureDir, ensureReadme, Appender } = __iqc_ledger
+const { readLedger, brokenMessage, createLedger, ensureDir, ensureReadme, Appender, PinFile } = __iqc_ledger
 const { walk, outOfSight, skipper, hashFile, sameStat, BUSY, Stopped } = __iqc_scan
 const { stationProblem } = __iqc_args
 
 const MINUTE = 60000
 const HASHERS = 4
+// The default settle time: 10 s, because the Windows SMB client caches file information (size, times) for 10 s by
+// default, and instrument software often writes a file in bursts. --settle changes it.
+const DEFAULT_SETTLE_S = 10
+
+// --pin-file <path>: its folder must exist. A pin file inside the data folder is one of the agent's own files (never
+// sealed). Returns a PinFile, or null without the option.
+function pinFileFor(opts, out, loc = null) {
+  if (!opts['pin-file']) return null
+  const file = resolve(opts['pin-file'])
+  let st = null
+  try { st = statSync(file) } catch { /* not there yet */ }
+  if (st && !st.isFile()) throw new UserError(`--pin-file ${file} is not a file.`, EXIT_USAGE)
+  try { if (!statSync(dirname(file)).isDirectory()) throw new Error('not a folder') } catch {
+    throw new UserError(`The folder of the pin file ${file} does not exist. Give a file in an existing folder (another drive or a share, so the pin is kept apart from the ledger).`, EXIT_USAGE)
+  }
+  if (loc) {
+    const p = relPathOrNull(loc.root, file)
+    if (p) loc.own.add(p)
+  }
+  return new PinFile(file, { out })
+}
 
 // Opens the ledger for writing: verifies an existing one whole (and refuses a broken one), or starts a new one with
 // a new key (or the --key file). Returns {appender, key, station, created}. A missing ledger whose folder was set up
 // before (README.txt is written only once a ledger exists) is not replaced silently: it may have been moved or deleted.
-async function openForWriting(loc, opts, out) {
+async function openForWriting(loc, opts, out, { pin = null } = {}) {
   const r = await readLedger(loc.ledgerPath, { missingOk: true })
   if (!r && loc.isDefault && existsSync(loc.readmePath)) {
     throw new UserError(`There is no ledger at ${loc.ledgerPath}, but its folder was set up before (its README.txt is there): the ledger may have been moved, renamed or deleted. Nothing was written. ` +
@@ -3559,7 +3698,7 @@ async function openForWriting(loc, opts, out) {
     if (!r.verified.ok) throw new UserError(brokenMessage(r.verified, loc.ledgerPath))
     const key = await loadKey({ header: r.verified.header, keyOpt: opts.key, out })
     const station = opts.station || r.verified.header.station
-    return { appender: new Appender(loc.ledgerPath, r.verified, r.stat, { out }), key, station, created: false }
+    return { appender: new Appender(loc.ledgerPath, r.verified, r.stat, { out, pin }), key, station, created: false }
   }
   let station = opts.station
   if (!station) {
@@ -3569,16 +3708,17 @@ async function openForWriting(loc, opts, out) {
   }
   const key = opts.key ? await loadKey({ keyOpt: opts.key, out }) : await createKey()
   const made = await createLedger(loc.ledgerPath, { key, station })
-  return { appender: new Appender(loc.ledgerPath, made.verified, made.stat, { out }), key, station, created: true }
+  return { appender: new Appender(loc.ledgerPath, made.verified, made.stat, { out, pin }), key, station, created: true }
 }
 
 async function runSession(kind, { folder, opts, out, signals = process }) {
   const root = dataFolder(folder)
   const loc = locate(root, opts.ledger)
+  const pin = pinFileFor(opts, out, loc)
   ensureDir(loc.dir)
   const lock = acquireLock(loc.lockPath, { command: kind, out })
   try {
-    const open = await openForWriting(loc, opts, out)
+    const open = await openForWriting(loc, opts, out, { pin })
     if (loc.isDefault) ensureReadme(loc.readmePath)
     const s = new Session(kind, { root, loc, opts, out, ...open, signals })
     return await s.run()
@@ -3590,7 +3730,7 @@ async function runSession(kind, { folder, opts, out, signals = process }) {
 class Session {
   constructor(kind, { root, loc, opts, out, appender, key, station, created, signals }) {
     Object.assign(this, { kind, root, loc, opts, out, appender, key, station, created, signals })
-    this.settleMs = Math.round((opts.settle ?? 3) * 1000)
+    this.settleMs = Math.round((opts.settle ?? DEFAULT_SETTLE_S) * 1000)
     this.intervalMs = Math.round((opts.interval ?? 2) * 1000)
     this.ignore = opts.ignore || []
     this.skip = skipper(this.ignore, loc.own)
@@ -3663,6 +3803,7 @@ class Session {
     out.print(`Watching ${this.root}`)
     out.print(`  ledger ${this.loc.shown}, ${plural(this.v.recordCount, 'record', 'records')}, station ${this.station}, key id ${this.key.keyId}`)
     out.print(`  every ${this.intervalMs / 1000} s; a file is sealed once it has not changed for ${this.settleMs / 1000} s. Press Ctrl+C to stop.`)
+    if (this.appender.pinFile) out.print(`  after each batch of records, the head is appended to the pin file ${this.appender.pinFile.file}`)
     this.warnUnclean()
     out.stamp = true
     let first = true, caughtUp = false
@@ -3880,22 +4021,238 @@ class Session {
   }
 }
 
-return { openForWriting, runSession }
+return { DEFAULT_SETTLE_S, pinFileFor, openForWriting, runSession }
+})()
+
+// ---------------------------------------------------------------------------------------------- agent/src/lab.mjs
+const __iqc_lab = (() => {
+// The ledgers of a lab, as an agent step, a trace or a lab-wide audit needs them: found under folders by core's rule
+// (discoverLedgers: every ImmutableQC/ledger.jsonl up to 6 folders deep, and every *.ledger.jsonl, never following a
+// symbolic link), read and verified whole (kept in memory while a file's size and modification time stay the same),
+// and traced with core's auditMany. Nothing here decides a rule of the format: core does.
+const { readdir, realpath } = __node_fs_promises
+const { statSync } = __node_fs
+const { join, dirname, basename, relative, isAbsolute, sep } = __node_path
+const { discoverLedgers, auditMany, planStep, createHeader, createRecords, verifyLedger, serializeLine, generateKeyPair, publicKeyHex, sha256Hex, LEDGER_DIR, LEDGER_FILE } = __core
+const { UserError, EXIT_USAGE, whenUTC } = __iqc_util
+const { readLedgerSettled } = __iqc_ledger
+const { peekLock, lockState } = __iqc_lock
+
+const DEPTH = 6
+
+// The relative paths (raw, "/" between segments) of the files under dir that could be ledgers: ledger.jsonl inside a
+// folder named ImmutableQC, and *.ledger.jsonl, at most 6 folders deep (core's discoverLedgers picks them). Folders are
+// listed by name only (no file is opened); symbolic links are skipped. A folder that cannot be listed is left out
+// (the top one is an error).
+async function ledgerCandidates(dir) {
+  const out = []
+  const stack = [{ abs: dir, rel: '', depth: 0 }]
+  while (stack.length) {
+    const { abs, rel, depth } = stack.pop()
+    let entries
+    try {
+      entries = await readdir(abs, { withFileTypes: true })
+    } catch (e) {
+      if (depth === 0) throw new UserError(`Cannot read the folder ${dir} (${e.code || e.message}).`, EXIT_USAGE)
+      continue
+    }
+    for (const ent of entries) {
+      const r = rel ? `${rel}/${ent.name}` : ent.name
+      if (ent.isSymbolicLink()) continue
+      if (ent.isDirectory()) {
+        if (depth < DEPTH || (depth === DEPTH && ent.name === LEDGER_DIR)) stack.push({ abs: join(abs, ent.name), rel: r, depth: depth + 1 })
+      } else if (ent.isFile() && ((ent.name === LEDGER_FILE && basename(abs) === LEDGER_DIR) || ent.name.endsWith('.ledger.jsonl'))) out.push(r)
+    }
+  }
+  return out.sort()
+}
+
+// The ledgers under dir, by core's rule: [{abs, rootAbs | null, rel, root (raw, relative to dir) | null}].
+async function discoverUnder(dir) {
+  return discoverLedgers(await ledgerCandidates(dir)).map((d) => ({
+    abs: join(dir, ...d.ledgerPath.split('/')),
+    rootAbs: d.root === null ? null : d.root === '' ? dir : join(dir, ...d.root.split('/')),
+    rel: d.ledgerPath,
+    root: d.root,
+  }))
+}
+
+// A ledger given by path (--ledger): ImmutableQC/ledger.jsonl has the folder around ImmutableQC as its root; any other
+// file has no file root (a reviewer's *.ledger.jsonl, a ledger kept elsewhere).
+function ledgerAt(abs) {
+  const isFolderLedger = basename(abs) === LEDGER_FILE && basename(dirname(abs)) === LEDGER_DIR
+  return { abs, rootAbs: isFolderLedger ? dirname(dirname(abs)) : null, rel: abs, root: null }
+}
+
+// Reads and verifies ledgers, keeping each verified ledger while its file's size and modification time stay the same
+// (the MCP server asks again on every call).
+class LedgerCache {
+  constructor() { this.map = new Map() }
+
+  async read(abs) {
+    const lockPath = basename(abs) === LEDGER_FILE ? join(dirname(abs), 'agent.lock') : abs + '.lock'
+    const r = await readLedgerSettled(abs, { agentRunning: () => lockState(peekLock(lockPath)) === 'live' })
+    return r
+  }
+
+  async get(abs) {
+    const k = this.map.get(abs)
+    let st = null
+    try { st = statSync(abs) } catch { /* read() says why */ }
+    if (k && st && k.stat.size === st.size && k.stat.mtimeMs === st.mtimeMs) return k.verified
+    const r = await this.read(abs)
+    this.map.set(abs, { verified: r.verified, stat: r.stat })
+    return r.verified
+  }
+}
+
+// The ledgers to trace against: those found under each search folder, then the extra ones (the step's own ledger),
+// each once (by its real path). label: its root (or file) relative to the first search folder when inside it.
+async function labLedgers(searchDirs, { extra = [], cache = new LedgerCache() } = {}) {
+  const seen = new Set(), list = []
+  const base = searchDirs[0] || null
+  const add = async (d) => {
+    let real
+    try { real = await realpath(d.abs) } catch (e) { throw new UserError(`Cannot read the ledger ${d.abs} (${e.code || e.message}).`, EXIT_USAGE) }
+    if (seen.has(real)) return
+    seen.add(real)
+    const where = d.rootAbs || d.abs
+    const rel = base ? relative(base, where) : ''
+    const label = base && !rel.startsWith('..') && !isAbsolute(rel) ? (rel ? rel.split(sep).join('/') : basename(where)) : where
+    const verified = await cache.get(d.abs)
+    list.push({ ...d, label, verified })
+  }
+  for (const dir of searchDirs) for (const d of await discoverUnder(dir)) await add(d)
+  for (const d of extra) await add(d)
+  return list
+}
+
+// ------------------------------------------------------------------------------------------------- trace (probe)
+// To trace files without writing anything, core's auditMany is given one more ledger, made in memory and never
+// saved: a single step whose inputs are the files asked about, signed with a key made for it. Its inputs come back
+// measured, derived or untraced, with the trees back to measurements, exactly as the audit would trace a recorded step.
+let _probeKey = null
+const PROBE_STATION = 'trace'
+
+async function probeLedger(refs) {
+  if (!_probeKey) _probeKey = generateKeyPair({ extractable: false })
+  const key = await _probeKey
+  const at = new Date().toISOString()
+  const header = await createHeader({ station: PROBE_STATION, privateKey: key.privateKey, publicKeyHex: await publicKeyHex(key.publicKey), createdAt: at })
+  const out = { path: 'trace', sha256: sha256Hex(`immutableqc trace ${at} ${Math.random()}`), bytes: 0 }
+  const item = planStep({ station: PROBE_STATION, actor: 'trace', action: 'Trace the files asked about', inputs: refs, outputs: [out], at })
+  const records = await createRecords({ head: { n: 0, h: header.g }, items: [item], privateKey: key.privateKey })
+  return verifyLedger([header, ...records].map(serializeLine).join(''))
+}
+
+// refs: [{path, sha256, bytes}] (path in its stored form). Returns {inputs: [core's input objects, in order, each with
+// tree: its node in the trace tree], report}. ledgers: from labLedgers.
+async function traceRefs(ledgers, refs, { maxDepth } = {}) {
+  const entries = ledgers.map((L) => ({ verified: L.verified, root: L.root ?? null, files: null, label: L.label, ledgerPath: L.rel }))
+  const probe = await probeLedger(refs)
+  entries.push({ verified: probe, root: null, files: null, label: PROBE_STATION })
+  const report = auditMany(entries, { maxDepth, where: 'command line' })
+  const li = entries.length - 1
+  const step = report.steps.find((s) => s.ledger === li)
+  const lo = report.lineage.outputs.find((o) => o.ledger === li)
+  const nodes = lo && lo.tree ? lo.tree.inputs : []
+  // inputs are deduplicated by core (an exact duplicate is left out): match them back by reference
+  const key = (r) => `${r.sha256}:${r.bytes}:${r.path}`
+  const byKey = new Map(step.inputs.map((x, k) => [key(x), { ...x, tree: nodes[k] || null }]))
+  return { inputs: refs.map((r) => byKey.get(key({ ...r, bytes: String(r.bytes) })) || null), report, probeLedger: li }
+}
+
+// ------------------------------------------------------------------------------------------------ plain words
+const stepOf = (report, ref) => (ref ? report.steps.find((s) => s.ledger === ref.ledger && s.n === ref.n) : null)
+const labelOf = (report, i) => (report.ledgers[i] ? report.ledgers[i].label : `ledger ${i + 1}`)
+
+// One input's trace state as a short phrase: what a person (or an agent) reads.
+function stateText(report, x) {
+  if (!x) return 'not traced'
+  if (x.state === 'measured') {
+    const m = x.measured[0]
+    const again = x.changedAfter ? `; that file was sealed again later (record ${x.changedAfter.n} of ${labelOf(report, x.changedAfter.ledger)}, ${whenUTC(x.changedAfter.observedAt)}): it changed after this version` : ''
+    return `measured: sealed by ${m.station || labelOf(report, m.ledger)} as ${m.path} (record ${m.n}, ${whenUTC(m.observedAt)})${again}`
+  }
+  if (x.state === 'derived') {
+    const s = stepOf(report, x.step)
+    return `derived: written by the agent step in record ${x.step.n} of ${labelOf(report, x.step.ledger)}${s ? ` (${s.actor}: ${s.action})` : ''}`
+  }
+  return 'untraced: it matches no sealed measurement and no recorded agent step output'
+}
+
+// The same, as plain data (for --json and the MCP tools).
+function stateData(report, x) {
+  if (!x) return { state: 'untraced' }
+  const o = { state: x.state }
+  if (x.state === 'measured') {
+    const m = x.measured[0]
+    o.measured = { ledgerId: m.ledgerId, ledger: labelOf(report, m.ledger), station: m.station, path: m.path, record: m.n, sealedAt: m.observedAt, event: m.event }
+    if (x.measured.length > 1 || x.measuredMore) o.measured.alsoSealed = x.measured.length - 1 + (x.measuredMore || 0)
+    o.changedAfterSeal = !!x.changedAfter
+    if (x.changedAfter) o.sealedAgain = { ledger: labelOf(report, x.changedAfter.ledger), record: x.changedAfter.n, at: x.changedAfter.observedAt }
+  } else if (x.state === 'derived') {
+    const s = stepOf(report, x.step)
+    o.derived = { ledgerId: x.step.ledgerId, ledger: labelOf(report, x.step.ledger), record: x.step.n, ...(s ? { actor: s.actor, tool: s.tool, action: s.action, at: s.at } : {}) }
+  }
+  o.text = stateText(report, x)
+  return o
+}
+
+// A trace tree as lines of text: each input, with what wrote or sealed it, its inputs indented below.
+function treeLines(report, node, { indent = '', max = 400 } = {}) {
+  const lines = []
+  const walk = (n, pad) => {
+    if (lines.length >= max) return
+    if (n.stop === 'size') { lines.push(`${pad}… and ${n.more} more`); return }
+    let t
+    if (n.state === 'measured') t = `measured on ${n.measured.station || labelOf(report, n.measured.ledger)} (record ${n.measured.n}, ${whenUTC(n.measured.observedAt)})`
+    else if (n.state === 'derived') { const s = stepOf(report, n.step); t = `derived: record ${n.step.n} of ${labelOf(report, n.step.ledger)}${s ? ` (${s.actor}: ${s.action})` : ''}` }
+    else t = 'untraced: nothing measured it'
+    const stop = n.stop === 'cycle' ? ' [a cycle: stops here]' : n.stop === 'shown above' ? ' [shown above]' : n.stop === 'depth' ? ' [too deep: stops here]' : ''
+    lines.push(`${pad}${n.path}  ${n.sha256.slice(0, 12)}…  ${t}${stop}`)
+    for (const c of n.inputs || []) walk(c, pad + '  ')
+  }
+  walk(node, indent)
+  if (lines.length >= max) lines.push(`${indent}…(the tree is cut at ${max} lines)`)
+  return lines
+}
+
+// What a tree rests on: the measured files and the untraced inputs it reaches (counted by SHA-256).
+function treeLeaves(node) {
+  const measured = new Set(), untraced = new Set()
+  let cut = false
+  const walk = (n) => {
+    if (n.stop === 'size' || n.stop === 'depth') { cut = true; return }
+    if (n.state === 'measured') measured.add(n.sha256)
+    else if (n.state === 'untraced') untraced.add(n.sha256)
+    for (const c of n.inputs || []) walk(c)
+  }
+  walk(node)
+  return { measured: measured.size, untraced: untraced.size, cut }
+}
+
+return { ledgerCandidates, discoverUnder, ledgerAt, LedgerCache, labLedgers, traceRefs, stateText, stateData, treeLines, treeLeaves }
 })()
 
 // ---------------------------------------------------------------------------------------------- agent/src/audit.mjs
 const __iqc_audit = (() => {
-// iqc audit: verify the ledger whole, read every file in the folder (streaming SHA-256), and give core's verdict.
-// Exit 0 pass, 3 review, 1 fail, 2 usage or read error. --report writes core's HTML report, --json its JSON (- for standard
-// output). Nothing is written to the ledger or the data folder, and no lock is taken.
-const { writeFileSync } = __node_fs
-const { resolve } = __node_path
-const { audit, renderReportHTML, ignoreMatcher, formatBytes, formatCount } = __core
+// iqc audit: every ledger in the folder (core's discoverLedgers: the folder's own ImmutableQC/ledger.jsonl, every
+// ImmutableQC/ledger.jsonl in the folders under it, up to 6 deep, and every *.ledger.jsonl reviewer ledger), plus any
+// given with --ledger; each verified whole, every file under each ledger's folder read (streaming SHA-256), and one
+// verdict from core: audit() for a folder that holds one ledger of sealed files and nothing else (the report the app
+// reads today), auditMany() for a lab (several ledgers, agent steps, reviews, or a --pin-file to check).
+// Exit 0 pass, 3 review, 1 fail, 2 usage or read error. --report writes core's HTML report, --json its JSON (- for
+// standard output). Nothing is written to a ledger or a data folder, and no lock is taken.
+const { writeFileSync, readFileSync, existsSync, statSync } = __node_fs
+const { resolve, join, relative, isAbsolute, sep, basename, dirname } = __node_path
+const { audit, auditMany, renderReportHTML, ignoreMatcher, formatBytes, formatCount, formatHead } = __core
 const { AGENT, UserError, EXIT_OK, EXIT_FAIL, EXIT_USAGE, EXIT_REVIEW, pool, plural } = __iqc_util
-const { dataFolder, locate, displayPath } = __iqc_paths
+const { dataFolder, locate, displayPath, relPathOrNull } = __iqc_paths
 const { readLedgerSettled } = __iqc_ledger
 const { peekLock, lockState, describeLock } = __iqc_lock
 const { walk, outOfSight, hashFile } = __iqc_scan
+const { discoverUnder, ledgerAt } = __iqc_lab
 
 const MAX_PROBLEMS = 30, MAX_ITEMS = 10
 
@@ -3938,22 +4295,111 @@ async function readFolder(root, verified, { ignore = [], own = new Set(), out, l
   return { files, walk: w, unread, read: todo.length - unread }
 }
 
+const inside = (dir, abs) => { const r = relative(dir, abs); return !!r && r !== '..' && !r.startsWith('..' + sep) && !isAbsolute(r) }
+const relLabel = (base, abs) => { const r = relative(base, abs); return r && !r.startsWith('..') && !isAbsolute(r) ? r.split(sep).join('/') : abs }
+
+// The ledgers an audit of `root` covers: [{abs, rootAbs | null, label, ledgerPath, own, lockPath, isFolderOwn}].
+// The folder's own ledger is <root>/ImmutableQC/ledger.jsonl, or, when there is none, the first --ledger that is not a
+// reviewer's *.ledger.jsonl (a ledger kept elsewhere, as watch and seal write it with --ledger).
+async function ledgersOf(root, ledgerOpts = [], { pinFile = null } = {}) {
+  const given = ledgerOpts.map((p) => { let a = resolve(p); try { if (statSync(a).isDirectory()) a = join(a, 'ledger.jsonl') } catch { /* checked below */ } return a })
+  for (const a of given) if (!existsSync(a)) throw new UserError(`No ledger at ${a} (given with --ledger).`, EXIT_USAGE)
+  let ownLoc = locate(root, null)
+  if (!existsSync(ownLoc.ledgerPath) && given.length && !given[0].endsWith('.ledger.jsonl')) ownLoc = locate(root, given.shift())
+  const list = []
+  const seen = new Set()
+  const add = (e) => { if (!seen.has(e.abs)) { seen.add(e.abs); list.push(e) } }
+  if (existsSync(ownLoc.ledgerPath)) add({ abs: ownLoc.ledgerPath, rootAbs: root, own: new Set(ownLoc.own), lockPath: ownLoc.lockPath, isFolderOwn: true, ledgerPath: ownLoc.shown })
+  for (const d of await discoverUnder(root)) {
+    if (d.rootAbs === root) continue // the folder's own ledger, above
+    const L = d.rootAbs ? locate(d.rootAbs, null) : null
+    add({ abs: d.abs, rootAbs: d.rootAbs, own: L ? new Set(L.own) : null, lockPath: L ? L.lockPath : d.abs + '.lock', ledgerPath: d.rel })
+  }
+  for (const a of given) {
+    const d = ledgerAt(a)
+    const L = d.rootAbs ? locate(d.rootAbs, null) : null
+    add({ abs: a, rootAbs: d.rootAbs, own: L ? new Set(L.own) : null, lockPath: L ? L.lockPath : basename(a) === 'ledger.jsonl' ? join(dirname(a), 'agent.lock') : a + '.lock', ledgerPath: relLabel(root, a) })
+  }
+  // each folder's files leave out the other ledgers' folders and files inside it, and the pin file
+  for (const e of list) {
+    if (!e.rootAbs) continue
+    for (const o of list) {
+      if (o === e) continue
+      if (o.rootAbs && inside(e.rootAbs, o.rootAbs)) { const p = relPathOrNull(e.rootAbs, o.rootAbs); if (p) e.own.add(p) }
+      if (!o.rootAbs && inside(e.rootAbs, o.abs)) { const p = relPathOrNull(e.rootAbs, o.abs); if (p) e.own.add(p) }
+    }
+    if (pinFile && inside(e.rootAbs, pinFile)) { const p = relPathOrNull(e.rootAbs, pinFile); if (p) e.own.add(p) }
+  }
+  for (const e of list) e.label = e.rootAbs ? (e.rootAbs === root ? basename(root) || root : relLabel(root, e.rootAbs)) : relLabel(root, e.abs)
+  return list
+}
+
+// Reads, verifies and (for a ledger with a folder) reads the files of each ledger, then audits them together with
+// core's auditMany. Used by iqc audit and the MCP server's audit_summary.
+async function auditLedgers(list, opts, { out, folder, pinLines } = {}) {
+  const entries = []
+  for (const e of list) {
+    const lock = peekLock(e.lockPath)
+    const live = lockState(lock) === 'live'
+    const r = await readLedgerSettled(e.abs, { agentRunning: () => live, onProgress: out ? (d, t) => out.progress(`Checking ${e.label}: ${formatCount(d)} of ${formatCount(t)} records`) : undefined })
+    if (out) out.clearProgress()
+    if (live && out) out.note(`An agent is writing ${e.label} now (${describeLock(lock.info)}): a file written during the audit may show as changed or not sealed. Audit again to be sure.`)
+    let files = null
+    if (e.rootAbs) {
+      const f = await readFolder(e.rootAbs, r.verified, { ignore: opts.ignore, own: e.own, out, label: `Reading ${e.label}:` })
+      files = f.files
+      if (out) {
+        for (const p of f.walk.symlinks) out.note(`Skipped ${e.label}/${displayPath(p)}: a symbolic link (links are never followed or sealed).`)
+        for (const [p] of f.walk.ambiguous) out.note(`Not checked: more than one file is named ${e.label}/${displayPath(p)}, in different Unicode forms (NFC and NFD).`)
+      }
+    }
+    entries.push({ verified: r.verified, root: e.rootAbs ? e.label : null, files, label: e.label, ledgerPath: e.ledgerPath })
+  }
+  return auditMany(entries, {
+    expectHeads: opts['expect-head'] ? [opts['expect-head']] : undefined, expectKeyIds: opts['expect-key'] ? [opts['expect-key']] : undefined,
+    allowChanges: opts['allow-changes'] || [], pinLines, strict: !!opts.strict, where: 'command line', tool: AGENT, ignore: opts.ignore, folder,
+  })
+}
+
+function readPinFile(file) {
+  if (!file) return undefined
+  try {
+    return readFileSync(resolve(file), 'utf8')
+  } catch (e) {
+    throw new UserError(`Cannot read the pin file ${resolve(file)} (${e.code || e.message}).`, EXIT_USAGE)
+  }
+}
+
 async function runAudit({ folder, opts, out, stdout = process.stdout }) {
   const root = dataFolder(folder)
-  const loc = locate(root, opts.ledger)
-  const lock = peekLock(loc.lockPath)
-  const live = lockState(lock) === 'live'
-  const r = await readLedgerSettled(loc.ledgerPath, { agentRunning: () => live, onProgress: (d, t) => out.progress(`Checking the ledger: ${formatCount(d)} of ${formatCount(t)} records`) })
-  out.clearProgress()
-  const v = r.verified
-  if (live) out.note(`An agent is sealing this folder now (${describeLock(lock.info)}): a file written during the audit may show as changed or not sealed. Audit again to be sure.`)
-  const { files, walk: w } = await readFolder(root, v, { ignore: opts.ignore, own: loc.own, out, label: 'Reading' })
-  for (const p of w.symlinks) out.note(`Skipped ${displayPath(p)}: a symbolic link (links are never followed or sealed).`)
-  for (const [p] of w.ambiguous) out.note(`Not checked: more than one file is named ${displayPath(p)}, in different Unicode forms (NFC and NFD).`)
-  const report = audit(v, files, {
-    expectHead: opts['expect-head'], expectKeyId: opts['expect-key'], strict: !!opts.strict,
-    where: 'command line', tool: AGENT, ignore: opts.ignore, folder: folder == null ? '.' : folder,
-  })
+  const pinText = readPinFile(opts['pin-file'])
+  const list = await ledgersOf(root, opts.ledgers || [], { pinFile: opts['pin-file'] ? resolve(opts['pin-file']) : null })
+  if (!list.length) {
+    throw new UserError(`No ledger at ${join(root, 'ImmutableQC', 'ledger.jsonl')}, and none in the folders under it (up to 6 deep). Seal the folder first (iqc seal or iqc watch), give the folder that holds the ledgers, or give a ledger with --ledger <file>.`, EXIT_USAGE)
+  }
+  const shownFolder = folder == null ? '.' : folder
+  let report, single = null
+  if (list.length === 1 && list[0].isFolderOwn && pinText === undefined) {
+    // one ledger of the folder's own: the single-ledger audit, unless it holds agent steps or reviews
+    const e = list[0]
+    const lock = peekLock(e.lockPath)
+    const live = lockState(lock) === 'live'
+    const r = await readLedgerSettled(e.abs, { agentRunning: () => live, onProgress: (d, t) => out.progress(`Checking the ledger: ${formatCount(d)} of ${formatCount(t)} records`) })
+    out.clearProgress()
+    const v = r.verified
+    if (!(v.kinds && (v.kinds.step || v.kinds.review))) {
+      if (live) out.note(`An agent is sealing this folder now (${describeLock(lock.info)}): a file written during the audit may show as changed or not sealed. Audit again to be sure.`)
+      const { files, walk: w } = await readFolder(root, v, { ignore: opts.ignore, own: e.own, out, label: 'Reading' })
+      for (const p of w.symlinks) out.note(`Skipped ${displayPath(p)}: a symbolic link (links are never followed or sealed).`)
+      for (const [p] of w.ambiguous) out.note(`Not checked: more than one file is named ${displayPath(p)}, in different Unicode forms (NFC and NFD).`)
+      report = audit(v, files, {
+        expectHead: opts['expect-head'], expectKeyId: opts['expect-key'], allowChanges: opts['allow-changes'] || [], strict: !!opts.strict,
+        where: 'command line', tool: AGENT, ignore: opts.ignore, folder: shownFolder,
+      })
+      single = e
+    }
+  }
+  if (!report) report = await auditLedgers(list, opts, { out, folder: shownFolder, pinLines: pinText })
   const written = []
   const save = (file, text, what) => {
     try {
@@ -3966,9 +4412,12 @@ async function runAudit({ folder, opts, out, stdout = process.stdout }) {
   if (opts.report) save(opts.report, renderReportHTML(report), 'report')
   if (opts.json === '-') stdout.write(JSON.stringify(report, null, 2) + '\n')
   else if (opts.json) save(opts.json, JSON.stringify(report, null, 2) + '\n', 'JSON report')
-  printReport(report, { out, loc, written })
-  return report.verdict === 'pass' ? EXIT_OK : report.verdict === 'review' ? EXIT_REVIEW : EXIT_FAIL
+  if (single) printReport(report, { out, loc: { shown: single.ledgerPath }, written })
+  else printMany(report, { out, written })
+  return exitOf(report)
 }
+
+const exitOf = (report) => (report.verdict === 'pass' ? EXIT_OK : report.verdict === 'review' ? EXIT_REVIEW : EXIT_FAIL)
 
 function printReport(report, { out, loc, written }) {
   const pass = report.verdict === 'pass', review = report.verdict === 'review'
@@ -4015,7 +4464,769 @@ function printReport(report, { out, loc, written }) {
   for (const [what, file] of written) out.print(`${out.paint('dim', what === 'report' ? 'Report ' : 'JSON   ')}  ${file}`)
 }
 
-return { readFolder, runAudit }
+// The verdict of a lab-wide audit (auditMany): the verdict and its sentence, problems, items for review and notes,
+// then one line per ledger and the agent steps.
+function printMany(report, { out, written }) {
+  const pass = report.verdict === 'pass', review = report.verdict === 'review'
+  const c = report.counts
+  const sentence = report.summary.replace(/^(?:Pass|Review|Fail): /, '').replace(/^./, (ch) => ch.toUpperCase())
+  const word = pass ? out.paint('green', out.paint('bold', 'PASS')) : review ? out.paint('yellow', out.paint('bold', 'REVIEW')) : out.paint('red', out.paint('bold', 'FAIL'))
+  const say = pass ? (s) => out.print(s) : (s) => out.result(s)
+  say(`${word}  ${sentence}`)
+  if (report.problems.length) {
+    say(out.paint('bold', 'Problems'))
+    for (const p of report.problems.slice(0, MAX_PROBLEMS)) say(`  ${out.paint('red', '✗')} ${p.message}`)
+    if (report.problems.length > MAX_PROBLEMS) say(`  …and ${formatCount(report.problems.length - MAX_PROBLEMS)} more (every one is in the report: --report or --json).`)
+  }
+  if (report.forReview.length) {
+    say(out.paint('bold', report.strict ? 'For review (failures in strict mode)' : 'For review (recorded, not failures)'))
+    for (const g of report.forReview) {
+      say(`  ${out.paint('yellow', '!')} ${g.message}`)
+      for (const x of g.items.slice(0, MAX_ITEMS)) say(`      ${x}`)
+      if (g.items.length > MAX_ITEMS) say(`      …and ${formatCount(g.items.length - MAX_ITEMS)} more`)
+    }
+  }
+  if (report.notes.length) {
+    const sayN = report.strict ? say : (s) => out.print(s)
+    sayN(out.paint('bold', report.strict ? 'Notes (failures in strict mode)' : 'Notes (not failures)'))
+    for (const n of report.notes) {
+      sayN(`  ${out.paint('yellow', '•')} ${n.message}`)
+      for (const x of n.items.slice(0, MAX_ITEMS)) sayN(`      ${x}`)
+      if (n.items.length > MAX_ITEMS) sayN(`      …and ${formatCount(n.items.length - MAX_ITEMS)} more`)
+    }
+  }
+  for (const L of report.ledgers) {
+    out.print(`${out.paint('dim', 'Ledger ')}  ${L.ledgerPath || L.label}: ${L.role}, ${plural(L.records, 'record', 'records')}${L.station ? `, station ${L.station}` : ''}${L.keyId ? `, key id ${L.keyId}` : ''}${L.head ? `, head ${formatHead(L.head)}` : ''} (${L.verdict})`)
+  }
+  const parts = [`${c.match} match`]
+  if (c.changed) parts.push(`${c.changed} changed`)
+  if (c.missing) parts.push(`${c.missing} missing`)
+  if (c.removed) parts.push(`${c.removed} removed (recorded)`)
+  if (c.notChecked) parts.push(`${c.notChecked} not checked`)
+  out.print(`${out.paint('dim', 'Files  ')}  ${plural(c.sealed, 'file', 'files')} sealed: ${parts.join(', ')}${c.notSealed ? `; ${plural(c.notSealed, 'file', 'files')} not sealed` : ''}; read ${plural(c.filesRead, 'file', 'files')} (${formatBytes(c.bytesRead)})`)
+  if (c.steps) {
+    out.print(`${out.paint('dim', 'Steps  ')}  ${plural(c.steps, 'agent step', 'agent steps')}: inputs ${c.measuredInputs} measured, ${c.derivedInputs} derived, ${c.untracedInputs} untraced; ${c.stepsApproved} approved, ${c.stepsQuestion} questioned, ${c.stepsRejected} rejected, ${c.stepsAwaiting} awaiting review`)
+  }
+  if (c.pinsChecked) out.print(`${out.paint('dim', 'Pins   ')}  ${plural(c.pinsChecked, 'pin line', 'pin lines')} checked${c.pinFails ? `, ${c.pinFails} not matching` : ', all matching'}`)
+  for (const [what, file] of written) out.print(`${out.paint('dim', what === 'report' ? 'Report ' : 'JSON   ')}  ${file}`)
+}
+
+return { readFolder, ledgersOf, auditLedgers, readPinFile, runAudit, exitOf }
+})()
+
+// ---------------------------------------------------------------------------------------------- agent/src/steps.mjs
+const __iqc_steps = (() => {
+// iqc record, iqc trace and iqc review: an agent step recorded in the agent's own ledger (what it read and wrote, by
+// SHA-256), the trace of a file's bytes back to measurements, and a reviewer's sign-off in the reviewer's own ledger.
+// The records are core's (planStep, planReview); the trace is core's auditMany (lab.mjs). The MCP server (mcp.mjs) uses
+// the same functions.
+const { lstatSync, writeFileSync } = __node_fs
+const { resolve, join, relative, isAbsolute, sep, basename } = __node_path
+const { planStep, planReview, parseRef, encodePath, formatBytes, DECISIONS } = __core
+const { UserError, EXIT_OK, EXIT_USAGE, EXIT_REVIEW, plural } = __iqc_util
+const { dataFolder, locate, confinedFile, displayPath, relPathOrNull } = __iqc_paths
+const { acquireLock } = __iqc_lock
+const { ensureDir, ensureReadme } = __iqc_ledger
+const { openForWriting, pinFileFor } = __iqc_session
+const { hashFile } = __iqc_scan
+const { labLedgers, traceRefs, stateData, treeLines, treeLeaves, LedgerCache } = __iqc_lab
+
+const AGENT_README_TEXT = `Immutable QC: the record of what an agent did in this folder
+=============================================================
+
+This folder (ImmutableQC) is kept by the Immutable QC agent (iqc record, or the
+iqc mcp server an AI agent calls). Each step record names the files the step
+read and wrote, by SHA-256 fingerprint and size, and what the step did; each
+record is signed and linked to the one before it.
+
+  ledger.jsonl  One record per line.
+  README.txt    This note.
+  agent.lock    Present only while iqc is writing to the ledger.
+
+Do not edit, rename, move or delete this folder or anything in it. Any edit to
+the ledger shows in an audit. Keep it with the folder around it, and audit the
+whole lab folder together (the instrument folders, this one and the reviewers'
+*.ledger.jsonl files): the audit traces each step's inputs back to the files
+the instruments sealed.
+
+  In a browser: open https://immutableqc.com/app/ and drop the lab folder.
+  On the command line, with Node.js 22 or later and iqc.mjs:
+
+      node iqc.mjs audit "<the lab folder>"
+`
+
+const inside = (dir, abs) => { const r = relative(dir, abs); return !!r && r !== '..' && !r.startsWith('..' + sep) && !isAbsolute(r) }
+
+// A file's reference for a step: {path (stored form), sha256, bytes, abs}
+async function refOf(file) {
+  let r
+  try {
+    r = await hashFile(file.abs)
+  } catch (e) {
+    throw new UserError(`Cannot read ${file.abs} (${e.code || e.message}).`, EXIT_USAGE)
+  }
+  return { path: file.path, sha256: r.sha256, bytes: r.bytes, abs: file.abs }
+}
+
+// --in-ref <sha256>:<bytes>:<label>: an input that is not on disk (core's reference form)
+function inRef(text) {
+  try {
+    const r = parseRef(String(text))
+    return { path: r.path, sha256: r.sha256, bytes: Number(r.bytes) }
+  } catch (e) {
+    throw new UserError(`--in-ref ${JSON.stringify(text)} is not a file reference: ${e.message} A reference is written <sha256, 64 hex>:<bytes>:<label>.`, EXIT_USAGE)
+  }
+}
+
+// For a file inside the folder of a ledger that seals files: whether its bytes are those of its latest seal there.
+// -> null (in no such folder) | {ledger, path, state: 'matches its seal' | 'changed since it was sealed' | 'recorded removed'
+//    | 'not sealed', record?}
+function sealedHere(ledgers, abs, sha256) {
+  let best = null
+  for (const L of ledgers) {
+    if (!L.rootAbs || !L.verified || !L.verified.kinds || !L.verified.kinds.file) continue
+    if (!inside(L.rootAbs, abs)) continue
+    if (!best || inside(best.rootAbs, L.rootAbs)) best = L
+  }
+  if (!best) return null
+  const p = relPathOrNull(best.rootAbs, abs)
+  const e = p ? best.verified.files.get(p) : null
+  if (!e) return { ledger: best.label, path: p, state: 'not sealed' }
+  const l = e.latest
+  if (l.kind === 'file-removed') return { ledger: best.label, path: p, state: 'recorded removed', record: l.n }
+  return { ledger: best.label, path: p, state: l.sha256 === sha256 ? 'matches its seal' : 'changed since it was sealed', record: l.n }
+}
+
+// Each file's trace state, for check_inputs and iqc record: [{path, sha256, bytes, state, …, sealedHere?}]
+async function traceFiles(ledgers, refs) {
+  if (!refs.length) return { files: [], report: null }
+  const t = await traceRefs(ledgers, refs.map(({ path, sha256, bytes }) => ({ path, sha256, bytes })))
+  const files = refs.map((r, k) => {
+    const d = stateData(t.report, t.inputs[k])
+    const o = { path: displayPath(r.path), sha256: r.sha256, bytes: r.bytes, ...d }
+    if (r.abs) {
+      const h = sealedHere(ledgers, r.abs, r.sha256)
+      if (h) {
+        o.sealedHere = h
+        if (h.state === 'changed since it was sealed') o.text += `; ${h.ledger} sealed ${displayPath(h.path)} with other bytes (record ${h.record}): it changed since it was sealed`
+      }
+    }
+    return o
+  })
+  return { files, report: t.report }
+}
+
+// Appends one step record and traces its inputs. w: {root, loc, appender, key, station, cache, searchDirs, out}
+async function recordStep(w, { actor, tool, action, inputs, outputs }) {
+  const item = planStep({ station: w.station, actor, tool, action, inputs: inputs.map(({ path, sha256, bytes }) => ({ path, sha256, bytes })), outputs: outputs.map(({ path, sha256, bytes }) => ({ path, sha256, bytes })) })
+  // the inputs are traced before the step is appended, so an input is never traced to this step's own output
+  await w.appender.sync()
+  const own = { abs: w.loc.ledgerPath, rootAbs: w.root, rel: w.loc.shown, root: '' }
+  const ledgers = await labLedgers(w.searchDirs, { extra: [own], cache: w.cache })
+  const { files } = await traceFiles(ledgers, inputs)
+  const [rec] = await w.appender.append([item], w.key.privateKey)
+  const v = w.appender.v
+  const untraced = files.filter((f) => f.state === 'untraced').length
+  return {
+    ledger: { path: w.loc.ledgerPath, ledgerId: v.header.ledgerId, station: v.header.station, keyId: v.keyId },
+    record: rec.n, link: rec.h, reference: `${v.header.ledgerId}:${rec.n}:${rec.h}`,
+    actor: item.f.actor, tool: item.f.tool, action: item.f.action, at: item.f.at,
+    inputs: files, outputs: outputs.map((o) => ({ path: displayPath(o.path), sha256: o.sha256, bytes: o.bytes })),
+    untracedInputs: untraced,
+    ...(untraced ? { warning: `${plural(untraced, 'input matches', 'inputs match')} no sealed measurement and no recorded step output: an audit lists this step for review.` } : {}),
+  }
+}
+
+// the field rules (core's), before anything is read or written: a plain sentence on a usage error
+function checkStepFields({ actor, tool, action, station = 'station' }) {
+  try {
+    planStep({ station, actor, tool, action, inputs: [], outputs: [{ path: 'x', sha256: '0'.repeat(64), bytes: 0 }] })
+  } catch (e) {
+    throw new UserError(e.message.replace(/^Not a valid step record: /, 'The step cannot be recorded: '), EXIT_USAGE)
+  }
+}
+
+function writeJson(opts, data, stdout) {
+  if (!opts.json) return
+  const text = JSON.stringify(data, null, 2) + '\n'
+  if (opts.json === '-') { stdout.write(text); return }
+  try { writeFileSync(resolve(opts.json), text) } catch (e) { throw new UserError(`Cannot write the JSON to ${resolve(opts.json)} (${e.code || e.message}).`, EXIT_USAGE) }
+}
+
+function searchDirsOf(opts, def) {
+  const list = (opts.search && opts.search.length ? opts.search : [def]).map((d) => resolve(d))
+  for (const d of list) {
+    let st
+    try { st = lstatSync(d) } catch { throw new UserError(`--search ${d}: no folder there.`, EXIT_USAGE) }
+    if (!st.isDirectory()) throw new UserError(`--search ${d} is not a folder.`, EXIT_USAGE)
+  }
+  return list
+}
+
+// ------------------------------------------------------------------------------------------------------ iqc record
+async function runRecord({ opts, out, stdout }) {
+  const root = dataFolder(opts.root == null ? '.' : opts.root)
+  const loc = locate(root, opts.ledger)
+  checkStepFields({ actor: opts.actor, tool: opts.tool, action: opts.action, station: opts.station })
+  const pin = pinFileFor(opts, out, loc)
+  const searchDirs = searchDirsOf(opts, root)
+  const cwd = process.cwd()
+  const inputs = []
+  for (const p of opts.in || []) inputs.push(await refOf(confinedFile(root, p, { base: cwd, what: 'input', own: loc.own })))
+  for (const t of opts['in-ref'] || []) inputs.push(inRef(t))
+  const outputs = []
+  for (const p of opts.out) outputs.push(await refOf(confinedFile(root, p, { base: cwd, what: 'output', own: loc.own })))
+  ensureDir(loc.dir)
+  const lock = acquireLock(loc.lockPath, { command: 'record', out })
+  let r, open
+  try {
+    open = await openForWriting(loc, opts, out, { pin })
+    if (loc.isDefault) ensureReadme(loc.readmePath, AGENT_README_TEXT)
+    r = await recordStep({ root, loc, ...open, cache: new LedgerCache(), searchDirs, out }, { actor: opts.actor, tool: opts.tool, action: opts.action, inputs, outputs })
+  } finally {
+    lock.release()
+  }
+  if (open.created) {
+    out.print(`New ledger ${loc.shown} (ledger id ${r.ledger.ledgerId}, station ${r.ledger.station}).`)
+    if (open.key.created) out.print(`New signing key ${open.key.keyId}, saved to ${open.key.file}\n  Keep a backup of that file: it is needed to add records to this ledger (never to audit it).`)
+  }
+  out.print(`Recorded step ${r.record} in ${loc.shown}: ${r.actor}${r.tool !== '-' ? ` (${r.tool})` : ''}: ${r.action}`)
+  out.print(`  reference ${r.reference}`)
+  for (const f of r.inputs) out.event(f.state === 'untraced' ? 'untraced' : f.state, f.state === 'untraced' ? 'yellow' : f.state === 'measured' ? 'green' : 'cyan', `${f.path}  ${formatBytes(f.bytes)}  ${f.sha256.slice(0, 8)}…  ${f.text.replace(/^(?:measured|derived|untraced): /, '')}`)
+  for (const f of r.outputs) out.event('wrote', 'blue', `${f.path}  ${formatBytes(f.bytes)}  ${f.sha256.slice(0, 8)}…`)
+  if (r.warning) out.warn(r.warning)
+  writeJson(opts, r, stdout)
+  return EXIT_OK
+}
+
+// ------------------------------------------------------------------------------------------------------- iqc trace
+async function traceOne(ledgers, file) {
+  const ref = await refOf(file)
+  const t = await traceRefs(ledgers, [{ path: ref.path, sha256: ref.sha256, bytes: ref.bytes }])
+  const x = t.inputs[0]
+  const leaves = x && x.tree ? treeLeaves(x.tree) : { measured: 0, untraced: 1, cut: false }
+  const cycle = !!(x && x.tree && JSON.stringify(x.tree).includes('"stop":"cycle"'))
+  const traces = !!x && !leaves.untraced && !cycle && leaves.measured > 0
+  const d = stateData(t.report, x)
+  const here = sealedHere(ledgers, ref.abs, ref.sha256)
+  const sentence = !x || x.state === 'untraced' ? 'Untraced: these bytes match no sealed measurement and no recorded agent step output.'
+    : x.state === 'measured' ? `Measured: ${d.text.replace(/^measured: /, '')}.`
+    : traces ? `Derived: it traces to ${plural(leaves.measured, 'measured file', 'measured files')}${leaves.cut ? ' (the tree is cut short; the audit has the whole count)' : ''}.`
+    : `Derived, but not every input on the way traces to a measurement: ${plural(leaves.untraced, 'input', 'inputs')} nothing measured${cycle ? ', and a cycle of steps' : ''}.`
+  return {
+    path: displayPath(ref.path), sha256: ref.sha256, bytes: ref.bytes, ...d, tracesToMeasured: traces, measuredFiles: leaves.measured, untracedInputs: leaves.untraced,
+    ...(here ? { sealedHere: here } : {}), sentence, tree: x ? x.tree : null, lines: x && x.tree ? treeLines(t.report, x.tree) : [],
+  }
+}
+
+async function runTrace({ file, opts, out, stdout }) {
+  const cwd = process.cwd()
+  const abs = resolve(cwd, file)
+  let st
+  try { st = lstatSync(abs) } catch (e) { throw new UserError(e.code === 'ENOENT' ? `No file at ${abs}.` : `Cannot look at ${abs} (${e.code || e.message}).`, EXIT_USAGE) }
+  if (st.isSymbolicLink()) throw new UserError(`${abs} is a symbolic link: links are never followed. Trace the file itself.`, EXIT_USAGE)
+  if (!st.isFile()) throw new UserError(`${abs} is not a file.`, EXIT_USAGE)
+  const rel = relative(cwd, abs)
+  const raw = rel && !rel.startsWith('..') && !isAbsolute(rel) ? rel.split(sep).join('/') : basename(abs)
+  let path
+  try { path = encodePath(raw) } catch { path = 'file' }
+  const searchDirs = searchDirsOf(opts, cwd)
+  const ledgers = await labLedgers(searchDirs)
+  const r = await traceOne(ledgers, { abs, path })
+  out.result(`${r.path}  ${formatBytes(r.bytes)}  ${r.sha256}`)
+  out.print(r.sentence)
+  if (r.sealedHere) out.print(`In ${r.sealedHere.ledger}: ${r.sealedHere.state}${r.sealedHere.record ? ` (record ${r.sealedHere.record})` : ''}.`)
+  if (r.state === 'derived') for (const l of r.lines.slice(1)) out.print(l)
+  out.print(`Searched ${plural(ledgers.length, 'ledger', 'ledgers')} under ${searchDirs.join(', ')}.`)
+  const { lines, ...data } = r
+  writeJson(opts, data, stdout)
+  return r.state === 'measured' || r.tracesToMeasured ? EXIT_OK : EXIT_REVIEW
+}
+
+// ------------------------------------------------------------------------------------------------------ iqc review
+const SUBJECT = /^([0-9a-fA-F]{32}):(0|[1-9][0-9]*)(?::([0-9a-fA-F]{64}))?$/
+
+// a reviewer's name as a file name: "J. Rivera" -> j-rivera
+function reviewerSlug(name) {
+  const s = String(name).normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 64)
+  return s || 'reviewer'
+}
+
+async function runReview({ subjects, opts, out, stdout }) {
+  if (!DECISIONS.includes(opts.decision)) throw new UserError(`--decision ${JSON.stringify(opts.decision)}: the decision is one of ${DECISIONS.join(', ')}.`, EXIT_USAGE)
+  try {
+    planReview({ station: opts.station || 'station', reviewer: opts.reviewer, subjects: [{ ledgerId: '0'.repeat(32), n: 1, h: '0'.repeat(64) }], decision: opts.decision, note: opts.note })
+  } catch (e) {
+    throw new UserError(e.message.replace(/^Not a valid review record: /, 'The review cannot be recorded: '), EXIT_USAGE)
+  }
+  const wanted = subjects.map((t) => {
+    const m = SUBJECT.exec(String(t).trim())
+    if (!m) throw new UserError(`${JSON.stringify(t)} is not a record reference. Write <ledger id, 32 hex>:<record number>, or <ledger id>:<record number>:<link, 64 hex> (iqc record prints it).`, EXIT_USAGE)
+    return { ledgerId: m[1].toLowerCase(), n: Number(m[2]), h: m[3] ? m[3].toLowerCase() : null, text: t }
+  })
+  const cwd = process.cwd()
+  const searchDirs = searchDirsOf(opts, cwd)
+  const ledgerFile = opts.ledger ? resolve(opts.ledger) : join(cwd, `${reviewerSlug(opts.reviewer)}.ledger.jsonl`)
+  const loc = locate(cwd, ledgerFile)
+  const pin = pinFileFor(opts, out, loc)
+  const ledgers = await labLedgers(searchDirs)
+  const byId = new Map()
+  for (const L of ledgers) if (L.verified.header && !byId.has(L.verified.header.ledgerId)) byId.set(L.verified.header.ledgerId, L)
+  const resolved = []
+  for (const w of wanted) {
+    if (w.n === 0) throw new UserError(`${w.text}: record 0 is the ledger's header; name a record (1 or more).`, EXIT_USAGE)
+    const L = byId.get(w.ledgerId)
+    if (!L) {
+      if (!w.h) throw new UserError(`Ledger ${w.ledgerId} is not under ${searchDirs.join(', ')}, so record ${w.n}'s link cannot be read. Give --search <the folder that holds it>, or the full reference <ledger id>:<n>:<link>.`, EXIT_USAGE)
+      out.warn(`Ledger ${w.ledgerId} is not under ${searchDirs.join(', ')}: record ${w.n} is signed off as given, with link ${w.h.slice(0, 12)}…, unchecked.`)
+      resolved.push({ ledgerId: w.ledgerId, n: w.n, h: w.h, what: 'a record of a ledger not found' })
+      continue
+    }
+    const v = L.verified
+    if (w.n > v.goodCount) {
+      throw new UserError(w.n > v.recordCount ? `${L.label} has no record ${w.n} (it has ${plural(v.recordCount, 'record', 'records')}). Nothing was written.` : `${L.label} does not verify up to record ${w.n}: a broken ledger's records are not signed off. Run iqc audit. Nothing was written.`)
+    }
+    const rec = v.records[w.n - 1]
+    if (w.h && w.h !== rec.h) throw new UserError(`Record ${w.n} of ${L.label} has the link ${rec.h}, not ${w.h}: it is not the record that reference named (the ledger was rewritten, or the reference is wrong). Nothing was written.`)
+    const what = rec.kind === 'step' ? `agent step: ${rec.f.actor}: ${rec.f.action}` : rec.kind === 'file' ? `file ${displayPath(rec.f.path)} as sealed on ${rec.f.station}` : rec.kind === 'file-removed' ? `removal of ${displayPath(rec.f.path)}` : `${rec.kind} record`
+    if (rec.kind === 'session') out.warn(`Record ${w.n} of ${L.label} is a session record (${rec.f.event}), not an agent step or a file.`)
+    resolved.push({ ledgerId: w.ledgerId, n: w.n, h: rec.h, what, ledger: L.label })
+  }
+  ensureDir(loc.dir)
+  const lock = acquireLock(loc.lockPath, { command: 'review', out })
+  let rec, open
+  try {
+    open = await openForWriting(loc, opts, out, { pin })
+    const item = planReview({ station: open.station, reviewer: opts.reviewer, subjects: resolved.map(({ ledgerId, n, h }) => ({ ledgerId, n, h })), decision: opts.decision, note: opts.note })
+    await open.appender.sync()
+    ;[rec] = await open.appender.append([item], open.key.privateKey)
+  } finally {
+    lock.release()
+  }
+  const v = open.appender.v
+  if (open.created) {
+    out.print(`New reviewer ledger ${loc.shown} (ledger id ${v.header.ledgerId}, station ${v.header.station}).`)
+    if (open.key.created) out.print(`New signing key ${open.key.keyId}, saved to ${open.key.file}\n  The key identifies whoever holds it on this computer, not a person.`)
+  }
+  out.print(`Recorded review ${rec.n} in ${loc.shown}: ${opts.decision} by ${rec.f.reviewer}, on ${plural(resolved.length, 'record', 'records')}${rec.f.note !== '-' ? ` ("${rec.f.note}")` : ''}`)
+  for (const s of resolved) out.print(`  ${s.ledgerId}:${s.n}  ${s.what}`)
+  out.print('Keep this ledger with the lab folder: an audit of the folder finds every *.ledger.jsonl file in it.')
+  writeJson(opts, { ledger: { path: loc.ledgerPath, ledgerId: v.header.ledgerId, station: v.header.station, keyId: v.keyId }, record: rec.n, link: rec.h, reviewer: rec.f.reviewer, decision: rec.f.decision, note: rec.f.note === '-' ? '' : rec.f.note, at: rec.f.at, subjects: resolved }, stdout)
+  return EXIT_OK
+}
+
+return { AGENT_README_TEXT, refOf, inRef, sealedHere, traceFiles, recordStep, searchDirsOf, runRecord, traceOne, runTrace, reviewerSlug, runReview }
+})()
+
+// ---------------------------------------------------------------------------------------------- agent/src/mcp.mjs
+const __iqc_mcp = (() => {
+// iqc mcp: a Model Context Protocol server on standard input and output, for an AI agent to call. It records the
+// agent's steps (what it read and wrote, by SHA-256) in the agent's own ledger and answers where a file's bytes came
+// from. No dependency: JSON-RPC 2.0, one message per line. Standard output carries protocol messages only; every
+// human line goes to standard error.
+//
+// Versions: 2026-07-28 (no handshake: each request names its version and the client's capabilities in _meta;
+// server/discover), and the handshake versions 2025-11-25, 2025-06-18, 2025-03-26 and 2024-11-05 (initialize, then
+// notifications/initialized; ping). Structured tool results (structuredContent, outputSchema) from 2025-06-18.
+const { AGENT, AGENT_VERSION, UserError, EXIT_OK } = __iqc_util
+const { dataFolder, locate, confinedFile } = __iqc_paths
+const { acquireLock } = __iqc_lock
+const { ensureDir, ensureReadme } = __iqc_ledger
+const { openForWriting, pinFileFor } = __iqc_session
+const { LedgerCache, labLedgers } = __iqc_lab
+const { refOf, inRef, traceFiles, recordStep, traceOne, AGENT_README_TEXT, searchDirsOf } = __iqc_steps
+const { ledgersOf, auditLedgers } = __iqc_audit
+const { planStep } = __core
+
+const MODERN_VERSIONS = Object.freeze(['2026-07-28'])
+const LEGACY_VERSIONS = Object.freeze(['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'])
+const SUPPORTED_VERSIONS = Object.freeze([...MODERN_VERSIONS, ...LEGACY_VERSIONS])
+const META_VERSION = 'io.modelcontextprotocol/protocolVersion'
+const META_CAPS = 'io.modelcontextprotocol/clientCapabilities'
+const META_SERVER = 'io.modelcontextprotocol/serverInfo'
+const SERVER_INFO = Object.freeze({ name: 'iqc', title: 'Immutable QC agent', version: AGENT_VERSION })
+const MAX_LINE = 8 * 1024 * 1024
+const MAX_PATHS = 1000
+
+const E = Object.freeze({ PARSE: -32700, INVALID_REQUEST: -32600, METHOD: -32601, PARAMS: -32602, INTERNAL: -32603, VERSION: -32022 })
+
+const INSTRUCTIONS = 'Records the steps you take on files under one folder, and traces where a file\'s bytes came from. ' +
+  'Before you use a file, call check_inputs to see whether its bytes were measured by an instrument, written by a recorded step, or neither. ' +
+  'After you write files, call record_step with what you read, what you wrote, and one line on what you did. ' +
+  'Paths are relative to the server\'s root folder; nothing outside it can be named. Each record is signed and linked to the one before it, in a ledger on this computer.'
+
+const pathList = (what, min) => ({ type: 'array', items: { type: 'string', minLength: 1 }, minItems: min, maxItems: MAX_PATHS, description: what })
+const fileState = {
+  type: 'object',
+  properties: {
+    path: { type: 'string' }, sha256: { type: 'string' }, bytes: { type: 'number' },
+    state: { type: 'string', enum: ['measured', 'derived', 'untraced'] }, text: { type: 'string' },
+    measured: { type: 'object' }, derived: { type: 'object' }, sealedHere: { type: 'object' }, changedAfterSeal: { type: 'boolean' },
+  },
+  required: ['path', 'sha256', 'bytes', 'state'],
+}
+
+const TOOLS = Object.freeze([
+  {
+    name: 'check_inputs',
+    title: 'Check input files',
+    description: 'Say, for each file, whether its exact bytes were sealed by an instrument (measured), written by a recorded agent step (derived), or neither (untraced). Also says when a sealed file has changed since it was sealed. Call it before using files as inputs. Reads only.',
+    inputSchema: { type: 'object', properties: { paths: pathList('Files to check, relative to the root folder.', 1) }, required: ['paths'], additionalProperties: false },
+    outputSchema: { type: 'object', properties: { files: { type: 'array', items: fileState }, measured: { type: 'number' }, derived: { type: 'number' }, untraced: { type: 'number' } }, required: ['files', 'measured', 'derived', 'untraced'] },
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  },
+  {
+    name: 'record_step',
+    title: 'Record a step',
+    description: 'Record one step you took: the files you read (inputs), the files you wrote (outputs) and one line on what you did. Each file is stored by its SHA-256 fingerprint and size. The record is signed and appended to the agent\'s ledger; it cannot be taken back, only reviewed. Returns the record\'s reference and each input\'s trace.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', minLength: 1, maxLength: 500, description: 'What the step did, in one line (for example: "Averaged the six injections and wrote the summary").' },
+        inputs: pathList('Files the step read, relative to the root folder.', 0),
+        outputs: pathList('Files the step wrote, relative to the root folder (at least one).', 1),
+        input_refs: { type: 'array', items: { type: 'string', minLength: 1 }, maxItems: MAX_PATHS, description: 'Inputs that are not files under the root, each written <sha256>:<bytes>:<label>.' },
+        actor: { type: 'string', minLength: 1, maxLength: 64, description: 'Who took the step (default: the server\'s --actor).' },
+        tool: { type: 'string', minLength: 1, maxLength: 128, description: 'The program or model that took it (default: the server\'s --tool).' },
+      },
+      required: ['action', 'outputs'],
+      additionalProperties: false,
+    },
+    outputSchema: {
+      type: 'object',
+      properties: {
+        reference: { type: 'string' }, record: { type: 'number' }, link: { type: 'string' }, ledger: { type: 'object' }, actor: { type: 'string' }, tool: { type: 'string' },
+        action: { type: 'string' }, at: { type: 'string' }, inputs: { type: 'array', items: fileState }, outputs: { type: 'array', items: { type: 'object' } }, untracedInputs: { type: 'number' }, warning: { type: 'string' },
+      },
+      required: ['reference', 'record', 'link', 'inputs', 'outputs', 'untracedInputs'],
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  },
+  {
+    name: 'trace',
+    title: 'Trace a file',
+    description: 'Trace one file\'s bytes back through the recorded agent steps to the files instruments sealed, and say whether every branch ends in a measurement. Reads only.',
+    inputSchema: { type: 'object', properties: { path: { type: 'string', minLength: 1, description: 'The file, relative to the root folder.' } }, required: ['path'], additionalProperties: false },
+    outputSchema: {
+      type: 'object',
+      properties: { path: { type: 'string' }, sha256: { type: 'string' }, bytes: { type: 'number' }, state: { type: 'string' }, tracesToMeasured: { type: 'boolean' }, measuredFiles: { type: 'number' }, untracedInputs: { type: 'number' }, sentence: { type: 'string' }, tree: {} },
+      required: ['path', 'sha256', 'state', 'tracesToMeasured', 'sentence'],
+    },
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  },
+  {
+    name: 'audit_summary',
+    title: 'Audit summary',
+    description: 'Audit every ledger in the folders this server searches: each ledger checked whole, every sealed file read and compared, every step\'s inputs traced. Returns the verdict (pass, review or fail), its sentence, and the problems and items for review. Reads only; it reads every file, so it can take a while on a large folder.',
+    inputSchema: { type: 'object', properties: { strict: { type: 'boolean', description: 'Count items for review and notes as failures.' } }, additionalProperties: false },
+    outputSchema: {
+      type: 'object',
+      properties: { verdict: { type: 'string', enum: ['pass', 'review', 'fail'] }, summary: { type: 'string' }, counts: { type: 'object' }, problems: { type: 'array', items: { type: 'string' } }, forReview: { type: 'array', items: { type: 'string' } }, notes: { type: 'array', items: { type: 'string' } }, ledgers: { type: 'array', items: { type: 'object' } } },
+      required: ['verdict', 'summary', 'counts', 'problems', 'forReview', 'notes', 'ledgers'],
+    },
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  },
+])
+
+// the tool list as a version shows it: title and outputSchema from 2025-06-18, annotations from 2025-03-26
+function toolsFor(version) {
+  return TOOLS.map((t) => {
+    const o = { name: t.name, description: t.description, inputSchema: t.inputSchema }
+    if (version >= '2025-06-18') { o.title = t.title; o.outputSchema = t.outputSchema }
+    if (version >= '2025-03-26') o.annotations = { title: t.title, ...t.annotations }
+    return o
+  })
+}
+
+// A small check of tool arguments against the input schemas above (the subset they use). -> null | a sentence
+function argsProblem(schema, args) {
+  if (args === undefined) args = {}
+  if (!args || typeof args !== 'object' || Array.isArray(args)) return 'The arguments must be a JSON object.'
+  for (const k of Object.keys(args)) if (!schema.properties[k]) return `Unknown argument "${k}". This tool takes: ${Object.keys(schema.properties).join(', ')}.`
+  for (const k of schema.required || []) if (args[k] === undefined) return `The argument "${k}" is missing.`
+  for (const [k, s] of Object.entries(schema.properties)) {
+    const v = args[k]
+    if (v === undefined) continue
+    if (s.type === 'string') {
+      if (typeof v !== 'string') return `"${k}" must be text.`
+      if (s.minLength && v.length < s.minLength) return `"${k}" is empty.`
+      if (s.maxLength && [...v].length > s.maxLength) return `"${k}" is longer than ${s.maxLength} characters.`
+    } else if (s.type === 'boolean') {
+      if (typeof v !== 'boolean') return `"${k}" must be true or false.`
+    } else if (s.type === 'array') {
+      if (!Array.isArray(v)) return `"${k}" must be a list.`
+      if (s.minItems && v.length < s.minItems) return `"${k}" needs at least ${s.minItems} ${s.minItems === 1 ? 'entry' : 'entries'}.`
+      if (s.maxItems && v.length > s.maxItems) return `"${k}" holds more than ${s.maxItems} entries.`
+      if (v.some((x) => typeof x !== 'string' || x === '')) return `Every entry of "${k}" must be non-empty text.`
+    }
+  }
+  return null
+}
+
+class RpcError extends Error {
+  constructor(code, message, data) { super(message); this.code = code; this.data = data }
+}
+
+const isId = (id) => typeof id === 'string' || (typeof id === 'number' && Number.isFinite(id))
+
+// The server. `send(obj)` writes one message; `log(s)` a line on standard error.
+class McpServer {
+  constructor({ root, loc, searchDirs, open, opts, out, send }) {
+    Object.assign(this, { root, loc, searchDirs, open, opts, out, send })
+    this.cache = new LedgerCache()
+    this.legacy = null // the version agreed by initialize
+    this.initialized = false
+    this.actor = opts.actor || 'agent'
+    this.tool = opts.tool || '-'
+  }
+
+  // one parsed message (or a parse error): the response object, or null for none
+  async handle(msg) {
+    if (Array.isArray(msg)) return this.error(null, E.INVALID_REQUEST, 'Batches are not supported: send one JSON-RPC message per line.')
+    if (!msg || typeof msg !== 'object') return this.error(null, E.INVALID_REQUEST, 'A message must be a JSON-RPC 2.0 object.')
+    const hasId = Object.prototype.hasOwnProperty.call(msg, 'id')
+    const id = hasId && isId(msg.id) ? msg.id : null
+    if (msg.jsonrpc !== '2.0') return this.error(id, E.INVALID_REQUEST, 'The message must carry "jsonrpc": "2.0".')
+    if (typeof msg.method !== 'string') {
+      if (hasId && ('result' in msg || 'error' in msg)) return null // a response: this server sends no requests
+      return this.error(id, E.INVALID_REQUEST, 'A request must name its method.')
+    }
+    if (!hasId) { this.notification(msg); return null }
+    if (!isId(msg.id)) return this.error(null, E.INVALID_REQUEST, 'A request id must be a string or a number.')
+    if (msg.params !== undefined && (msg.params === null || typeof msg.params !== 'object' || Array.isArray(msg.params))) return this.error(id, E.INVALID_REQUEST, 'params must be an object.')
+    try {
+      return { jsonrpc: '2.0', id, result: await this.request(msg.method, msg.params || {}) }
+    } catch (e) {
+      if (e instanceof RpcError) return this.error(id, e.code, e.message, e.data)
+      this.out.error(`Unexpected: ${e && e.message ? e.message : e}`)
+      return this.error(id, E.INTERNAL, 'The server hit an error it did not expect; the details are on its standard error.')
+    }
+  }
+
+  error(id, code, message, data) {
+    return { jsonrpc: '2.0', id, error: data === undefined ? { code, message } : { code, message, data } }
+  }
+
+  notification(msg) {
+    if (msg.method === 'notifications/initialized') { if (this.legacy) this.initialized = true }
+    // anything else (notifications/cancelled, progress) needs nothing: requests are answered in order
+  }
+
+  // which version a request uses: its _meta version (no handshake), else the one initialize agreed
+  versionOf(method, params) {
+    const meta = params._meta && typeof params._meta === 'object' ? params._meta : null
+    if (meta && meta[META_VERSION] !== undefined) {
+      const v = meta[META_VERSION]
+      if (typeof v !== 'string' || !SUPPORTED_VERSIONS.includes(v)) throw new RpcError(E.VERSION, 'Unsupported protocol version', { supported: [...SUPPORTED_VERSIONS], requested: v })
+      if (MODERN_VERSIONS.includes(v) && (!meta[META_CAPS] || typeof meta[META_CAPS] !== 'object' || Array.isArray(meta[META_CAPS]))) {
+        throw new RpcError(E.PARAMS, `The request must carry its client capabilities in _meta["${META_CAPS}"] (an object, {} for none).`)
+      }
+      return { version: v, modern: MODERN_VERSIONS.includes(v) }
+    }
+    if (this.legacy) return { version: this.legacy, modern: false }
+    if (method === 'ping') return { version: LEGACY_VERSIONS[0], modern: false }
+    throw new RpcError(E.PARAMS, `Name the protocol version in _meta["${META_VERSION}"] (with _meta["${META_CAPS}"]), or send initialize first. Supported: ${SUPPORTED_VERSIONS.join(', ')}.`)
+  }
+
+  wrap(result, { modern, cache }) {
+    if (!modern) return result
+    const o = { resultType: 'complete', ...result, _meta: { ...(result._meta || {}), [META_SERVER]: { ...SERVER_INFO } } }
+    if (cache) { o.ttlMs = cache; o.cacheScope = 'public' }
+    return o
+  }
+
+  async request(method, params) {
+    if (method === 'initialize') {
+      if (this.legacy) throw new RpcError(E.INVALID_REQUEST, 'The server is already initialized; initialize is sent once.')
+      const asked = params.protocolVersion
+      if (typeof asked !== 'string') throw new RpcError(E.PARAMS, 'initialize needs protocolVersion (text).')
+      this.legacy = LEGACY_VERSIONS.includes(asked) ? asked : LEGACY_VERSIONS[0]
+      const c = params.clientInfo && typeof params.clientInfo === 'object' ? params.clientInfo : null
+      this.out.note(`MCP client ${c && typeof c.name === 'string' ? c.name : 'unnamed'} connected (protocol ${this.legacy}).`)
+      const info = this.legacy >= '2025-06-18' ? { ...SERVER_INFO } : { name: SERVER_INFO.name, version: SERVER_INFO.version }
+      return { protocolVersion: this.legacy, capabilities: { tools: { listChanged: false } }, serverInfo: info, instructions: INSTRUCTIONS }
+    }
+    const era = this.versionOf(method, params)
+    if (method === 'ping') {
+      if (era.modern) throw new RpcError(E.METHOD, 'ping is not a method of protocol 2026-07-28.')
+      return {}
+    }
+    if (method === 'server/discover') {
+      return this.wrap({ supportedVersions: [...SUPPORTED_VERSIONS], capabilities: { tools: { listChanged: false } }, instructions: INSTRUCTIONS }, { modern: true, cache: 3600000 })
+    }
+    if (method === 'tools/list') {
+      if (params.cursor !== undefined && typeof params.cursor !== 'string') throw new RpcError(E.PARAMS, 'cursor must be text.')
+      if (params.cursor) throw new RpcError(E.PARAMS, 'There is one page of tools; that cursor is not one this server gave.')
+      return this.wrap({ tools: toolsFor(era.version) }, { modern: era.modern, cache: 300000 })
+    }
+    if (method === 'tools/call') {
+      const t = TOOLS.find((x) => x.name === params.name)
+      if (typeof params.name !== 'string' || !t) throw new RpcError(E.PARAMS, `Unknown tool ${JSON.stringify(params.name)}. The tools are: ${TOOLS.map((x) => x.name).join(', ')}.`)
+      return this.wrap(await this.call(t, params.arguments, era.version), { modern: era.modern })
+    }
+    throw new RpcError(E.METHOD, `Unknown method ${JSON.stringify(method)}.`)
+  }
+
+  async call(t, args, version) {
+    const structured = version >= '2025-06-18'
+    const fail = (text) => ({ content: [{ type: 'text', text }], isError: true })
+    const why = argsProblem(t.inputSchema, args)
+    if (why) return fail(why)
+    let r
+    try {
+      r = await this[t.name](args || {})
+    } catch (e) {
+      if (e instanceof UserError) return fail(e.message)
+      throw e
+    }
+    const content = [{ type: 'text', text: r.text }, { type: 'text', text: JSON.stringify(r.data) }]
+    return structured ? { content, structuredContent: r.data } : { content }
+  }
+
+  file(p, what) { return confinedFile(this.root, p, { base: this.root, what, own: this.loc.own }) }
+  ledgers(extra = true) {
+    return labLedgers(this.searchDirs, { extra: extra ? [{ abs: this.loc.ledgerPath, rootAbs: this.root, rel: this.loc.shown, root: '' }] : [], cache: this.cache })
+  }
+
+  async check_inputs({ paths }) {
+    const refs = []
+    for (const p of paths) refs.push(await refOf(this.file(p, 'file')))
+    const { files } = await traceFiles(await this.ledgers(), refs)
+    const n = (s) => files.filter((f) => f.state === s).length
+    const changed = files.filter((f) => f.sealedHere && f.sealedHere.state === 'changed since it was sealed').length
+    const lines = files.map((f) => `${f.path}: ${f.text}`)
+    const head = `${files.length === 1 ? '1 file' : `${files.length} files`}: ${n('measured')} measured, ${n('derived')} derived, ${n('untraced')} untraced${changed ? `; ${changed} changed since sealed` : ''}.`
+    return { text: [head, ...lines].join('\n'), data: { files, measured: n('measured'), derived: n('derived'), untraced: n('untraced'), changedSinceSealed: changed } }
+  }
+
+  async record_step({ action, inputs = [], outputs, input_refs = [], actor, tool }) {
+    const who = actor || this.actor, prog = tool || this.tool
+    try {
+      planStep({ station: this.open.station, actor: who, tool: prog, action, inputs: [], outputs: [{ path: 'x', sha256: '0'.repeat(64), bytes: 0 }] })
+    } catch (e) {
+      throw new UserError(e.message.replace(/^Not a valid step record: /, 'The step cannot be recorded: '))
+    }
+    const ins = []
+    for (const p of inputs) ins.push(await refOf(this.file(p, 'input')))
+    for (const t of input_refs) ins.push(inRef(t))
+    const outs = []
+    for (const p of outputs) outs.push(await refOf(this.file(p, 'output')))
+    const r = await recordStep({ root: this.root, loc: this.loc, ...this.open, cache: this.cache, searchDirs: this.searchDirs, out: this.out }, { actor: who, tool: prog, action, inputs: ins, outputs: outs })
+    this.out.note(`Recorded step ${r.record}: ${r.actor}: ${r.action}`)
+    const lines = [`Recorded step ${r.record} (reference ${r.reference}).`, ...r.inputs.map((f) => `input ${f.path}: ${f.text}`), ...r.outputs.map((f) => `output ${f.path}: ${f.sha256}`)]
+    if (r.warning) lines.push(r.warning)
+    return { text: lines.join('\n'), data: r }
+  }
+
+  async trace({ path }) {
+    const f = this.file(path, 'file')
+    const r = await traceOne(await this.ledgers(), f)
+    const { lines, ...data } = r
+    return { text: [r.sentence, ...lines.slice(1)].join('\n'), data }
+  }
+
+  async audit_summary({ strict = false }) {
+    const all = [], seen = new Set()
+    for (const d of this.searchDirs) for (const e of await ledgersOf(d, [], { pinFile: null })) if (!seen.has(e.abs)) { seen.add(e.abs); all.push(e) }
+    if (!seen.has(this.loc.ledgerPath)) all.push(...(await ledgersOf(this.root, [this.loc.ledgerPath])).filter((e) => !seen.has(e.abs)))
+    if (!all.length) throw new UserError('There is no ledger in the folders this server searches.')
+    const report = await auditLedgers(all, { ...this.opts, strict, 'expect-head': null, 'expect-key': null }, { folder: this.searchDirs[0] })
+    const msg = (x) => x.message
+    const data = {
+      verdict: report.verdict, summary: report.summary, counts: report.counts, problems: report.problems.map(msg), forReview: report.forReview.map(msg), notes: report.notes.map(msg),
+      ledgers: report.ledgers.map((L) => ({ label: L.label, ledgerPath: L.ledgerPath, role: L.role, records: L.records, verdict: L.verdict })),
+    }
+    const lines = [report.summary, ...data.problems.map((s) => `problem: ${s}`), ...data.forReview.map((s) => `for review: ${s}`)]
+    return { text: lines.join('\n'), data }
+  }
+}
+
+// iqc mcp: holds the ledger's lock for as long as it runs, between an mcp-started and an mcp-stopped record.
+async function runMcp({ opts, out, stdout, stdin = process.stdin, signals = process }) {
+  const root = dataFolder(opts.root == null ? '.' : opts.root)
+  const loc = locate(root, opts.ledger)
+  const pin = pinFileFor(opts, out, loc)
+  const searchDirs = searchDirsOf(opts, root)
+  ensureDir(loc.dir)
+  const lock = acquireLock(loc.lockPath, { command: 'mcp', out })
+  let open
+  try {
+    open = await openForWriting(loc, opts, out, { pin })
+    if (loc.isDefault) ensureReadme(loc.readmePath, AGENT_README_TEXT)
+    await open.appender.append([{ kind: 'session', f: { station: open.station, event: 'mcp-started', at: new Date().toISOString(), agent: AGENT } }], open.key.privateKey)
+  } catch (e) {
+    lock.release()
+    throw e
+  }
+  if (open.created) out.note(`New ledger ${loc.ledgerPath} (station ${open.station}).${open.key.created ? ` New signing key ${open.key.keyId}, saved to ${open.key.file}; keep a backup of it.` : ''}`)
+  out.note(`iqc mcp: serving on standard input and output. Root ${root}; ledger ${loc.ledgerPath}; protocol versions ${SUPPORTED_VERSIONS.join(', ')}.`)
+
+  let broken = false
+  const send = (obj) => {
+    if (broken) return
+    try { stdout.write(JSON.stringify(obj) + '\n') } catch { broken = true }
+  }
+  if (stdout.on) stdout.on('error', () => { broken = true })
+  const server = new McpServer({ root, loc, searchDirs, open, opts, out, send })
+
+  return await new Promise((resolveRun) => {
+    let buf = '', chain = Promise.resolve(), stopping = false, skipping = false
+    const enqueue = (line) => {
+      chain = chain.then(async () => {
+        let msg
+        try { msg = JSON.parse(line) } catch { send(server.error(null, E.PARSE, 'Not valid JSON.')); return }
+        const res = await server.handle(msg)
+        if (res) send(res)
+      })
+    }
+    const onData = (chunk) => {
+      buf += typeof chunk === 'string' ? chunk : chunk.toString('utf8')
+      let i
+      while ((i = buf.indexOf('\n')) >= 0) {
+        let line = buf.slice(0, i)
+        buf = buf.slice(i + 1)
+        if (skipping) { skipping = false; continue }
+        if (line.endsWith('\r')) line = line.slice(0, -1)
+        if (line.trim()) enqueue(line)
+      }
+      if (buf.length > MAX_LINE) {
+        buf = ''
+        skipping = true
+        chain = chain.then(() => send(server.error(null, E.INVALID_REQUEST, `A message longer than ${MAX_LINE} bytes is not read.`)))
+      }
+    }
+    const stop = async (why) => {
+      if (stopping) return
+      stopping = true
+      stdin.removeListener('data', onData)
+      if (buf.trim() && !skipping) enqueue(buf.replace(/\r$/, ''))
+      buf = ''
+      for (const s of ['SIGINT', 'SIGTERM', 'SIGHUP']) signals.removeListener(s, onSignal)
+      try { await chain } catch { /* answered */ }
+      let code = EXIT_OK
+      try {
+        await open.appender.sync()
+        await open.appender.append([{ kind: 'session', f: { station: open.station, event: 'mcp-stopped', at: new Date().toISOString(), agent: AGENT } }], open.key.privateKey)
+      } catch (e) {
+        out.error(`Could not write the mcp-stopped record: ${e.message}`)
+        code = e instanceof UserError ? e.exitCode : 1
+      }
+      lock.release()
+      out.note(`iqc mcp: stopped (${why}).`)
+      if (typeof stdin.pause === 'function') stdin.pause()
+      resolveRun(code)
+    }
+    const onSignal = (s) => { stop(s) }
+    for (const s of ['SIGINT', 'SIGTERM', 'SIGHUP']) signals.on(s, onSignal)
+    if (typeof stdin.setEncoding === 'function') stdin.setEncoding('utf8')
+    stdin.on('data', onData)
+    stdin.once('end', () => stop('standard input closed'))
+    stdin.once('error', () => stop('standard input failed'))
+    if (typeof stdin.resume === 'function') stdin.resume()
+  })
+}
+
+return { MODERN_VERSIONS, LEGACY_VERSIONS, SUPPORTED_VERSIONS, E, TOOLS, toolsFor, argsProblem, McpServer, runMcp }
 })()
 
 // ---------------------------------------------------------------------------------------------- agent/src/info.mjs
@@ -4155,39 +5366,50 @@ const { parseArgs } = __iqc_args
 const { Out } = __iqc_out
 const { runSession } = __iqc_session
 const { runAudit } = __iqc_audit
+const { runRecord, runTrace, runReview } = __iqc_steps
+const { runMcp, SUPPORTED_VERSIONS } = __iqc_mcp
 const { runHead, runStatus } = __iqc_info
 
 const HELP = `iqc ${AGENT_VERSION}: the Immutable QC agent. It seals every file in a folder as it is written,
-and audits the folder against its seals. Nothing is sent anywhere: iqc reads files and writes
-its ledger; it never uses the network.
+records the steps an AI agent takes on files, and audits a lab folder against its ledgers.
+Nothing is sent anywhere: iqc reads files and writes its ledgers; it never uses the network.
 
 Usage:  node iqc.mjs <command> [folder] [options]
 
   watch  [folder]   Seal everything now, then keep sealing new, changed and removed files
                     until Ctrl+C.
   seal   [folder]   Seal once and exit (for a scheduler or a pipeline).
-  audit  [folder]   Check the ledger and every file. Exit 0 pass, 3 review, 1 fail,
-                    2 usage or read error.
+  audit  [folder]   Check every ledger in the folder and every file. Exit 0 pass, 3 review,
+                    1 fail, 2 usage or read error.
                     --report <file.html>   write the audit report (one HTML file, prints well)
                     --json <file.json>     write the machine-readable report (- for the output)
                     --expect-head <n>:<h>  fail unless record n's link is h (a head pinned earlier)
                     --expect-key <keyId>   fail unless the ledger is signed with this key id
+                    --allow-changes <glob> files whose recorded changes are expected; repeatable
+                    --pin-file <file>      check the heads written there by watch or seal
+                    --ledger <file>        one more ledger to audit; repeatable
                     --strict               count items for review and notes as failures
   head   [folder]   Print the current head, to pin somewhere else (an email, an ELN entry,
                     a printout).
   status [folder]   Ledger, key, records, last session, and what changed since the last seal.
+  record            Record one agent step: --actor, --action, --in <file>..., --out <file>...
+  trace  <file>     Trace a file's bytes back to the files instruments sealed.
+  review <ref>...   Sign off agent steps: --reviewer <name> --decision approved|question|rejected
+  mcp               Serve the agent tools over MCP on standard input and output.
   help [command]    This help, or one command's.  --version prints the version.
 
 The folder defaults to the current folder. Quote a path with spaces: "D:\\Instrument Data".
 
-Options for every command:
+Options of watch and seal (and, where they apply, the other commands):
   --ledger <path>    the ledger file (default: <folder>/ImmutableQC/ledger.jsonl)
   --key <path>       the signing key (default: ~/.immutableqc/keys/<key id>.jwk)
   --station <name>   the station in new records (default: the ledger's, or this computer's name)
   --interval <s>     seconds between scans (default 2)
-  --settle <s>       seconds a file must stay unchanged before it is sealed (default 3)
+  --settle <s>       seconds a file must stay unchanged before it is sealed (default 10)
   --ignore <glob>    skip matching files and folders; repeatable; * and ? (always skipped:
                      .DS_Store, Thumbs.db, desktop.ini, ~$*, *.tmp)
+  --pin-file <file>  after each batch, append the new head to this file (keep it on another
+                     drive or a share)
   --quiet            print only problems
   --no-color         no colors (NO_COLOR is honored too)
 
@@ -4195,11 +5417,12 @@ Examples:
   node iqc.mjs watch "D:\\Results"            Windows
   node iqc.mjs seal ~/instrument-data         macOS, Linux
   node iqc.mjs audit . --report audit.html
-  node iqc.mjs head
+  node iqc.mjs record --actor analyst-bot --action "Averaged the runs" --in raw.csv --out sum.csv
+  node iqc.mjs trace summary.csv
 
 Files: <folder>/ImmutableQC/ holds ledger.jsonl, README.txt and, while an agent runs,
 agent.lock. Keys are kept in ~/.immutableqc/keys/. To audit in a browser, drop the folder on
-https://immutableqc.com/app/ (nothing is uploaded).
+https://immutableqc.com/app/ (nothing is uploaded). Needs Node.js 22 or later.
 `
 
 const COMMAND_HELP = {
@@ -4208,12 +5431,15 @@ const COMMAND_HELP = {
 Seals every file in the folder now, then keeps sealing new, changed and removed files until you
 press Ctrl+C (or the process is stopped). It writes a watch-started record first and a
 watch-stopped record when it stops. A file is sealed once its size and modification time have
-not changed for --settle seconds; the folder is scanned every --interval seconds, so it works on
+not changed for --settle seconds (default 10: the Windows network-share client keeps file
+details for up to 10 seconds); the folder is scanned every --interval seconds, so it works on
 network shares too. Only one agent may write to a ledger at a time.
 
-Options: --ledger --key --station --interval <s> (2) --settle <s> (3) --ignore <glob> --quiet
-         --no-color
-Example: node iqc.mjs watch "D:\\Results"`,
+  --pin-file <file>  after each batch of records, append the head (one line) to this file
+
+Options: --ledger --key --station --interval <s> (2) --settle <s> (10) --ignore <glob>
+         --pin-file <file> --quiet --no-color
+Example: node iqc.mjs watch "D:\\Results" --pin-file "H:\\pins\\results.pins"`,
   seal: `iqc seal [folder] [options]
 
 Seals the folder once and exits: a scan record, then every file that is new, changed or removed
@@ -4221,22 +5447,31 @@ since the last seal. For a scheduled task or a pipeline. Exit 0 when done, 1 whe
 (a broken ledger, a missing key, another agent running) or could not write, 2 for a usage or
 read error.
 
-Options: --ledger --key --station --settle <s> (3) --ignore <glob> --quiet --no-color
+Options: --ledger --key --station --settle <s> (10) --ignore <glob> --pin-file <file> --quiet
+         --no-color
 Example: node iqc.mjs seal /data/plate-reader --quiet`,
   audit: `iqc audit [folder] [options]
 
-Checks the ledger (every signature and link) and reads every file to compare it with its seal.
-Prints the verdict; exit 0 pass, 3 review (recorded changes to look at), 1 fail, 2 usage or read error.
-Writes nothing unless asked.
+Finds every ledger in the folder: its own ImmutableQC/ledger.jsonl, the ImmutableQC/ledger.jsonl
+of each folder under it (up to 6 deep), and every reviewer's *.ledger.jsonl. Checks each one
+(every signature and link), reads every file to compare it with its seal, and traces each agent
+step's inputs back to the files instruments sealed. Prints the verdict; exit 0 pass, 3 review
+(recorded changes or steps to look at), 1 fail, 2 usage or read error. Writes nothing unless asked.
 
-  --report <file.html>   the audit report: one self-contained HTML file
-  --json <file.json>     the machine-readable report (- writes it to the standard output)
-  --expect-head <n>:<h>  fail unless record n's link is h (a head pinned earlier with iqc head)
-  --expect-key <keyId>   fail unless the ledger is signed with this key id
-  --strict               count items for review and notes as failures
-  --ledger --ignore --quiet --no-color
+  --report <file.html>    the audit report: one self-contained HTML file
+  --json <file.json>      the machine-readable report (- writes it to the standard output)
+  --expect-head <n>:<h>   fail unless record n's link is h (a head pinned earlier with iqc head)
+  --expect-key <keyId>    fail unless the ledger is signed with this key id
+  --allow-changes <glob>  recorded changes to files that match are expected (not for review);
+                          repeatable
+  --pin-file <file>       the heads written by watch or seal --pin-file: fail when a ledger no
+                          longer holds one
+  --ledger <file>         one more ledger to audit (repeatable); for a folder whose ledger is
+                          kept elsewhere, the first --ledger is that ledger
+  --strict                count items for review and notes as failures
+  --ignore --quiet --no-color
 
-Example: node iqc.mjs audit "D:\\Results" --report audit.html --expect-head 1234:9f86d081…`,
+Example: node iqc.mjs audit "D:\\Lab" --report audit.html --pin-file "H:\\pins\\results.pins"`,
   head: `iqc head [folder] [options]
 
 Prints the current head (record number and link, n:h) on its own line, to pin somewhere else:
@@ -4253,13 +5488,79 @@ last seal (read-only: nothing is written).
 
 Options: --ledger --key --ignore --quiet --no-color
 Example: node iqc.mjs status`,
+  record: `iqc record --actor <name> --action <text> [--in <file>]... --out <file>... [options]
+
+Records one step an agent (or a person, or a script) took: the files it read and wrote, each by
+its SHA-256 fingerprint and size, who took it and what it did. The record is signed and appended
+to the ledger of the root folder (<root>/ImmutableQC/ledger.jsonl). Every file must be inside the
+root; a path that leaves it, a symbolic link or a file reached through a linked folder is refused.
+Then each input is traced: measured (an instrument sealed these bytes), derived (a recorded step
+wrote them) or untraced. Exit 0 recorded, 1 refused or could not write, 2 usage or read error.
+
+  --root <folder>    the folder the step works in (default: the current folder)
+  --actor <name>     who took the step (1 to 64 characters)
+  --action <text>    what it did, on one line (1 to 500 characters)
+  --tool <name>      the program or model (default "-")
+  --in <file>        a file it read; repeatable
+  --in-ref <ref>     an input that is not a file under the root: <sha256>:<bytes>:<label>
+  --out <file>       a file it wrote; repeatable, at least one
+  --search <folder>  where to look for ledgers to trace the inputs (default: the root); repeatable
+  --json <file>      the record and the traces as JSON (- for the output)
+  --ledger --key --station --pin-file --quiet --no-color
+
+Example: node iqc.mjs record --root "D:\\Lab\\agent-workspace" --actor analyst-bot \\
+           --action "Averaged the six injections" --in ../hplc-3/run-07.csv --out summary.csv`,
+  trace: `iqc trace <file> [options]
+
+Traces the file's bytes back through the recorded agent steps to the files instruments sealed,
+and prints the tree. Exit 0 when the file was measured, or every branch ends in a measured file;
+3 when something on the way is untraced (or the steps form a cycle); 2 for a usage or read error.
+
+  --search <folder>  where to look for ledgers (default: the current folder); repeatable
+  --json <file>      the trace as JSON (- for the output)
+
+Example: node iqc.mjs trace summary.csv --search "D:\\Lab"`,
+  review: `iqc review <ledger id>:<n>[:<link>]... --reviewer <name> --decision <decision> [options]
+
+Signs off records (usually agent steps): approved, question or rejected, with an optional note.
+The review goes in the reviewer's own ledger (default ./<reviewer>.ledger.jsonl), which an audit
+of the lab folder finds and reads. Each record is looked up under --search and its link checked;
+a reference whose link does not match is refused. The signing key identifies whoever holds it on
+this computer, not a person. Exit 0 recorded, 1 refused, 2 usage or read error.
+
+  --reviewer <name>  who reviews (1 to 64 characters)
+  --decision <d>     approved, question or rejected
+  --note <text>      why (1 to 500 characters)
+  --search <folder>  where to look for the ledgers reviewed (default: the current folder)
+  --ledger <file>    the reviewer's ledger
+  --json <file>      the review as JSON (- for the output)
+  --key --station --pin-file --quiet --no-color
+
+Example: node iqc.mjs review 3f2a…:4 --reviewer "J. Rivera" --decision approved --search "D:\\Lab"`,
+  mcp: `iqc mcp [options]
+
+A Model Context Protocol server on standard input and output, for an AI agent: the agent calls
+check_inputs before it uses files, record_step after it writes files, trace and audit_summary.
+Standard output carries protocol messages only; everything else goes to standard error. The
+server holds the root's ledger for as long as it runs, between an mcp-started and an mcp-stopped
+record, and stops when standard input closes. Paths are relative to the root and confined to it.
+Protocol versions: ${SUPPORTED_VERSIONS.join(', ')}.
+
+  --root <folder>    the folder the agent works in (default: the current folder)
+  --search <folder>  where to look for ledgers (default: the root); repeatable
+  --actor <name>     the actor of each step unless the agent names one (default "agent")
+  --tool <name>      the tool of each step unless the agent names one (default "-")
+  --ledger --key --station --pin-file --ignore --quiet
+
+Client setup (JSON):
+  {"command": "node", "args": ["/path/to/iqc.mjs", "mcp", "--root", "/path/to/workspace"]}`,
   help: 'iqc help [command]\n\nShows the help, or one command\'s.',
 }
 
-async function run(argv, { stdout = process.stdout, stderr = process.stderr, env = process.env, signals = process } = {}) {
+async function run(argv, { stdout = process.stdout, stderr = process.stderr, env = process.env, signals = process, stdin = process.stdin } = {}) {
   const major = Number(String(process.versions.node).split('.')[0])
-  if (!(major >= 20)) {
-    stderr.write(`iqc needs Node.js 20 or later; this is Node.js ${process.versions.node}. Get a current version from https://nodejs.org\n`)
+  if (!(major >= 22)) {
+    stderr.write(`iqc needs Node.js 22 or later; this is Node.js ${process.versions.node}. Get a current version from https://nodejs.org\n`)
     return EXIT_USAGE
   }
   let out = new Out({ stdout, stderr, env })
@@ -4274,13 +5575,18 @@ async function run(argv, { stdout = process.stdout, stderr = process.stderr, env
       return EXIT_OK
     }
     // with --json -, the JSON is the standard output; the human lines go to standard error
-    const humanOut = command === 'audit' && a.opts.json === '-' ? stderr : stdout
+    // (and iqc mcp: the standard output is the protocol)
+    const humanOut = command === 'mcp' || a.opts.json === '-' ? stderr : stdout
     out = new Out({ quiet: !!a.opts.quiet, noColor: !!a.opts['no-color'], env, stdout: humanOut, stderr })
-    const ctx = { folder: a.folder, opts: a.opts, out, stdout, signals }
+    const ctx = { folder: a.folder, file: a.file, subjects: a.subjects, opts: a.opts, out, stdout, signals, stdin }
     if (command === 'watch' || command === 'seal') return await runSession(command, ctx)
     if (command === 'audit') return await runAudit(ctx)
     if (command === 'head') return await runHead(ctx)
     if (command === 'status') return await runStatus(ctx)
+    if (command === 'record') return await runRecord(ctx)
+    if (command === 'trace') return await runTrace(ctx)
+    if (command === 'review') return await runReview(ctx)
+    if (command === 'mcp') return await runMcp(ctx)
     return EXIT_USAGE
   } catch (e) {
     if (e instanceof UserError) {
@@ -4290,11 +5596,11 @@ async function run(argv, { stdout = process.stdout, stderr = process.stderr, env
     out.error(`Something went wrong that iqc did not expect: ${e && e.message ? e.message : e}`)
     if (env.IQC_DEBUG === '1') stderr.write(`${e && e.stack ? e.stack : e}\n`)
     else out.error('Run it again with IQC_DEBUG=1 to see the details.')
-    return command === 'audit' ? EXIT_USAGE : EXIT_FAIL
+    return command === 'audit' || command === 'trace' ? EXIT_USAGE : EXIT_FAIL
   }
 }
 
-return { HELP, run }
+return { HELP, COMMAND_HELP, run }
 })()
 
 process.exitCode = await __iqc_cli.run(process.argv.slice(2))
