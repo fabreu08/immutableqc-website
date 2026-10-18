@@ -46,10 +46,11 @@
 <h2 id="s5-h"><span class="no">5</span>Today, upcoming and not claimed</h2>
 <div class="body">
 <ul class="items">
-<li><span class="k">App · in your browser</span><span>Drop a data folder and your browser re-reads every file, checks it against the ledger in the folder and gives one verdict. Nothing is uploaded. A demo shows a pass and a fail.</span></li>
+<li><span class="k">App · in your browser</span><span>Drop a data folder and your browser re-reads every file, checks it against the ledgers in the folder and gives one verdict. Nothing is uploaded. Agent steps show traced back to sealed measurements, and a reviewer signs them off in its review mode. A demo shows a pass, a review and a fail.</span></li>
+<li><span class="k">Agent · iqc.mjs</span><span>Seals every file in a folder as the instrument software writes it, records the steps AI agents take on files and serves the same to AI agents over MCP; a person signs off steps with iqc review. One file for Node.js 22.</span></li>
 <li><span class="k">These pages</span><span>The alpha app’s construction on one synthetic sequence, signed with a demo key at build. Your browser recomputes every check.</span></li>
 <li><span class="k">Alpha app · not public</span><span>Imports HPLC CSV exports and seals each peak area (instrument, measurement type, value, unit, capture time) with one server key. The capture time is an injection time typed at import, or the server’s clock.</span></li>
-<li><span class="k"><span class="tag tag--in">Upcoming</span></span><span>Sealing at capture (SiLA 2 and OPC UA LADS adapters), measured and derived records, lineage and recall, agentic workflows, Merkle batches with salted leaves and inclusion checks, per-analyst signatures, signatures that cover each record’s position, reviewer sign-off, server-side verification in the app, sample and method metadata in the seal, and post-quantum signatures. Every anchor on this site is simulated.</span></li>
+<li><span class="k"><span class="tag tag--in">Upcoming</span></span><span>Sealing at capture (SiLA 2 and OPC UA LADS adapters), measured and derived records, lineage and recall, Merkle batches with salted leaves and inclusion checks, per-analyst signatures, signatures that cover each record’s position, server-side verification in the app, sample and method metadata in the seal, and post-quantum signatures. Every anchor on this site is simulated.</span></li>
 <li><span class="k">Not claimed</span><span>No customers, no capture at the instrument or orchestrator, no electronic signatures and no validation. Nothing on this site or in the app writes to a network.</span></li>
 </ul>
 <p class="note"><span class="k">Basis</span>The app seals whole files instead: each file’s SHA-256 fingerprint, path and size, signed and linked in a ledger in the folder.</p>
@@ -98,7 +99,7 @@
 </div>
 <p class="iqc-out"><span class="lab-s">Upcoming: QA review would check the sealed history</span></p>
 </div>
-<figcaption class="figcap" id="f5-c"><b>Fig. 5</b> · Where Immutable QC sits in a GMP lab. The CDS export feeds it and nothing goes back; the dashed link (reviewer sign-off) is upcoming.</figcaption>
+<figcaption class="figcap" id="f5-c"><b>Fig. 5</b> · Where Immutable QC sits in a GMP lab. The CDS export feeds it and nothing goes back; the dashed link (QA review checking the sealed history) is upcoming.</figcaption>
 </figure>
 <div class="body">
 <p class="reg">{{regulatory}}</p>
@@ -129,12 +130,13 @@
 </div>
 </section>
 <section class="sec sec--side" id="agents" aria-labelledby="s8-h">
-<h2 id="s8-h"><span class="no">8</span><span>Agentic workflows <span class="tag">Upcoming</span></span></h2>
+<h2 id="s8-h"><span class="no">8</span>Agentic workflows</h2>
 <div class="body">
-<p>An agent would run the four checks of Check a record before using a result. A pass says it has not changed since sealing, not that it was right, or that it was ever measured.</p>
-<p>With measured and derived records, upcoming, only a record sealed at capture, by the instrument’s or orchestrator’s key, would count as measured, so a number either traces back to a measurement or it does not. A derived number that cites real measurements but was computed or copied wrongly would still pass; a checker would re-run the analysis from its cited inputs where it is deterministic.</p>
-<p>Check a record shows one record as an agent would receive it; there is no API yet.</p>
-<p><a class="xref" href="roadmap.html#agents"><span class="id">IQC-RD-01 §2.4</span><span>Agentic workflows</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
+<p>Today the agent records the steps AI agents take on files: what each step read and wrote, by SHA-256, and what it did, in the agent’s own signed ledger, through iqc record or the agent’s MCP server, which AI agents call over standard input and output. Before an agent uses a file, check_inputs says whether its bytes are a sealed measurement, the output of a recorded step, or neither; an audit traces every agent output back to sealed measurements, and a person signs off each step.</p>
+<p>A pass says a file has not changed since sealing, not that it was right, or that it was ever measured. That works on whole files. With measured and derived records, upcoming, only a record sealed at capture, by the instrument’s or orchestrator’s key, would count as measured, so a number either traces back to a measurement or it does not. A derived number that cites real measurements but was computed or copied wrongly would still pass; a checker would re-run the analysis from its cited inputs where it is deterministic.</p>
+<p>Check a record shows one record of this construction as an agent would receive it. A reviewer’s key identifies a computer or a browser, not a person; per-analyst signatures are upcoming.</p>
+<p><a class="xref" href="agents.html"><span class="id">IQC-AG-01</span><span>For AI agents: the agent and its MCP server</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
+<p><a class="xref" href="roadmap.html#signatures"><span class="id">IQC-RD-01 §2.5</span><span>Per-analyst signatures</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
 <p><a class="xref" href="roadmap.html#derived"><span class="id">IQC-RD-01 §2.2</span><span>Measured and derived records</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
 </div>
 </section>
@@ -147,6 +149,7 @@
 <li><a class="xref" href="regulatory.html"><span class="id">IQC-RM-01</span><span>Regulatory map</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>Part 11, Annex 11, ISO/IEC 17025, ALCOA+, GMP and TNI: a reading aid, not an assessment.</p></li>
 <li><a class="xref" href="roadmap.html"><span class="id">IQC-RD-01</span><span>Roadmap</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>What works today, and what is upcoming.</p></li>
 <li><a class="xref" href="about.html"><span class="id">IQC-AB-01</span><span>About</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>Who builds it, and questions.</p></li>
+<li><a class="xref" href="agents.html"><span class="id">IQC-AG-01</span><span>For AI agents</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>The agent and its MCP server: run, connect, tools, limits.</p></li>
 <li><a class="xref" href="app/"><span class="id">app/</span><span>The app</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a><p>Audit a data folder in your browser.</p></li>
 </ul>
 </div>

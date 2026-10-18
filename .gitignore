@@ -1,3 +1,4 @@
 node_modules/
 contracts/out/
 /_site/
+/dist/

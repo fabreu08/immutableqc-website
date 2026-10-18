@@ -1,0 +1,65 @@
+# Immutable QC
+
+> Tamper-evident records for automated research labs. A one-file local agent seals every file an instrument writes into a signed ledger, records what AI agents read and wrote, and serves check_inputs, record_step, trace and audit_summary to AI agents over MCP on standard input and output. Nothing is uploaded; it never uses the network.
+
+Independent project · Open alpha · No customers yet. For biotechnology, microbiology, chemistry and materials science labs, and the people who build their AI agents and pipelines.
+
+Works today:
+- iqc.mjs 0.1.0: one file; Node.js 22 or later on Windows, macOS or Linux; no dependencies; it never uses the network.
+- iqc watch, iqc seal: seal every file in a folder by its bytes, from any instrument software (SHA-256, size, time), each record signed (ECDSA P-256) and linked to the one before, in <folder>/ImmutableQC/ledger.jsonl.
+- iqc record, iqc trace, iqc review: record an AI agent's step (what it read, wrote and did) in the agent's own ledger, trace a file back to sealed files, sign off steps.
+- iqc audit: check every ledger and every file under a lab folder: exit 0 pass, 3 review, 1 fail, 2 usage or read error.
+- iqc mcp: the same for AI agents over MCP on standard input and output. Protocol versions 2026-07-28, 2025-11-25, 2025-06-18, 2025-03-26, 2024-11-05.
+- The app, https://immutableqc.com/app/: audits a lab folder in the browser with nothing uploaded, traces agent outputs back to sealed measurements, sends untraced inputs to review, and signs off steps in its review mode. The demo shows a pass, a review and a fail.
+
+Upcoming: an npm package; a Windows installer and service; values read from inside files; per-person keys and signatures; Merkle batches; sealing inside the vendor's software; post-quantum signatures.
+
+Try it in one click: https://immutableqc.com/app/#demo. Or in one command (Linux):
+curl -fsSO https://immutableqc.com/download/iqc.mjs && sha256sum iqc.mjs && node iqc.mjs help
+SHA-256 of iqc.mjs 0.1.0: dc17fd4c6ffa06f107acbfd554747931c8a274f084053647623596375a3c2df0
+macOS: shasum -a 256 iqc.mjs. Windows: certutil -hashfile iqc.mjs SHA256. If the two differ, do not run the file.
+
+Connect it from any MCP client that starts local servers over standard input and output:
+{"command": "node", "args": ["/path/to/iqc.mjs", "mcp", "--root", "/lab/agent-workspace", "--search", "/lab"]}
+- --root: the folder the agent works in; every path a tool takes must be inside it.
+- --search (repeatable): where the instruments' ledgers are. Give the lab folder, or a file sealed outside the root reads as untraced.
+- Starting the server creates <root>/ImmutableQC/ (the agent's own ledger) and, for a new ledger, a signing key in ~/.immutableqc/keys/.
+- One writer per root at a time: one server or one iqc record.
+
+The four tools (each result says which folders it searched):
+- check_inputs {paths}: per file, measured (a station's ledger sealed these exact bytes; its station and key id), derived (a recorded step wrote them) or untraced, and whether a sealed file changed after it was sealed. Files must be sealed first by iqc watch or iqc seal. Reads only.
+- record_step {action, inputs, outputs, input_refs?}: appends one signed record of a step (files by SHA-256 and size); it cannot be taken back, only reviewed. Recorded even when an input is untraced, with a warning.
+- trace {path}: a file's tree back to sealed files, and tracesToMeasured. Reads only.
+- audit_summary {strict?}: pass, review or fail for every ledger under the search folders. Reads only.
+
+The loop: check_inputs before you use lab files; tell the person about an untraced or changed input before you rely on it; record_step once per step, naming every file you read and wrote (from outside the root: copy it in, or use input_refs <sha256>:<bytes>:<label>); trace or audit_summary before you report. A person signs off steps (iqc review, or the app's review mode); there is no review tool over MCP.
+
+Limits:
+- A pass does not show that a file was right when it was written, or a change made inside the settle window (10 s by default) before it was sealed.
+- Whoever holds a ledger's key could rewrite it; a head pinned elsewhere (iqc audit --expect-head, or --pin-file) exposes that.
+- Measured means a ledger sealed those bytes: compare its key id with your instruments' keys (iqc audit --expect-key).
+- A step records only the files it names.
+- A key identifies a computer or a browser, not a person; per-person signatures are upcoming.
+- Values inside files are not read; reading them is upcoming.
+- No license is published yet: ask through https://joseqc.com before you copy or redistribute iqc.mjs.
+
+## Start here
+
+- [For AI agents](https://immutableqc.com/agents.html): run, connect, the tools and the limits
+- [llms-full.txt](https://immutableqc.com/llms-full.txt): everything on one page, with every command's help
+- [iqc.mjs](https://immutableqc.com/download/iqc.mjs): the agent (SHA-256 above)
+- [App](https://immutableqc.com/app/): audit a lab folder in the browser
+- [Demo](https://immutableqc.com/app/#demo): a pass, a review and a fail
+
+## Docs
+
+- [Overview](https://immutableqc.com/overview.html): the project, and the document set’s worked example: five fields of one synthetic HPLC result, sealed record by record (the agent seals whole files)
+- [How a record is sealed](https://immutableqc.com/sealed.html): that construction, step by step, on the synthetic sequence
+- [Check a record](https://immutableqc.com/check.html): change a field of the synthetic sequence and watch your browser recompute the checks
+- [Regulatory map](https://immutableqc.com/regulatory.html): Part 11, Annex 11, ISO/IEC 17025, ALCOA+, GMP and TNI: a reading aid, not an assessment
+- [Roadmap](https://immutableqc.com/roadmap.html): what works today, and what is upcoming
+- [About](https://immutableqc.com/about.html): who builds it, its status, and plain answers to common questions
+
+## Optional
+
+- [joseqc.com](https://joseqc.com): the founder's site, for contact

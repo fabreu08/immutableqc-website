@@ -212,10 +212,15 @@ relative to `--root` and confined to it.
 
 | Tool | What it does | Writes |
 |---|---|---|
-| `check_inputs` {paths} | Each file's SHA-256 and trace state: measured (by which station, when), derived (by which step) or untraced; and whether a sealed file changed since it was sealed. For the agent to call before it uses files. | nothing |
+| `check_inputs` {paths} | Each file's SHA-256 and trace state: measured (by which station, with the sealing ledger's key id, when), derived (by which step) or untraced; and whether a sealed file changed since it was sealed. For the agent to call before it uses files. | nothing |
 | `record_step` {action, inputs, outputs, input_refs?, actor?, tool?} | Hashes the files and appends a `step` record; returns its number, link and reference, and each input's trace, with a plain warning for an untraced input. For the agent to call after it writes outputs, once per step. | one record |
 | `trace` {path} | A file's tree back to measured files. | nothing |
 | `audit_summary` {strict?} | The verdict, summary and counts for the ledgers under the search folders. | nothing |
+
+Every result also says which folders it searched and how many ledgers it found (`searched`), so an agent can tell an
+untraced file from a folder it was not given. The server's instructions, sent at the start of a session, give the loop
+(check inputs, tell the person about an untraced or changed one, record each step, trace or audit before reporting) and
+name the root and the search folders.
 
 Protocol versions: `2026-07-28` (no handshake: each request carries its version and the client's capabilities in
 `_meta`; `server/discover`), and the handshake versions `2025-11-25`, `2025-06-18`, `2025-03-26` and `2024-11-05`
@@ -237,8 +242,11 @@ An MCP client starts the server from its configuration. The usual form (the file
 }
 ```
 
-The signing key is made on first use in the home folder of the user the client runs the server as
-(`~/.immutableqc/keys/`); back it up as for any ledger.
+Starting the server writes `<root>/ImmutableQC/` (the ledger with its `mcp-started` record, `README.txt`, and
+`agent.lock` while it runs). For a new ledger, a signing key is made in the home folder of the user the client runs the
+server as (`~/.immutableqc/keys/`); back it up as for any ledger. Give `--search` the lab folder: a file sealed by a
+station outside every search folder reads as untraced. A root takes one writer at a time (one server or one
+`iqc record`).
 
 ### From a pipeline (Python)
 

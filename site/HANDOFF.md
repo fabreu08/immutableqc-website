@@ -1,6 +1,37 @@
 # Redesign handoff (branch claude/new-session-wut618)
 
-Status: Draft 8 (2026-10-17) applies the patent guardrails (next section). Draft 7 starts v1 (below; the spec is `docs/product-v1.md`), and v1 is integrated (2026-10-13: every piece built, tested together, and checked; see "Integration" in the v1 section). Draft 6 repositions the site for automated research labs. Draft 5 added the Overview story. Before it: step 3a is built at 3a4723c. The step 3b founder decisions below are applied, and so are the fixes from the five step 3b reviews (see "Step 3b review fixes"). `node site/build.mjs --check` passes, and so does `node site/tools/check.mjs` but for the Overview's two timing gates on this container (see "Still open"). Nothing is live.
+Status: Draft 9 (2026-10-18) adds the page and files for AI agents (next section). Draft 8 (2026-10-17) applies the patent guardrails. Draft 7 starts v1 (below; the spec is `docs/product-v1.md`), and v1 is integrated (2026-10-13: every piece built, tested together, and checked; see "Integration" in the v1 section). Draft 6 repositions the site for automated research labs. Draft 5 added the Overview story. Before it: step 3a is built at 3a4723c. The step 3b founder decisions below are applied, and so are the fixes from the five step 3b reviews (see "Step 3b review fixes"). `node site/build.mjs --check` passes, and so does `node site/tools/check.mjs` but for the Overview's two timing gates on this container (see "Still open"). Nothing is live.
+
+## Draft 9: for AI agents (2026-10-18, branch claude/nifty-gates-h5guqf)
+The founder's goal: AI agents working at labs should find the platform and consider it. Plan: `docs/agent-discovery.md`
+(part A built here; part B, the landing page, is `docs/build-notes/landing-agent-brief.md`; part C, the outward steps for
+approval, is `docs/agent-discovery-submissions.md`).
+- **New page `agents.html` (IQC-AG-01, "For AI agents")**, in the nav after About and in the Overview's document list:
+  what works and what is upcoming, run, connect the MCP server (the entry with `--search`), the four tools, the loop, a
+  pipeline example (agent/README.md's Python, read by the build), sign-off, the limits, questions. It has v1's status
+  line ("Independent project · Open alpha · No customers yet", as the landing page and the app: it describes the agent on
+  real files) and is linted with v1's rules (7g, 7h, 7f) instead of 7b and 7e. Every page but the 404 names
+  `llms.txt` in its head (`<link rel="describedby">`).
+- **New build outputs:** `llms.txt` (under 6 KB), `llms-full.txt` (with every command's help, from `agent/src/cli.mjs`),
+  `robots.txt`, `sitemap.xml` (dates in `site.json` `sitemap`). All on the allowlist; `serve.mjs` serves `.xml`.
+  Templates: `site/pages/llms-core.txt` (shared), `llms.txt`, `llms-full.txt`, `robots.txt`.
+- **Section 7i** lints those files and the repository files GitHub shows (README.md, AGENTS.md, the skill, server.json,
+  the MCPB manifest), and checks the facts they repeat against the agent's sources: version, tool names, protocol
+  versions, SHA-256, Node.js 22, the server entry, every `--option` on a command line, exit codes; with self-tests. It
+  also lints any JSON-LD on a hand-written page. The wording rules moved to `site/tools/wording.mjs` (one copy, also read
+  by `e2e/shipped-wording.test.mjs` and the new `e2e/repo-wording.test.mjs`).
+- **Out of Upcoming** (they work): agent steps traced back to sealed measurements, the MCP server, reviewer sign-off
+  (its key identifies a computer or a browser, not a person; per-analyst signatures stay upcoming). The Roadmap's Today
+  gains the agent and reviewer sign-off; Upcoming loses "Agentic workflows" and "Reviewer sign-off" and is renumbered
+  2.1 to 2.9. The Overview (section 5, section 8, Fig. 5's caption), Check a record (section 2), How a record is sealed
+  (the status table) and the Regulatory map (2.6, 3.3) follow.
+- **The agent** (`agent/src`): the MCP instructions open with the search words and name the root and search folders;
+  `check_inputs` says "a station's ledger" and gives the sealing ledger's key id; every result says which folders it
+  searched; `record_step` says a step is recorded even with an untraced input; `iqc help mcp` shows `--search`, what
+  starting writes and one writer per root; the `iqc help record` example works as printed. Rebuilt and stamped.
+- **New repository files:** `AGENTS.md`, `skills/immutableqc-lab-records/`, `server.json`, `agent/mcpb/manifest.json`,
+  `agent/tools/mcpb.mjs` (a deterministic `.mcpb`, `dist/` ignored), `e2e/agent-discovery.test.mjs` (the plan's re-test;
+  the landing page's items are `todo` until the brief lands).
 
 ## Concise document set (2026-10-17, branch bot/docs-concise)
 The founder found the pages too verbose. Each document page's copy (`site/pages/*.html`) is cut toward half its length: repeated statements are said once, on the page that owns them, and long sentences are split or shortened. No new claim was added and no Upcoming item was removed; the walkthrough (`story.html`), the verifier, Figs. 1 to 5, the record history, `site.json` copy and the revision history are unchanged. The pins in `build.mjs` that held a shortened sentence now hold the new wording (same assertion, same strictness); no lint was loosened. The revision stays Draft 8: a Draft 9 row is the lead's call.

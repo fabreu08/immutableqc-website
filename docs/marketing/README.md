@@ -19,7 +19,8 @@ site: the deploy allowlist takes no `.md`, and no page links here.
   anchoring, registry, smart contract or token.
 - No patented work (`docs/patent-guardrails.md`): ledgers are local signed files, nothing is hosted, nothing is put on
   a network.
-- Present tense only for what works today (as of `8655698`). Everything else says **Upcoming**.
+- Present tense only for what works today (updated 2026-10-18 on `claude/nifty-gates-h5guqf`, after the App and Agent CLI
+  branches merged). Everything else says **Upcoming**.
 - Contact goes through joseqc.com. No email address, no founder's employer, no vendor or product names.
 - The founder's landing headline ("Lab data, tokenized. Records that verify themselves.", `BOT-PROMPTS.md` section 6)
   is the landing page's. "Tokenized" is allowed only in that H1 and its definition, so these drafts don't use it; they
@@ -28,16 +29,19 @@ site: the deploy allowlist takes no `.md`, and no page links here.
 ## What counts as "works today" in these drafts
 
 Works today:
-- The agent (`download/iqc.mjs`, one file, Node.js): `iqc seal`, `iqc watch`, `iqc audit` (one ledger; exit 0 pass,
-  3 review, 1 fail, 2 usage or read error), `iqc head`, `iqc status`.
-- The app at `immutableqc.com/app/`: audit a dropped folder in the browser with nothing uploaded, seal a folder in the
-  browser, and the demo (seal sample data, change one value, audit again). Review shows in amber.
-- The ledger format with agent `step` and reviewer `review` records, and the audit across ledgers that traces agent
-  outputs back to sealed measurements, in `core/immutableqc.mjs`.
+- The agent (`download/iqc.mjs` 0.1.0, one file, Node.js 22 or later, no dependencies, never uses the network):
+  `iqc seal`, `iqc watch`, `iqc audit` over a whole lab folder (exit 0 pass, 3 review, 1 fail, 2 usage or read error;
+  `--allow-changes`, `--expect-head`, `--expect-key`, `--pin-file`), `iqc head`, `iqc status`, `iqc record`,
+  `iqc trace`, `iqc review`, and `iqc mcp`, the MCP server on standard input and output with four tools:
+  `check_inputs`, `record_step`, `trace`, `audit_summary`.
+- The app at `immutableqc.com/app/`: audit a dropped lab folder in the browser with nothing uploaded, the agent steps
+  traced back to sealed measurements, untraced inputs sent to review, review mode ("Review and sign off", signed with
+  the browser's key), sealing a folder in the browser, and the demo (a pass, a review and a fail).
+- The page and files for AI agents: `immutableqc.com/agents.html`, `llms.txt`, `llms-full.txt` (once this branch
+  reaches `main`).
 
-Upcoming (being built now, spec sections D and E):
-- `iqc record`, `iqc trace`, `iqc review`, the `iqc mcp` server, and `iqc audit` over a whole lab folder.
-- The app's agent activity view, review mode (reviewer sign-off) and the extended demo with an analysis agent.
+Upcoming: an npm package; a Windows installer and service; values read from inside files; per-person keys and
+signatures; Merkle batches; sealing inside the vendor's software; post-quantum signatures.
 
-When the App and Agent CLI pull requests merge, the Upcoming labels on those items can come off. Each file marks the
-lines to change with "Upcoming".
+Keys identify a computer or a browser, not a person: no draft may say a person signed. The posts in
+`docs/agent-discovery-submissions.md` (C11) are written from the same list.

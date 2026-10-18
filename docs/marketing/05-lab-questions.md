@@ -27,8 +27,8 @@ pinned somewhere else earlier, such as a printout, a note in your electronic lab
 exposes that.
 
 **6. What if a file is supposed to change?**
-The audit says **review**, not fail, and lists each recorded change with its time. Upcoming: `--allow-changes` marks
-files you expect to change, such as logs.
+The audit says **review**, not fail, and lists each recorded change with its time. `--allow-changes` marks files you
+expect to change, such as logs.
 
 **7. Will it interfere with our instrument software?**
 The agent opens files read-only and leaves them shared. Software that later tries to open a file exclusively while the
@@ -44,6 +44,6 @@ No. Immutable QC isn't a validated system and makes no regulatory claim. It give
 with published code. Automated research labs come first, and regulated QC labs later.
 
 **10. Can we see what our AI agents did?**
-Partly today, fully soon. The ledger format and the core audit already record agent steps and trace outputs back to
-sealed measurements. Upcoming: the `iqc record` command, the Model Context Protocol server, and the app's agent
-activity view and reviewer sign-off.
+Yes, for the files they name. `iqc record` and the Model Context Protocol server (`iqc mcp`) record each agent step,
+the audit traces outputs back to sealed measurements, and the app shows the agent steps and lets a reviewer sign them
+off. A step records only the files the agent names.

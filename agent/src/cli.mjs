@@ -147,8 +147,10 @@ wrote them) or untraced. Exit 0 recorded, 1 refused or could not write, 2 usage 
   --json <file>      the record and the traces as JSON (- for the output)
   --ledger --key --station --pin-file --quiet --no-color
 
-Example: node iqc.mjs record --root "D:\\Lab\\agent-workspace" --actor analyst-bot \\
-           --action "Averaged the six injections" --in ../hplc-3/run-07.csv --out summary.csv`,
+Example, run in D:\\Lab\\agent-workspace, where inputs\\run-07.csv is a copy of a file the station
+D:\\Lab\\hplc-3 sealed (the same bytes trace as measured):
+  node iqc.mjs record --root "D:\\Lab\\agent-workspace" --search "D:\\Lab" --actor analyst-bot \\
+    --action "Averaged the six injections" --in inputs\\run-07.csv --out summary.csv`,
   trace: `iqc trace <file> [options]
 
 Traces the file's bytes back through the recorded agent steps to the files instruments sealed,
@@ -178,21 +180,29 @@ this computer, not a person. Exit 0 recorded, 1 refused, 2 usage or read error.
 Example: node iqc.mjs review 3f2a…:4 --reviewer "J. Rivera" --decision approved --search "D:\\Lab"`,
   mcp: `iqc mcp [options]
 
-A Model Context Protocol server on standard input and output, for an AI agent: the agent calls
-check_inputs before it uses files, record_step after it writes files, trace and audit_summary.
-Standard output carries protocol messages only; everything else goes to standard error. The
-server holds the root's ledger for as long as it runs, between an mcp-started and an mcp-stopped
-record, and stops when standard input closes. Paths are relative to the root and confined to it.
+A Model Context Protocol server on standard input and output, for an AI agent that works on lab
+files: the agent calls check_inputs before it uses files, record_step after it writes files, and
+trace or audit_summary before it reports. Standard output carries protocol messages only;
+everything else goes to standard error. Paths are relative to the root and confined to it. It
+never uses the network.
 Protocol versions: ${SUPPORTED_VERSIONS.join(', ')}.
 
+Starting it writes <root>/ImmutableQC/ (ledger.jsonl with an mcp-started record, README.txt and,
+while it runs, agent.lock) and, for a new ledger, a new signing key in ~/.immutableqc/keys/. It
+holds the root's ledger for as long as it runs, so a root takes one writer at a time: one server
+or one iqc record. It stops when standard input closes, with an mcp-stopped record.
+
   --root <folder>    the folder the agent works in (default: the current folder)
-  --search <folder>  where to look for ledgers (default: the root); repeatable
+  --search <folder>  where to look for the instruments' ledgers (default: the root); repeatable.
+                     Give the lab folder: a file sealed by a station outside every --search
+                     folder reads as untraced
   --actor <name>     the actor of each step unless the agent names one (default "agent")
   --tool <name>      the tool of each step unless the agent names one (default "-")
   --ledger --key --station --pin-file --ignore --quiet
 
-Client setup (JSON):
-  {"command": "node", "args": ["/path/to/iqc.mjs", "mcp", "--root", "/path/to/workspace"]}`,
+Client setup (JSON; the file and its place depend on the client):
+  {"command": "node",
+   "args": ["/path/to/iqc.mjs", "mcp", "--root", "/lab/agent-workspace", "--search", "/lab"]}`,
   help: 'iqc help [command]\n\nShows the help, or one command\'s.',
 }
 

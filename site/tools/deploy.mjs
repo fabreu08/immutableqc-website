@@ -20,7 +20,9 @@ export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 // files, by path from the repo root
 export const FILES = [
   // the document set, built by site/build.mjs (GitHub Pages serves 404.html at any missing path by itself)
-  'overview.html', 'sealed.html', 'check.html', 'regulatory.html', 'roadmap.html', 'about.html', '404.html',
+  'overview.html', 'sealed.html', 'check.html', 'regulatory.html', 'roadmap.html', 'about.html', 'agents.html', '404.html',
+  // also built by site/build.mjs: the plain-text files for AI agents and crawlers (docs/agent-discovery.md, A1)
+  'llms.txt', 'llms-full.txt', 'robots.txt', 'sitemap.xml',
   // written by hand: the landing page and the app's page (the rest of app/ and ui/ is copied with the folder, below)
   'index.html', 'app/index.html',
   // the format's one implementation, which the app imports, and the one-file agent the landing page offers

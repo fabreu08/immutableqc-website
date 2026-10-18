@@ -140,6 +140,9 @@ export async function traceRefs(ledgers, refs, { maxDepth } = {}) {
 // ------------------------------------------------------------------------------------------------ plain words
 const stepOf = (report, ref) => (ref ? report.steps.find((s) => s.ledger === ref.ledger && s.n === ref.n) : null)
 const labelOf = (report, i) => (report.ledgers[i] ? report.ledgers[i].label : `ledger ${i + 1}`)
+// the key id of the ledger that sealed a file: "measured" means that ledger sealed these bytes, so an agent compares this
+// with its instruments' keys (a file sealed by a fresh key on another computer is measured too)
+const keyOf = (report, i) => (report.ledgers[i] && typeof report.ledgers[i].keyId === 'string' ? report.ledgers[i].keyId : null)
 
 // One input's trace state as a short phrase: what a person (or an agent) reads.
 export function stateText(report, x) {
@@ -147,7 +150,8 @@ export function stateText(report, x) {
   if (x.state === 'measured') {
     const m = x.measured[0]
     const again = x.changedAfter ? `; that file was sealed again later (record ${x.changedAfter.n} of ${labelOf(report, x.changedAfter.ledger)}, ${whenUTC(x.changedAfter.observedAt)}): it changed after this version` : ''
-    return `measured: sealed by ${m.station || labelOf(report, m.ledger)} as ${m.path} (record ${m.n}, ${whenUTC(m.observedAt)})${again}`
+    const k = keyOf(report, m.ledger)
+    return `measured: sealed by ${m.station || labelOf(report, m.ledger)}${k ? ` (key id ${k})` : ''} as ${m.path} (record ${m.n}, ${whenUTC(m.observedAt)})${again}`
   }
   if (x.state === 'derived') {
     const s = stepOf(report, x.step)
@@ -162,7 +166,7 @@ export function stateData(report, x) {
   const o = { state: x.state }
   if (x.state === 'measured') {
     const m = x.measured[0]
-    o.measured = { ledgerId: m.ledgerId, ledger: labelOf(report, m.ledger), station: m.station, path: m.path, record: m.n, sealedAt: m.observedAt, event: m.event }
+    o.measured = { ledgerId: m.ledgerId, ledger: labelOf(report, m.ledger), station: m.station, keyId: keyOf(report, m.ledger), path: m.path, record: m.n, sealedAt: m.observedAt, event: m.event }
     if (x.measured.length > 1 || x.measuredMore) o.measured.alsoSealed = x.measured.length - 1 + (x.measuredMore || 0)
     o.changedAfterSeal = !!x.changedAfter
     if (x.changedAfter) o.sealedAgain = { ledger: labelOf(report, x.changedAfter.ledger), record: x.changedAfter.n, at: x.changedAfter.observedAt }

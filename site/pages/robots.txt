@@ -1,0 +1,5 @@
+# immutableqc.com: every page is open to people, search engines and AI agents.
+User-agent: *
+Allow: /
+
+Sitemap: https://immutableqc.com/sitemap.xml

@@ -20,11 +20,12 @@
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="Immutable QC card with the ring-and-dot mark and the status line: Independent project · Open alpha · Synthetic demo data · No customers yet">
 <meta name="twitter:card" content="summary_large_image">
+<link rel="describedby" href="llms.txt">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preload" href="fonts/archivo-c-115-620.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="assets/site.css?v=e734df99">
+<link rel="stylesheet" href="assets/site.css?v=2b4a299d">
 <script>(function(d){var c=d.documentElement.classList;c.add('js');try{if(!matchMedia('(prefers-reduced-motion: reduce)').matches)c.add('motion')}catch(e){}var r=d.documentElement,h=innerHeight;r.style.setProperty('--svh',h+'px');if(innerWidth>=960&&h>=(innerWidth>=1180?600:700)&&'IntersectionObserver'in window)c.add('stage');var q=function(s){return d.querySelector(s)},b=function(){return q('.menu-btn')},n=function(){return q('.nav')},o=function(){var x=b();return!!x&&x.getAttribute('aria-expanded')==='true'},s=function(v){var x=b(),y=n();if(x&&y){x.setAttribute('aria-expanded',String(v));y.classList.toggle('open',v)}};d.addEventListener('click',function(e){var t=e.target,x=b(),y=n();if(!t||!t.closest)return;if(q('base')&&t.closest('.skip')){e.preventDefault();var m=d.getElementById('main');if(m){m.focus();m.scrollIntoView()}return}if(!x||!y)return;if(x.contains(t))s(!o());else if(o()&&!y.contains(t))s(false)});d.addEventListener('keydown',function(e){if(e.key==='Escape'&&o()){s(false);b().focus()}});d.addEventListener('focusout',function(e){var x=b(),y=n(),r=e.relatedTarget;if(o()&&r&&(y.contains(e.target)||x.contains(e.target))&&!y.contains(r)&&!x.contains(r))s(false)})})(document)</script>
 <script defer src="assets/iqc.js?v=c5a57112"></script>
 </head>
@@ -44,6 +45,7 @@
 <li><a href="regulatory.html"><span class="id">RM-01</span><span class="t">Regulatory map</span></a></li>
 <li><a href="roadmap.html"><span class="id">RD-01</span><span class="t">Roadmap</span></a></li>
 <li><a href="about.html" aria-current="page"><span class="id">AB-01</span><span class="t">About</span></a></li>
+<li><a href="agents.html"><span class="id">AG-01</span><span class="t">For AI agents</span></a></li>
 <li class="nav-app"><a href="app/"><span class="id" aria-hidden="true">app/</span><span class="t">App</span></a></li>
 </ol>
 </nav>
@@ -54,8 +56,8 @@
 <div class="wrap">
 <dl class="dochead">
 <div><dt>Document</dt><dd><span class="nw">IQC-AB-01</span></dd></div>
-<div><dt>Revision</dt><dd>Draft 8</dd></div>
-<div><dt>Updated</dt><dd>2026-10-17</dd></div>
+<div><dt>Revision</dt><dd>Draft 9</dd></div>
+<div><dt>Updated</dt><dd>2026-10-18</dd></div>
 <div class="st"><dt>Status</dt><dd>Independent project · Open alpha · Synthetic demo data · No customers yet</dd></div>
 <div class="use"><dt>Use</dt><dd>Informational draft. Not a controlled document; not a regulatory assessment or a validation statement.</dd></div>
 </dl>
@@ -134,6 +136,7 @@
 <caption class="sr-only">Revision history of this document set</caption>
 <thead><tr><th scope="col">Revision</th><th scope="col">Date</th><th scope="col">Change</th></tr></thead>
 <tbody>
+<tr><td class="nw">Draft 9</td><td class="mono">2026-10-18</td><td>For AI agents: a new page, <span class="nw">IQC-AG-01</span>, describes the agent and its MCP server for AI agents and the people who build them, with llms.txt, llms-full.txt, robots.txt and sitemap.xml beside it; agent steps traced back to sealed measurements, reviewer sign-off and the MCP server work today, so the Overview, the Roadmap (renumbered), Check a record, How a record is sealed and the Regulatory map no longer call them upcoming.</td></tr>
 <tr><td class="nw">Draft 8</td><td class="mono">2026-10-17</td><td>Patent guardrails: every item that would have put records or their fingerprints on a network, and any shared service for records, is removed from the plans and the pages. The record history stays a signed file the lab keeps; the anchor on these pages stays simulated, and in use it would be a fingerprint the lab pins by its own means. The Roadmap renumbers its items.</td></tr>
 <tr><td class="nw">Draft 7</td><td class="mono">2026-10-13</td><td>The Overview moved from index.html to overview.html, and a new landing page at index.html and the app at app/ replace the alpha console, whose old address now leads to the app.</td></tr>
 <tr><td class="nw">Draft 6</td><td class="mono">2026-10-07</td><td>Repositioned for automated research labs: the Scope names the audience; the Overview gains section 2, “Why: one wrong value snowballs”, with the founder’s line, redraws Where it fits for an automated lab (today beside an HPLC CSV export; sealing at the orchestrator or driver, upcoming), moves the regulatory position to “When your process moves into GMP” and renumbers the later sections; the Roadmap adds sealing at capture, measured and derived records, lineage and recall, Merkle batches with salted leaves and post-quantum signatures and encryption, and rewrites Filecoin integration as an encrypted archive on Filecoin, all Upcoming, with the automated-lab items first; How a record is sealed says a pass does not show that a value was ever measured, what a registry entry would show, and that nothing readable leaves the lab; About adds two questions, on the kinds of labs it is for and on sabotage and espionage, and folds “What does a fingerprint cover?” into the question on the orchestrator, ELN, CDS and LIMS.</td></tr>
@@ -153,7 +156,7 @@
 <footer class="foot">
 <div class="wrap">
 <p class="ind">Immutable QC is an independent project built on the founder’s own time. It is not affiliated with or endorsed by any employer. Founder: <span class="nw">José A. Fernández Abreu</span> · <a href="https://joseqc.com">joseqc.com</a></p>
-<p class="meta"><span class="m-doc"><span class="nw">IQC-AB-01</span> · Draft 8 · Updated 2026-10-17 · <a href="about.html#history">Revision history</a></span><span class="m-fonts">Fonts, SIL Open Font License: <a href="fonts/OFL-IBM-Plex-Sans.txt">IBM Plex Sans</a> <a href="fonts/OFL-IBM-Plex-Mono.txt">IBM Plex Mono</a> <a href="fonts/OFL-Archivo.txt">Archivo</a></span></p>
+<p class="meta"><span class="m-doc"><span class="nw">IQC-AB-01</span> · Draft 9 · Updated 2026-10-18 · <a href="about.html#history">Revision history</a></span><span class="m-fonts">Fonts, SIL Open Font License: <a href="fonts/OFL-IBM-Plex-Sans.txt">IBM Plex Sans</a> <a href="fonts/OFL-IBM-Plex-Mono.txt">IBM Plex Mono</a> <a href="fonts/OFL-Archivo.txt">Archivo</a></span></p>
 </div>
 </footer>
 

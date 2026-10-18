@@ -4,7 +4,8 @@
 // "Shipped" is what GitHub Pages publishes: every file in the deploy allowlist (site/tools/deploy.mjs manifest()), which
 // holds the document set, the landing page (index.html), the app (app/), the design assets (ui/), the site scripts
 // (assets/), core/immutableqc.mjs, the one-file agent download/iqc.mjs (the agent bundle) and the alpha console's old
-// address. Every text file is read whole: page markup with its attributes and comments, scripts and styles with their
+// address, and since the agent-discovery work the page and plain-text files for AI agents and crawlers (agents.html,
+// llms.txt, llms-full.txt, robots.txt, sitemap.xml). Every text file is read whole: page markup with its attributes and comments, scripts and styles with their
 // comments. That is stricter than site/build.mjs (section 7, 7g, 7h), which reads a page's text and a script's string
 // literals; both run in CI, so neither can pass while the other fails on the same wording.
 //
@@ -27,21 +28,13 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { ROOT, manifest } from '../site/tools/deploy.mjs'
 import { jsStrings } from '../site/tools/jsstrings.mjs'
+import { SHIPPED_RAW } from '../site/tools/wording.mjs'
 
-const TEXT = /\.(?:html|m?js|css|svg|txt)$/
+const TEXT = /\.(?:html|m?js|css|svg|txt|xml)$/
 
-// banned in the whole text of every shipped file (after the allowances below are taken out)
-export const RAW = [
-  [/\bon[- ]?chain\b|\bchain ?ids?\b|\bdistributed ledgers?\b|\bblock (?:height|explorer)\b|\bgas fees?\b/i, 'a chain or distributed ledger'],
-  [/\bregistr(?:y|ies)\b/i, 'a registry'],
-  [/\bsmart[- ]contracts?\b/i, 'a smart contract'],
-  [/\btokens?\b|\btokenis/i, 'a token'],
-  [/\bwallets?\b/i, 'a wallet'],
-  [/\bstak(?:e|es|ed|ing)\b/i, 'a stake'],
-  [/\bmint(?:s|ed|ing)?\b/i, 'minting'],
-  [/\bNFTs?\b/i, 'an NFT'],
-  [/\b(?:ethereum|bitcoin|sepolia|metamask|basescan|filecoin|tFIL|testnets?|web3|dapps?)\b/i, 'a chain, network or wallet name'],
-]
+// banned in the whole text of every shipped file (after the allowances below are taken out); the list lives in
+// site/tools/wording.mjs, which e2e/repo-wording.test.mjs reads too
+export const RAW = SHIPPED_RAW
 const ANCHOR = /\banchor\w*\b[^.]{0,80}\bnetworks?\b(?! call)|\bnetworks?\b(?! call)[^.]{0,80}\banchor/i
 const unneg = (s) => s.replace(/\b(?:nothing|never|not|no)\b[^,;:.]*/gi, '')
 // the landing page's definition (BOT-PROMPTS.md section 6), as site/build.mjs 7h LANDING_OK: a sentence of its own
@@ -88,7 +81,7 @@ export function problems(f, src) {
 
 test('shipped files: no blockchain, chain or distributed ledger, network anchoring, registry, smart contract or token', () => {
   const files = manifest().filter((f) => TEXT.test(f))
-  for (const need of ['index.html', 'app/index.html', 'core/immutableqc.mjs', 'download/iqc.mjs', 'about.html']) assert.ok(files.includes(need), `the deploy allowlist publishes ${need}`)
+  for (const need of ['index.html', 'app/index.html', 'core/immutableqc.mjs', 'download/iqc.mjs', 'about.html', 'agents.html', 'llms.txt', 'llms-full.txt', 'robots.txt', 'sitemap.xml']) assert.ok(files.includes(need), `the deploy allowlist publishes ${need}`)
   assert.ok(files.some((f) => f.startsWith('ui/')) && files.some((f) => f.startsWith('app/') && f.endsWith('.mjs')), 'the deploy allowlist publishes ui/ and the app scripts')
   const found = files.flatMap((f) => problems(f, readFileSync(join(ROOT, f), 'utf8')))
   assert.deepEqual(found, [], `banned wording in ${found.length} place(s) of what GitHub Pages publishes:\n  ${found.join('\n  ')}`)

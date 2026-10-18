@@ -4165,6 +4165,9 @@ async function traceRefs(ledgers, refs, { maxDepth } = {}) {
 // ------------------------------------------------------------------------------------------------ plain words
 const stepOf = (report, ref) => (ref ? report.steps.find((s) => s.ledger === ref.ledger && s.n === ref.n) : null)
 const labelOf = (report, i) => (report.ledgers[i] ? report.ledgers[i].label : `ledger ${i + 1}`)
+// the key id of the ledger that sealed a file: "measured" means that ledger sealed these bytes, so an agent compares this
+// with its instruments' keys (a file sealed by a fresh key on another computer is measured too)
+const keyOf = (report, i) => (report.ledgers[i] && typeof report.ledgers[i].keyId === 'string' ? report.ledgers[i].keyId : null)
 
 // One input's trace state as a short phrase: what a person (or an agent) reads.
 function stateText(report, x) {
@@ -4172,7 +4175,8 @@ function stateText(report, x) {
   if (x.state === 'measured') {
     const m = x.measured[0]
     const again = x.changedAfter ? `; that file was sealed again later (record ${x.changedAfter.n} of ${labelOf(report, x.changedAfter.ledger)}, ${whenUTC(x.changedAfter.observedAt)}): it changed after this version` : ''
-    return `measured: sealed by ${m.station || labelOf(report, m.ledger)} as ${m.path} (record ${m.n}, ${whenUTC(m.observedAt)})${again}`
+    const k = keyOf(report, m.ledger)
+    return `measured: sealed by ${m.station || labelOf(report, m.ledger)}${k ? ` (key id ${k})` : ''} as ${m.path} (record ${m.n}, ${whenUTC(m.observedAt)})${again}`
   }
   if (x.state === 'derived') {
     const s = stepOf(report, x.step)
@@ -4187,7 +4191,7 @@ function stateData(report, x) {
   const o = { state: x.state }
   if (x.state === 'measured') {
     const m = x.measured[0]
-    o.measured = { ledgerId: m.ledgerId, ledger: labelOf(report, m.ledger), station: m.station, path: m.path, record: m.n, sealedAt: m.observedAt, event: m.event }
+    o.measured = { ledgerId: m.ledgerId, ledger: labelOf(report, m.ledger), station: m.station, keyId: keyOf(report, m.ledger), path: m.path, record: m.n, sealedAt: m.observedAt, event: m.event }
     if (x.measured.length > 1 || x.measuredMore) o.measured.alsoSealed = x.measured.length - 1 + (x.measuredMore || 0)
     o.changedAfterSeal = !!x.changedAfter
     if (x.changedAfter) o.sealedAgain = { ledger: labelOf(report, x.changedAfter.ledger), record: x.changedAfter.n, at: x.changedAfter.observedAt }
@@ -4633,7 +4637,7 @@ async function recordStep(w, { actor, tool, action, inputs, outputs }) {
     actor: item.f.actor, tool: item.f.tool, action: item.f.action, at: item.f.at,
     inputs: files, outputs: outputs.map((o) => ({ path: displayPath(o.path), sha256: o.sha256, bytes: o.bytes })),
     untracedInputs: untraced,
-    ...(untraced ? { warning: `${plural(untraced, 'input matches', 'inputs match')} no sealed measurement and no recorded step output: an audit lists this step for review.` } : {}),
+    ...(untraced ? { warning: `${plural(untraced, 'input matches', 'inputs match')} no sealed measurement and no recorded step output: the step is recorded, and an audit lists it for review. Tell the person before relying on its result.` } : {}),
   }
 }
 
@@ -4828,7 +4832,7 @@ const __iqc_mcp = (() => {
 // Versions: 2026-07-28 (no handshake: each request names its version and the client's capabilities in _meta;
 // server/discover), and the handshake versions 2025-11-25, 2025-06-18, 2025-03-26 and 2024-11-05 (initialize, then
 // notifications/initialized; ping). Structured tool results (structuredContent, outputSchema) from 2025-06-18.
-const { AGENT, AGENT_VERSION, UserError, EXIT_OK } = __iqc_util
+const { AGENT, AGENT_VERSION, UserError, EXIT_OK, plural } = __iqc_util
 const { dataFolder, locate, confinedFile } = __iqc_paths
 const { acquireLock } = __iqc_lock
 const { ensureDir, ensureReadme } = __iqc_ledger
@@ -4850,12 +4854,29 @@ const MAX_PATHS = 1000
 
 const E = Object.freeze({ PARSE: -32700, INVALID_REQUEST: -32600, METHOD: -32601, PARAMS: -32602, INTERNAL: -32603, VERSION: -32022 })
 
-const INSTRUCTIONS = 'Records the steps you take on files under one folder, and traces where a file\'s bytes came from. ' +
-  'Before you use a file, call check_inputs to see whether its bytes were measured by an instrument, written by a recorded step, or neither. ' +
-  'After you write files, call record_step with what you read, what you wrote, and one line on what you did. ' +
-  'Paths are relative to the server\'s root folder; nothing outside it can be named. Each record is signed and linked to the one before it, in a ledger on this computer.'
+// What a client loads at the start of a session (one client cuts it at 4,096 characters, so it stays well under). It
+// opens with the words an agent or a tool search looks for, then the loop, what to do with an untraced or changed
+// input, and the folders this server was started with.
+const INSTRUCTIONS_MAX = 4096
+function instructionsFor({ root, searchDirs }) {
+  const s = [
+    'Immutable QC: tamper-evident records for lab instrument files and AI agent steps, kept on this computer; it never uses the network.',
+    'Before you use lab files (instrument exports, data files) as inputs, call check_inputs: each file is measured (a station\'s ledger sealed these exact bytes), derived (a recorded agent step wrote them) or untraced (neither), and a sealed file that changed after it was sealed is flagged.',
+    'If an input is untraced or changed, tell the person before you rely on it; do not carry on as if it were measured.',
+    'After you write files, call record_step once per step, naming every file you read and every file you wrote, with one line on what you did: a step records only the files it names.',
+    'Before you report a result, call trace on it, or audit_summary for the whole lab folder.',
+    'A person signs off your steps (iqc review, or the review mode of the app at https://immutableqc.com/app/); there is no tool for you to approve your own.',
+    `Paths are relative to the root folder (${root}) and must be inside it. Ledgers are looked for under: ${searchDirs.join(', ')}.`,
+    'For a file outside the root, copy it into the root (the same bytes trace the same way), or name it in input_refs as <sha256>:<bytes>:<label>.',
+    'Measured means a ledger sealed those bytes: compare its keyId with your instruments\' keys. Each record is signed and linked to the one before it, in a ledger on this computer.',
+  ].join(' ')
+  return s.length <= INSTRUCTIONS_MAX ? s : s.slice(0, INSTRUCTIONS_MAX - 1) + '…'
+}
 
 const pathList = (what, min) => ({ type: 'array', items: { type: 'string', minLength: 1 }, minItems: min, maxItems: MAX_PATHS, description: what })
+// which folders a result searched, and how many ledgers it found there (so an agent can tell an untraced file from a
+// folder it was not given)
+const searched = { type: 'object', properties: { folders: { type: 'array', items: { type: 'string' } }, ledgers: { type: 'number' } }, required: ['folders', 'ledgers'] }
 const fileState = {
   type: 'object',
   properties: {
@@ -4870,15 +4891,15 @@ const TOOLS = Object.freeze([
   {
     name: 'check_inputs',
     title: 'Check input files',
-    description: 'Say, for each file, whether its exact bytes were sealed by an instrument (measured), written by a recorded agent step (derived), or neither (untraced). Also says when a sealed file has changed since it was sealed. Call it before using files as inputs. Reads only.',
+    description: 'Say, for each lab file, whether its exact bytes were sealed by a station\'s ledger (measured: an instrument station running iqc watch or iqc seal), written by a recorded agent step (derived), or neither (untraced), and whether a sealed file changed after it was sealed. A measured file names the sealing ledger\'s station and keyId. Call it before you use files as inputs, and tell the person about an untraced or changed one before relying on it. Says which folders it searched. Reads only.',
     inputSchema: { type: 'object', properties: { paths: pathList('Files to check, relative to the root folder.', 1) }, required: ['paths'], additionalProperties: false },
-    outputSchema: { type: 'object', properties: { files: { type: 'array', items: fileState }, measured: { type: 'number' }, derived: { type: 'number' }, untraced: { type: 'number' } }, required: ['files', 'measured', 'derived', 'untraced'] },
+    outputSchema: { type: 'object', properties: { files: { type: 'array', items: fileState }, measured: { type: 'number' }, derived: { type: 'number' }, untraced: { type: 'number' }, changedSinceSealed: { type: 'number' }, searched }, required: ['files', 'measured', 'derived', 'untraced', 'searched'] },
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   },
   {
     name: 'record_step',
     title: 'Record a step',
-    description: 'Record one step you took: the files you read (inputs), the files you wrote (outputs) and one line on what you did. Each file is stored by its SHA-256 fingerprint and size. The record is signed and appended to the agent\'s ledger; it cannot be taken back, only reviewed. Returns the record\'s reference and each input\'s trace.',
+    description: 'Record one step you took: the files you read (inputs), the files you wrote (outputs) and one line on what you did. Each file is stored by its SHA-256 fingerprint and size; a step records only the files it names. The record is signed and appended to the agent\'s ledger on this computer; it cannot be taken back, only reviewed by a person. The step is recorded even when an input is untraced: the result then carries a warning, and you should tell the person. Returns the record\'s reference and each input\'s trace.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -4905,24 +4926,24 @@ const TOOLS = Object.freeze([
   {
     name: 'trace',
     title: 'Trace a file',
-    description: 'Trace one file\'s bytes back through the recorded agent steps to the files instruments sealed, and say whether every branch ends in a measurement. Reads only.',
+    description: 'Trace one file\'s bytes back through the recorded agent steps to the files a station\'s ledger sealed, and say whether every branch ends in a measurement (tracesToMeasured). Says which folders it searched. Reads only.',
     inputSchema: { type: 'object', properties: { path: { type: 'string', minLength: 1, description: 'The file, relative to the root folder.' } }, required: ['path'], additionalProperties: false },
     outputSchema: {
       type: 'object',
-      properties: { path: { type: 'string' }, sha256: { type: 'string' }, bytes: { type: 'number' }, state: { type: 'string' }, tracesToMeasured: { type: 'boolean' }, measuredFiles: { type: 'number' }, untracedInputs: { type: 'number' }, sentence: { type: 'string' }, tree: {} },
-      required: ['path', 'sha256', 'state', 'tracesToMeasured', 'sentence'],
+      properties: { path: { type: 'string' }, sha256: { type: 'string' }, bytes: { type: 'number' }, state: { type: 'string' }, tracesToMeasured: { type: 'boolean' }, measuredFiles: { type: 'number' }, untracedInputs: { type: 'number' }, sentence: { type: 'string' }, tree: {}, searched },
+      required: ['path', 'sha256', 'state', 'tracesToMeasured', 'sentence', 'searched'],
     },
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   },
   {
     name: 'audit_summary',
     title: 'Audit summary',
-    description: 'Audit every ledger in the folders this server searches: each ledger checked whole, every sealed file read and compared, every step\'s inputs traced. Returns the verdict (pass, review or fail), its sentence, and the problems and items for review. Reads only; it reads every file, so it can take a while on a large folder.',
+    description: 'Audit every ledger in the folders this server searches: each ledger checked whole, every sealed file read and compared, every step\'s inputs traced. Returns the verdict (pass, review or fail), its sentence, the problems and items for review, and which folders it searched. Reads only; it reads every file, so it can take a while on a large folder.',
     inputSchema: { type: 'object', properties: { strict: { type: 'boolean', description: 'Count items for review and notes as failures.' } }, additionalProperties: false },
     outputSchema: {
       type: 'object',
-      properties: { verdict: { type: 'string', enum: ['pass', 'review', 'fail'] }, summary: { type: 'string' }, counts: { type: 'object' }, problems: { type: 'array', items: { type: 'string' } }, forReview: { type: 'array', items: { type: 'string' } }, notes: { type: 'array', items: { type: 'string' } }, ledgers: { type: 'array', items: { type: 'object' } } },
-      required: ['verdict', 'summary', 'counts', 'problems', 'forReview', 'notes', 'ledgers'],
+      properties: { verdict: { type: 'string', enum: ['pass', 'review', 'fail'] }, summary: { type: 'string' }, counts: { type: 'object' }, problems: { type: 'array', items: { type: 'string' } }, forReview: { type: 'array', items: { type: 'string' } }, notes: { type: 'array', items: { type: 'string' } }, ledgers: { type: 'array', items: { type: 'object' } }, searched },
+      required: ['verdict', 'summary', 'counts', 'problems', 'forReview', 'notes', 'ledgers', 'searched'],
     },
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   },
@@ -4978,6 +4999,7 @@ class McpServer {
     this.initialized = false
     this.actor = opts.actor || 'agent'
     this.tool = opts.tool || '-'
+    this.instructions = instructionsFor({ root, searchDirs })
   }
 
   // one parsed message (or a parse error): the response object, or null for none
@@ -5044,7 +5066,7 @@ class McpServer {
       const c = params.clientInfo && typeof params.clientInfo === 'object' ? params.clientInfo : null
       this.out.note(`MCP client ${c && typeof c.name === 'string' ? c.name : 'unnamed'} connected (protocol ${this.legacy}).`)
       const info = this.legacy >= '2025-06-18' ? { ...SERVER_INFO } : { name: SERVER_INFO.name, version: SERVER_INFO.version }
-      return { protocolVersion: this.legacy, capabilities: { tools: { listChanged: false } }, serverInfo: info, instructions: INSTRUCTIONS }
+      return { protocolVersion: this.legacy, capabilities: { tools: { listChanged: false } }, serverInfo: info, instructions: this.instructions }
     }
     const era = this.versionOf(method, params)
     if (method === 'ping') {
@@ -5052,7 +5074,7 @@ class McpServer {
       return {}
     }
     if (method === 'server/discover') {
-      return this.wrap({ supportedVersions: [...SUPPORTED_VERSIONS], capabilities: { tools: { listChanged: false } }, instructions: INSTRUCTIONS }, { modern: true, cache: 3600000 })
+      return this.wrap({ supportedVersions: [...SUPPORTED_VERSIONS], capabilities: { tools: { listChanged: false } }, instructions: this.instructions }, { modern: true, cache: 3600000 })
     }
     if (method === 'tools/list') {
       if (params.cursor !== undefined && typeof params.cursor !== 'string') throw new RpcError(E.PARAMS, 'cursor must be text.')
@@ -5088,15 +5110,24 @@ class McpServer {
     return labLedgers(this.searchDirs, { extra: extra ? [{ abs: this.loc.ledgerPath, rootAbs: this.root, rel: this.loc.shown, root: '' }] : [], cache: this.cache })
   }
 
+  // which folders were searched and how many ledgers were found: a line for the text, and the data
+  searched(n) {
+    const s = { folders: [...this.searchDirs], ledgers: n }
+    return { s, line: `Searched ${plural(n, 'ledger', 'ledgers')} under ${this.searchDirs.join(', ')}.` }
+  }
+
   async check_inputs({ paths }) {
     const refs = []
     for (const p of paths) refs.push(await refOf(this.file(p, 'file')))
-    const { files } = await traceFiles(await this.ledgers(), refs)
+    const ledgers = await this.ledgers()
+    const { files } = await traceFiles(ledgers, refs)
+    const sr = this.searched(ledgers.length)
     const n = (s) => files.filter((f) => f.state === s).length
     const changed = files.filter((f) => f.sealedHere && f.sealedHere.state === 'changed since it was sealed').length
     const lines = files.map((f) => `${f.path}: ${f.text}`)
     const head = `${files.length === 1 ? '1 file' : `${files.length} files`}: ${n('measured')} measured, ${n('derived')} derived, ${n('untraced')} untraced${changed ? `; ${changed} changed since sealed` : ''}.`
-    return { text: [head, ...lines].join('\n'), data: { files, measured: n('measured'), derived: n('derived'), untraced: n('untraced'), changedSinceSealed: changed } }
+    const tell = n('untraced') || changed ? ['Tell the person about each untraced or changed file before relying on it.'] : []
+    return { text: [head, ...lines, ...tell, sr.line].join('\n'), data: { files, measured: n('measured'), derived: n('derived'), untraced: n('untraced'), changedSinceSealed: changed, searched: sr.s } }
   }
 
   async record_step({ action, inputs = [], outputs, input_refs = [], actor, tool }) {
@@ -5120,9 +5151,11 @@ class McpServer {
 
   async trace({ path }) {
     const f = this.file(path, 'file')
-    const r = await traceOne(await this.ledgers(), f)
+    const ledgers = await this.ledgers()
+    const r = await traceOne(ledgers, f)
     const { lines, ...data } = r
-    return { text: [r.sentence, ...lines.slice(1)].join('\n'), data }
+    const sr = this.searched(ledgers.length)
+    return { text: [r.sentence, ...lines.slice(1), sr.line].join('\n'), data: { ...data, searched: sr.s } }
   }
 
   async audit_summary({ strict = false }) {
@@ -5136,7 +5169,9 @@ class McpServer {
       verdict: report.verdict, summary: report.summary, counts: report.counts, problems: report.problems.map(msg), forReview: report.forReview.map(msg), notes: report.notes.map(msg),
       ledgers: report.ledgers.map((L) => ({ label: L.label, ledgerPath: L.ledgerPath, role: L.role, records: L.records, verdict: L.verdict })),
     }
-    const lines = [report.summary, ...data.problems.map((s) => `problem: ${s}`), ...data.forReview.map((s) => `for review: ${s}`)]
+    const sr = this.searched(all.length)
+    data.searched = sr.s
+    const lines = [report.summary, ...data.problems.map((s) => `problem: ${s}`), ...data.forReview.map((s) => `for review: ${s}`), sr.line]
     return { text: lines.join('\n'), data }
   }
 }
@@ -5226,7 +5261,7 @@ async function runMcp({ opts, out, stdout, stdin = process.stdin, signals = proc
   })
 }
 
-return { MODERN_VERSIONS, LEGACY_VERSIONS, SUPPORTED_VERSIONS, E, TOOLS, toolsFor, argsProblem, McpServer, runMcp }
+return { MODERN_VERSIONS, LEGACY_VERSIONS, SUPPORTED_VERSIONS, E, INSTRUCTIONS_MAX, instructionsFor, TOOLS, toolsFor, argsProblem, McpServer, runMcp }
 })()
 
 // ---------------------------------------------------------------------------------------------- agent/src/info.mjs
@@ -5508,8 +5543,10 @@ wrote them) or untraced. Exit 0 recorded, 1 refused or could not write, 2 usage 
   --json <file>      the record and the traces as JSON (- for the output)
   --ledger --key --station --pin-file --quiet --no-color
 
-Example: node iqc.mjs record --root "D:\\Lab\\agent-workspace" --actor analyst-bot \\
-           --action "Averaged the six injections" --in ../hplc-3/run-07.csv --out summary.csv`,
+Example, run in D:\\Lab\\agent-workspace, where inputs\\run-07.csv is a copy of a file the station
+D:\\Lab\\hplc-3 sealed (the same bytes trace as measured):
+  node iqc.mjs record --root "D:\\Lab\\agent-workspace" --search "D:\\Lab" --actor analyst-bot \\
+    --action "Averaged the six injections" --in inputs\\run-07.csv --out summary.csv`,
   trace: `iqc trace <file> [options]
 
 Traces the file's bytes back through the recorded agent steps to the files instruments sealed,
@@ -5539,21 +5576,29 @@ this computer, not a person. Exit 0 recorded, 1 refused, 2 usage or read error.
 Example: node iqc.mjs review 3f2a…:4 --reviewer "J. Rivera" --decision approved --search "D:\\Lab"`,
   mcp: `iqc mcp [options]
 
-A Model Context Protocol server on standard input and output, for an AI agent: the agent calls
-check_inputs before it uses files, record_step after it writes files, trace and audit_summary.
-Standard output carries protocol messages only; everything else goes to standard error. The
-server holds the root's ledger for as long as it runs, between an mcp-started and an mcp-stopped
-record, and stops when standard input closes. Paths are relative to the root and confined to it.
+A Model Context Protocol server on standard input and output, for an AI agent that works on lab
+files: the agent calls check_inputs before it uses files, record_step after it writes files, and
+trace or audit_summary before it reports. Standard output carries protocol messages only;
+everything else goes to standard error. Paths are relative to the root and confined to it. It
+never uses the network.
 Protocol versions: ${SUPPORTED_VERSIONS.join(', ')}.
 
+Starting it writes <root>/ImmutableQC/ (ledger.jsonl with an mcp-started record, README.txt and,
+while it runs, agent.lock) and, for a new ledger, a new signing key in ~/.immutableqc/keys/. It
+holds the root's ledger for as long as it runs, so a root takes one writer at a time: one server
+or one iqc record. It stops when standard input closes, with an mcp-stopped record.
+
   --root <folder>    the folder the agent works in (default: the current folder)
-  --search <folder>  where to look for ledgers (default: the root); repeatable
+  --search <folder>  where to look for the instruments' ledgers (default: the root); repeatable.
+                     Give the lab folder: a file sealed by a station outside every --search
+                     folder reads as untraced
   --actor <name>     the actor of each step unless the agent names one (default "agent")
   --tool <name>      the tool of each step unless the agent names one (default "-")
   --ledger --key --station --pin-file --ignore --quiet
 
-Client setup (JSON):
-  {"command": "node", "args": ["/path/to/iqc.mjs", "mcp", "--root", "/path/to/workspace"]}`,
+Client setup (JSON; the file and its place depend on the client):
+  {"command": "node",
+   "args": ["/path/to/iqc.mjs", "mcp", "--root", "/lab/agent-workspace", "--search", "/lab"]}`,
   help: 'iqc help [command]\n\nShows the help, or one command\'s.',
 }
 

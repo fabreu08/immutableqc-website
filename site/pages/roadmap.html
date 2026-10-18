@@ -4,10 +4,13 @@
 <div class="body">
 <ul class="items">
 <li><span class="k">These pages</span><span>One synthetic HPLC sequence, signed with a demo key at build, with a simulated anchor. Your browser recomputes every check.</span></li>
-<li><span class="k">App · in your browser</span><span>Drop a data folder to check every file against the ledger in it; nothing is uploaded. It can also seal a folder, and a demo shows a pass and a fail.</span></li>
+<li><span class="k">Agent · iqc.mjs</span><span>Seals every file in a folder by its bytes, from any instrument software, in a signed ledger inside the folder; records the steps AI agents take on files (what each step read and wrote, by SHA-256); traces a file back to sealed files; and serves the same to AI agents over MCP. One file for Node.js 22; it never uses the network.</span></li>
+<li><span class="k">App · in your browser</span><span>Drop a lab folder to check every file against the ledgers in it; nothing is uploaded. Agent steps show traced back to sealed measurements, and untraced inputs go to review. It can also seal a folder, and a demo shows a pass, a review and a fail.</span></li>
+<li><span class="k">Reviewer sign-off</span><span>A person signs off agent steps (approved, question or rejected) with iqc review or in the app’s review mode: a review record names the records it covers. Its key identifies a computer or a browser, not a person; per-analyst signatures (2.5) are upcoming.</span></li>
 <li><span class="k">Alpha app · not public</span><span>Imports HPLC CSV files and seals each peak area with one server key, by the same rules.</span></li>
 </ul>
 <p><a class="xref" href="app/"><span class="id">app/</span><span>Open the app</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
+<p><a class="xref" href="agents.html"><span class="id">IQC-AG-01</span><span>For AI agents: the agent and its MCP server</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
 </div>
 </section>
 <section class="sec sec--side" id="planned" aria-labelledby="s2-h">
@@ -17,46 +20,37 @@
 </div>
 <h3 id="capture"><span class="no">2.1</span><span>Sealing at capture <span class="tag">Upcoming</span></span></h3>
 <div class="body">
-<p>The orchestrator or driver would fingerprint, link and sign each result as it is produced, before anything downstream could change it. Adapters would speak SiLA 2 and OPC UA LADS; the first adapter would seal the results of one SiLA 2 device, with the sample, the well or position and the method inside the seal (2.10). Anything before capture would still not be covered.</p>
+<p>The orchestrator or driver would fingerprint, link and sign each result as it is produced, before anything downstream could change it. Adapters would speak SiLA 2 and OPC UA LADS; the first adapter would seal the results of one SiLA 2 device, with the sample, the well or position and the method inside the seal (2.8). Anything before capture would still not be covered.</p>
 </div>
 <h3 id="derived"><span class="no">2.2</span><span>Measured and derived records <span class="tag">Upcoming</span></span></h3>
 <div class="body">
-<p>A fingerprint shows that a record has not changed since it was sealed, not that it was ever measured. Only a record sealed at capture, by the instrument’s or orchestrator’s key, would count as measured; anything an agent, a script or an analysis produces would be a derived record, under a different signer, citing its sources. So a number either traces back to a measurement or it does not. That would expose an invented or hallucinated value with no measurement under it, which hashing alone cannot catch. A derived number that cites real measurements but was computed or copied wrongly would still pass, so a checker would re-run the analysis from its cited inputs. This would hold only if agents and scripts cannot use the capture key, which would seal the device’s identity with each result.</p>
+<p>A fingerprint shows that a record has not changed since it was sealed, not that it was ever measured. Only a record sealed at capture, by the instrument’s or orchestrator’s key, would count as measured; anything an agent, a script or an analysis produces would be a derived record, under a different signer, citing its sources. So a number either traces back to a measurement or it does not. Today the agent does this for whole files: a file a station sealed counts as measured, and a file a recorded agent step wrote counts as derived (section 1). That would expose an invented or hallucinated value with no measurement under it, which hashing alone cannot catch. A derived number that cites real measurements but was computed or copied wrongly would still pass, so a checker would re-run the analysis from its cited inputs. This would hold only if agents and scripts cannot use the capture key, which would seal the device’s identity with each result.</p>
 </div>
 <h3 id="lineage"><span class="no">2.3</span><span>Lineage and recall <span class="tag">Upcoming</span></span></h3>
 <div class="body">
 <p>Derived records would form a lineage graph: measurement, analysis, model, decision. A corrected measurement’s reach would be computable in one step: every analysis, model and decision recorded as a derived record that cites it, and which agents must re-check. It would be a data recall, like the impact assessment of an out-of-specification investigation; work recorded any other way would stay invisible to it.</p>
 </div>
-<h3 id="agents"><span class="no">2.4</span><span>Agentic workflows <span class="tag">Upcoming</span></span></h3>
-<div class="body">
-<p>AI agents would run the four checks of Check a record, and with 2.2 ask whether a number traces back to a measurement, before they use it. Check a record shows the record as JSON: a preview, not an API.</p>
-<p><a class="xref" href="check.html#agent"><span class="id">IQC-CK-01 §2</span><span>The agent-readable record</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
-</div>
-<h3 id="merkle"><span class="no">2.5</span><span>Merkle batches with salted leaves <span class="tag">Upcoming</span></span></h3>
+<h3 id="merkle"><span class="no">2.4</span><span>Merkle batches with salted leaves <span class="tag">Upcoming</span></span></h3>
 <div class="body">
 <p>One 32-byte root would commit to a whole run. A short path of hashes, an inclusion check, would show that one record is in the batch without revealing the others’ contents (it would show how many records the batch holds, and this one’s place), for selective disclosure when a lab chooses to hand one record to someone, by its own means. Every leaf would be salted with a random value the lab keeps. Each root would also commit to the root before it, so a dropped batch or a restored backup would break the sequence, checked against a root the lab pinned earlier outside its system. The construction would be the tree hash of RFC 6962, kept in RFC 9162, with domain separation and no duplicated leaf, as Certificate Transparency logs and Rekor use it.</p>
 </div>
-<h3 id="signatures"><span class="no">2.6</span><span>Per-analyst signatures <span class="tag">Upcoming</span></span></h3>
+<h3 id="signatures"><span class="no">2.5</span><span>Per-analyst signatures <span class="tag">Upcoming</span></span></h3>
 <div class="body">
-<p>Each analyst would sign with their own key. An electronic signature under 21 CFR Part 11 needs more: verified identity, meaning and controlled credentials.</p>
+<p>Each analyst would sign with their own key, and reviewer sign-off (section 1) would then name a person, not a computer or a browser. An electronic signature under 21 CFR Part 11 needs more: verified identity, meaning and controlled credentials.</p>
 </div>
-<h3 id="position"><span class="no">2.7</span><span>Signatures that cover each record’s position <span class="tag">Upcoming</span></span></h3>
+<h3 id="position"><span class="no">2.6</span><span>Signatures that cover each record’s position <span class="tag">Upcoming</span></span></h3>
 <div class="body">
 <p>Today a record removed, moved or copied to a second position, with every later link rewritten, passes every check but an earlier anchor, and that needs no key. Signing each record’s link would show it to anyone without the signing key; a rewrite by whoever holds it, or records dropped from the end, would still show only against an anchor.</p>
 </div>
-<h3 id="review"><span class="no">2.8</span><span>Reviewer sign-off <span class="tag">Upcoming</span></span></h3>
-<div class="body">
-<p>Second-person review as a record naming the records it covers, signed with the reviewer’s own key.</p>
-</div>
-<h3 id="verification"><span class="no">2.9</span><span>Server-side verification in the app <span class="tag">Upcoming</span></span></h3>
+<h3 id="verification"><span class="no">2.7</span><span>Server-side verification in the app <span class="tag">Upcoming</span></span></h3>
 <div class="body">
 <p>The alpha app recomputing every check on its server.</p>
 </div>
-<h3 id="metadata"><span class="no">2.10</span><span>Sample and method metadata in the seal <span class="tag">Upcoming</span></span></h3>
+<h3 id="metadata"><span class="no">2.8</span><span>Sample and method metadata in the seal <span class="tag">Upcoming</span></span></h3>
 <div class="body">
 <p>Sample, method, injection and retention time sealed inside each record, with a correction’s reason and reference.</p>
 </div>
-<h3 id="pq"><span class="no">2.11</span><span>Post-quantum signatures <span class="tag">Upcoming</span></span></h3>
+<h3 id="pq"><span class="no">2.9</span><span>Post-quantum signatures <span class="tag">Upcoming</span></span></h3>
 <div class="body">
 <p>Long term. SHA-256 and Merkle trees would hold up against a quantum computer; the ECDSA P-256 signatures would not. First would come algorithm agility, an algorithm id on every signature. Then would come hybrid signatures with ML-DSA (NIST FIPS 204) or SLH-DSA (FIPS 205), and old records would be re-sealed under the stronger algorithm, covering each record’s signature as well as its fingerprint (RFC 4998).</p>
 </div>

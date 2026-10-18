@@ -22,8 +22,8 @@ A pass shows the files are the ones that were sealed. It doesn't show a value wa
 the instrument wrote it, and it doesn't cover the few seconds between the software writing a file and the agent
 reading it.
 
-Upcoming: agents and pipelines record each step they take, so a reviewer can trace any result back to the measurements
-behind it and sign off in the browser.
+Agents and pipelines can record each step they take, so a reviewer can trace any result back to the measurements behind
+it and sign off in the browser.
 
 Immutable QC is an independent project in open alpha, with no customers yet. Try the demo at immutableqc.com/app/, or
 get in touch through joseqc.com.

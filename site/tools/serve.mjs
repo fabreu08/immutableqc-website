@@ -10,7 +10,7 @@ import { join, extname, normalize, dirname, relative, isAbsolute, sep } from 'no
 import { fileURLToPath } from 'node:url'
 import { gzipSync } from 'node:zlib'
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
-const T = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.json': 'application/json', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.txt': 'text/plain; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.md': 'text/plain; charset=utf-8' }
+const T = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.json': 'application/json', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.txt': 'text/plain; charset=utf-8', '.xml': 'application/xml; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.md': 'text/plain; charset=utf-8' }
 export function serve(port = 0, root = ROOT) {
   const srv = createServer(async (req, res) => {
     try {
@@ -27,7 +27,7 @@ export function serve(port = 0, root = ROOT) {
       let body = await readFile(f)
       const type = T[extname(f)] || 'application/octet-stream'
       const h = { 'content-type': type, 'cache-control': 'no-store' }
-      if (/text|javascript|json|svg/.test(type) && /gzip/.test(req.headers['accept-encoding'] || '')) { body = gzipSync(body, { level: 9 }); h['content-encoding'] = 'gzip' }
+      if (/text|javascript|json|svg|xml/.test(type) && /gzip/.test(req.headers['accept-encoding'] || '')) { body = gzipSync(body, { level: 9 }); h['content-encoding'] = 'gzip' }
       h['content-length'] = body.length
       res.writeHead(code, h); res.end(body)
     } catch (e) { res.writeHead(500); res.end(String(e)) }

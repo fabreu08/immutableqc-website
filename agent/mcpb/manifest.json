@@ -1,0 +1,32 @@
+{
+  "manifest_version": "0.3",
+  "name": "immutableqc",
+  "display_name": "Immutable QC",
+  "version": "0.1.0",
+  "description": "Check lab input files against sealed instrument files, and record AI agent steps in a local ledger.",
+  "long_description": "Tamper-evident records for automated research labs. check_inputs says whether each file's exact bytes were sealed by an instrument station (measured), written by a recorded step (derived), or neither (untraced). record_step appends a signed record of what the agent read, wrote and did. trace follows a file back to sealed files; audit_summary checks every ledger under the lab folder. Nothing is uploaded; the server never uses the network.",
+  "author": { "name": "Immutable QC", "url": "https://immutableqc.com" },
+  "homepage": "https://immutableqc.com",
+  "documentation": "https://immutableqc.com/agents.html",
+  "support": "https://joseqc.com",
+  "server": {
+    "type": "node",
+    "entry_point": "server/iqc.mjs",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server/iqc.mjs", "mcp", "--root", "${user_config.workspace}", "--search", "${user_config.lab_folder}"]
+    }
+  },
+  "tools": [
+    { "name": "check_inputs", "description": "Whether each file was measured, derived or untraced; reads only." },
+    { "name": "record_step", "description": "Appends a signed record of one step: inputs, outputs, action." },
+    { "name": "trace", "description": "Traces a file back to sealed files; reads only." },
+    { "name": "audit_summary", "description": "Pass, review or fail for every ledger under the lab folder; reads only." }
+  ],
+  "keywords": ["laboratory", "lab-automation", "instrument-data", "provenance", "tamper-evident", "audit", "research-data", "ai-agents"],
+  "compatibility": { "platforms": ["darwin", "win32", "linux"], "runtimes": { "node": ">=22.0.0" } },
+  "user_config": {
+    "workspace": { "type": "directory", "title": "Agent workspace", "description": "The folder the agent reads and writes in. Every path a tool takes must be inside it.", "required": true },
+    "lab_folder": { "type": "directory", "title": "Lab data folder", "description": "The folder that holds the instruments' sealed folders (searched for ledgers). It can be the workspace or a folder above it.", "required": true }
+  }
+}

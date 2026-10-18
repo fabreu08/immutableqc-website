@@ -61,14 +61,14 @@ auditor needs the folder, you send it to them, by your own means.
 ## 5. What did the agents do? (post after the App and Agent CLI work ships)
 
 **X**
-Upcoming: every agent step records what it read and wrote. One audit then traces each result back to the measurement
-it came from, and flags any input nothing measured. A reviewer signs off in the browser.
+Every agent step can record what it read and wrote. One audit then traces each result back to the measurement it came
+from, and flags any input nothing measured. A reviewer signs off in the browser.
 
 **LinkedIn**
 Labs are handing analysis to AI agents and pipelines. The hard question for a reviewer is no longer "is this file
 intact?" but "what did the agent actually use?"
 
-Upcoming in Immutable QC: each agent step records the files it read and wrote, through a small command or a Model
-Context Protocol server the agent calls. One audit traces every output back to sealed measurements, flags any input
+In Immutable QC, each agent step records the files it read and wrote, through a small command or a Model Context
+Protocol server the agent calls. One audit traces every output back to sealed measurements, flags any input
 nothing measured, and lets a reviewer sign off. Measured values and derived ones stay apart, because each keeps its own
 ledger and key.

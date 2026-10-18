@@ -1,0 +1,140 @@
+<h1 class="h1-doc">For AI agents</h1>
+<section class="sec sec--side" id="what" aria-labelledby="s1-h">
+<h2 id="s1-h"><span class="no">1</span>What it is</h2>
+<div class="body">
+<p class="lead">{{agentLine}}</p>
+<p>This page is for an AI agent that works with lab data, and for the people who build such agents and pipelines: what the agent and its MCP server do today, how to run and connect them, and their limits. The same text is in <a href="llms.txt">llms.txt</a> (short) and <a href="llms-full.txt">llms-full.txt</a> (everything on one page).</p>
+</div>
+</section>
+<section class="sec sec--side" id="today" aria-labelledby="s2-h">
+<h2 id="s2-h"><span class="no">2</span>What works today, and what is upcoming</h2>
+<div class="body">
+<ul class="items">
+<li><span class="k">The agent · iqc.mjs {{version}}</span> <span>One file you run with Node.js 22 or later, on Windows, macOS and Linux. No dependencies; it never uses the network, and it refuses to run on an older Node.js.</span></li>
+<li><span class="k">watch, seal</span> <span>Seal every file in a folder by its bytes, from any instrument software: its SHA-256 fingerprint, size and time, each record signed (ECDSA P-256) and linked to the one before, in <code>&lt;folder&gt;/ImmutableQC/ledger.jsonl</code>.</span></li>
+<li><span class="k">record, trace, review</span> <span>Record an AI agent’s step (what it read, what it wrote, what it did) in the agent’s own ledger, trace a file back to sealed files, and sign off steps.</span></li>
+<li><span class="k">audit</span> <span>Check every ledger and every file under a lab folder: {{exitLine}}.</span></li>
+<li><span class="k">mcp</span> <span>The same for AI agents, over MCP on standard input and output: <code>check_inputs</code>, <code>record_step</code>, <code>trace</code> and <code>audit_summary</code>.</span></li>
+<li><span class="k">The app · in your browser</span> <span>Audits a whole lab folder in one click with nothing uploaded, traces agent outputs back to sealed measurements, sends untraced inputs to review, and has a review mode for sign-off. <a href="app/#demo">The demo</a> shows a pass, a review and a fail.</span></li>
+</ul>
+<p class="note"><span class="k">Upcoming</span> An npm package; a Windows installer and service; values read from inside files; per-person keys and signatures; Merkle batches; sealing inside the vendor’s software; post-quantum signatures.</p>
+</div>
+</section>
+<section class="sec sec--side" id="run" aria-labelledby="s3-h">
+<h2 id="s3-h"><span class="no">3</span>Run it</h2>
+<div class="body">
+<p>Download <a href="download/iqc.mjs">iqc.mjs</a> ({{version}}), check its SHA-256, then run it. Its SHA-256 is:</p>
+<p><code class="sha">{{dlSha}}</code></p>
+<pre class="json" tabindex="0" role="group" aria-label="Download, check and run (scrolls sideways)"><code>curl -fsSO https://immutableqc.com/download/iqc.mjs
+sha256sum iqc.mjs                     # Linux
+shasum -a 256 iqc.mjs                 # macOS
+certutil -hashfile iqc.mjs SHA256     # Windows
+node iqc.mjs help</code></pre>
+<p>If the two differ, do not run the file. Then, on the computer that can read the instrument’s data folder:</p>
+<pre class="json" tabindex="0" role="group" aria-label="Seal a folder and audit it (scrolls sideways)"><code>node iqc.mjs watch /lab/hplc-3        # seal now, then keep sealing until Ctrl+C
+node iqc.mjs seal /lab/hplc-3         # seal once, for a scheduler or a pipeline
+node iqc.mjs audit /lab --report audit.html</code></pre>
+<p>A file is sealed once it has not changed for <code>--settle</code> seconds (10 by default). <code>--ledger &lt;path&gt;</code> keeps the ledger outside a folder the instrument software manages.</p>
+</div>
+</section>
+<section class="sec sec--side" id="connect" aria-labelledby="s4-h">
+<h2 id="s4-h"><span class="no">4</span>Connect the MCP server</h2>
+<div class="body">
+<p>Any MCP client that starts local servers over standard input and output can run it. The server entry, as JSON:</p>
+<pre class="json" tabindex="0" role="group" aria-label="The MCP server entry, as JSON (scrolls sideways)"><code>{{configJSON}}</code></pre>
+<ul class="items">
+<li><span class="k">--root</span> <span>The folder the agent works in. Every path a tool takes is relative to it and must be inside it.</span></li>
+<li><span class="k">--search</span> <span>Where the instruments’ ledgers are: give the lab folder. Without it, a file sealed by a station outside the root reads as untraced.</span></li>
+<li><span class="k">What starting writes</span> <span><code>&lt;root&gt;/ImmutableQC/</code>, the agent’s own ledger (with <code>README.txt</code>, and <code>agent.lock</code> while it runs), and, for a new ledger, a signing key in <code>~/.immutableqc/keys/</code>.</span></li>
+<li><span class="k">One writer per root</span> <span>While the server runs it holds the root’s ledger: one server or one <code>iqc record</code> at a time per root.</span></li>
+</ul>
+<p>Protocol versions: {{protocols}}. Every tool has an input and an output schema; a refused path or a bad argument comes back as a tool error with a sentence saying why.</p>
+</div>
+</section>
+<section class="sec sec--side" id="tools" aria-labelledby="s5-h">
+<h2 id="s5-h"><span class="no">5</span>The four tools</h2>
+<div class="body">
+<table class="st-t">
+<caption class="sr-only">The four MCP tools</caption>
+<thead><tr><th scope="col">Tool</th><th scope="col">What it returns</th></tr></thead>
+<tbody>
+<tr><th scope="row"><code>check_inputs</code> <span class="sub">reads only</span></th><td>For each file: measured (a station’s ledger sealed these exact bytes, with its station and key id), derived (a recorded agent step wrote them) or untraced (neither), and whether a sealed file changed after it was sealed. The files must already be sealed by <code>iqc watch</code> or <code>iqc seal</code>.</td></tr>
+<tr><th scope="row"><code>record_step</code> <span class="sub">appends one signed record</span></th><td>The step’s reference, each file’s SHA-256 and size, and each input’s trace. The record cannot be taken back, only reviewed. It is recorded even when an input is untraced, with a warning.</td></tr>
+<tr><th scope="row"><code>trace</code> <span class="sub">reads only</span></th><td>A file’s tree back through the recorded steps to sealed files, and <code>tracesToMeasured</code>: whether every branch ends in a measurement.</td></tr>
+<tr><th scope="row"><code>audit_summary</code> <span class="sub">reads only</span></th><td>Pass, review or fail for every ledger under the search folders, with the problems and the items for review.</td></tr>
+</tbody>
+</table>
+<p>Each result also says which folders it searched and how many ledgers it found there.</p>
+</div>
+</section>
+<section class="sec sec--side" id="loop" aria-labelledby="s6-h">
+<h2 id="s6-h"><span class="no">6</span>The loop an agent follows</h2>
+<div class="body">
+<ol class="items">
+<li><span class="k">1 · Check the inputs</span> <span>Call <code>check_inputs</code> before you use lab files.</span></li>
+<li><span class="k">2 · Tell the person</span> <span>If an input is untraced, or changed after it was sealed, tell the person before you rely on it.</span></li>
+<li><span class="k">3 · Do the work</span> <span>Read the files you checked; write your outputs inside the root.</span></li>
+<li><span class="k">4 · Record the step</span> <span>Call <code>record_step</code> once per step, naming every file you read and every file you wrote. For a file outside the root, copy it in (the same bytes trace the same way), or name it in <code>input_refs</code> as <code>&lt;sha256&gt;:&lt;bytes&gt;:&lt;label&gt;</code>.</span></li>
+<li><span class="k">5 · Before you report</span> <span>Call <code>trace</code> on the result, or <code>audit_summary</code> for the whole lab folder.</span></li>
+</ol>
+</div>
+</section>
+<section class="sec sec--side" id="pipeline" aria-labelledby="s7-h">
+<h2 id="s7-h"><span class="no">7</span>From a pipeline</h2>
+<div class="body">
+<p>A script records its step with <code>iqc record</code>; with <code>--json -</code> the record and the traces are its standard output. In Python, with the standard library:</p>
+<pre class="json" tabindex="0" role="group" aria-label="Recording a step from Python (scrolls sideways)"><code>{{pythonExample}}</code></pre>
+</div>
+</section>
+<section class="sec sec--side" id="signoff" aria-labelledby="s8-h">
+<h2 id="s8-h"><span class="no">8</span>Sign-off by a person</h2>
+<div class="body">
+<p>A person signs off steps: approved, question or rejected, with <code>iqc review</code>, or in the app’s review mode, which signs the review with the browser’s key and lets the reviewer download the review ledger. There is no review tool over MCP, so an agent cannot approve its own steps. A key identifies a computer or a browser, not a person; per-person keys and signatures are upcoming.</p>
+</div>
+</section>
+<section class="sec sec--side" id="limits" aria-labelledby="s9-h">
+<h2 id="s9-h"><span class="no">9</span>What a pass shows, and what it does not</h2>
+<div class="body">
+<p>A pass shows that every sealed file is byte for byte the one that was sealed, and that no ledger was edited, reordered or cut since it was signed. A pass does not show:</p>
+<ul class="items">
+<li><span>That a file was right when it was written: a wrong value written by the instrument software is sealed as written.</span></li>
+<li><span>Anything about a change made inside the settle window, between the moment the software writes a file and the moment the agent seals it.</span></li>
+<li><span>A rewrite by whoever holds a ledger’s key: a head pinned somewhere else (<code>iqc head</code>, then <code>iqc audit --expect-head</code>, or a <code>--pin-file</code>) exposes that.</span></li>
+<li><span>That a measured file came from your instrument: measured means a ledger sealed those bytes, so compare the sealing key id with your instruments’ keys (<code>iqc audit --expect-key</code>).</span></li>
+<li><span>What a step read and did not name: a step records only the files it names, and its action line is the agent’s own words.</span></li>
+</ul>
+</div>
+</section>
+<section class="sec sec--side" id="faq" aria-labelledby="s10-h">
+<h2 id="s10-h"><span class="no">10</span>Questions</h2>
+<h3 id="q1"><span class="no">10.1</span>How do I check that an instrument export is the original file?</h3>
+<div class="body">
+<p>The instrument’s folder must be sealed by <code>iqc watch</code> or <code>iqc seal</code>. Then <code>check_inputs</code> (or <code>iqc trace</code>) says whether the file’s exact bytes are the ones a station’s ledger sealed, and whether that file changed after it was sealed.</p>
+</div>
+<h3 id="q2"><span class="no">10.2</span>Why does a file I know was sealed read as untraced?</h3>
+<div class="body">
+<p>The ledger that sealed it is outside the folders the server searches. Start the server with <code>--search</code> and the lab folder; each result says which folders it searched.</p>
+</div>
+<h3 id="q3"><span class="no">10.3</span>When is it not the right tool?</h3>
+<div class="body">
+<p>When you need the values inside files checked, a hosted service, or signatures that identify a person. It works on whole files, on the computers you run it on, and there is no hosted service; reading values inside files and per-person signatures are upcoming.</p>
+</div>
+</section>
+<section class="sec sec--side" id="data" aria-labelledby="s11-h">
+<h2 id="s11-h"><span class="no">11</span>Data, format and versions</h2>
+<div class="body">
+<ul class="items">
+<li><span class="k">Data handling</span> <span>It never uses the network and nothing is uploaded. It reads the files under the folders it is given and writes only its ledgers, their <code>README.txt</code> and lock files, the pin file and reports you ask for, and a signing key in <code>~/.immutableqc/keys/</code>.</span></li>
+<li><span class="k">Format</span> <span>A ledger is JSON Lines: one record per line, each with the file’s SHA-256, size and time, signed with ECDSA P-256 and linked to the record before it. An audit needs no key.</span></li>
+<li><span class="k">Versions</span> <span>iqc.mjs {{version}}; MCP protocol versions {{protocols}}.</span></li>
+<li><span class="k">License</span> <span>No license is published yet: ask through joseqc.com before you copy or redistribute iqc.mjs.</span></li>
+</ul>
+</div>
+</section>
+<section class="sec sec--side" id="contact" aria-labelledby="s12-h">
+<h2 id="s12-h"><span class="no">12</span>Contact</h2>
+<div class="body">
+<p>Questions and reports go through joseqc.com, the founder’s site.</p>
+<p><a class="xref" href="https://joseqc.com"><span>joseqc.com</span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
+</div>
+</section>

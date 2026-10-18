@@ -8,7 +8,7 @@ import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { readFileSync, writeFileSync, cpSync, mkdirSync, symlinkSync } from 'node:fs'
 import { join } from 'node:path'
-import { ENTRIES, REPO, workspace, envFor, run } from './_helpers.mjs'
+import { ENTRIES, REPO, workspace, envFor, run, put } from './_helpers.mjs'
 import { verifyLedger } from '../../core/immutableqc.mjs'
 
 const LAB = join(REPO, 'core', 'test', 'fixtures', 'lab')
@@ -244,3 +244,104 @@ for (const [name, entry] of ENTRIES) {
     })
   })
 }
+
+// What an agent reads before and after it connects (docs/agent-discovery.md, A9): the server's instructions open with
+// the words an agent searches for and name the folders it was started with; the tool descriptions say a station's ledger
+// sealed a measured file, and a step is recorded even with an untraced input; each result says which folders it
+// searched; a measured file names the sealing ledger's key id, so a file sealed by a fresh key elsewhere shows as such;
+// and the help's client setup and record example work as printed.
+describe('what an agent reads', { concurrency: false }, () => {
+  const entry = ENTRIES[0][1]
+  test('instructions, descriptions, searched folders and the sealing key id; without --search a sealed input is untraced, and the result says where it looked', async () => {
+    const W = lab()
+    try {
+      // a file sealed by a fresh key on a station of its own (not one of the lab's instruments)
+      const fake = join(W.lab, 'fake-station')
+      mkdirSync(fake)
+      writeFileSync(join(fake, 'made-up.csv'), 'well,od\nA1,0.5\n')
+      const sealed = await run(entry, ['seal', fake, '--settle', '0', '--quiet'], { home: W.home })
+      assert.equal(sealed.code, 0, sealed.out)
+      writeFileSync(join(W.root, 'made-up.csv'), readFileSync(join(fake, 'made-up.csv')))
+      const keyOf = (dir) => JSON.parse(readFileSync(join(dir, 'ImmutableQC', 'ledger.jsonl'), 'utf8').split('\n')[0]).keyId
+
+      const c = client(entry, ['--root', W.root, '--search', W.lab], { home: W.home, cwd: W.dir })
+      const init = (await c.send('initialize', { protocolVersion: '2025-11-25', capabilities: {} })).result
+      c.notify('notifications/initialized')
+      const ins = init.instructions
+      assert.match(ins, /^Immutable QC: tamper-evident records for lab instrument files and AI agent steps, kept on this computer; it never uses the network\. /)
+      assert.ok(ins.length <= 4096, `${ins.length} characters`)
+      for (const w of ['check_inputs', 'record_step', 'trace', 'audit_summary', 'untraced', 'tell the person before you rely on it', 'input_refs', 'keyId']) assert.ok(ins.includes(w), w)
+      assert.ok(ins.includes(`root folder (${W.root})`) && ins.includes(`looked for under: ${W.lab}.`), ins)
+      const d = (await c.send('server/discover', meta())).result
+      assert.equal(d.instructions, ins)
+
+      const tools = Object.fromEntries((await c.send('tools/list', {})).result.tools.map((t) => [t.name, t]))
+      assert.match(tools.check_inputs.description, /sealed by a station's ledger \(measured/)
+      assert.match(tools.check_inputs.description, /keyId/)
+      assert.doesNotMatch(tools.check_inputs.description, /sealed by an instrument/)
+      assert.match(tools.record_step.description, /recorded even when an input is untraced/)
+      assert.match(tools.record_step.description, /tell the person/)
+      for (const n of ['check_inputs', 'trace', 'audit_summary']) assert.ok(tools[n].outputSchema.required.includes('searched'), n)
+
+      const ci = (await call(c, 'check_inputs', { paths: ['in.csv', 'made-up.csv', 'scratch.txt'] })).result.structuredContent
+      assert.deepEqual(ci.files.map((f) => f.state), ['measured', 'measured', 'untraced'])
+      assert.equal(ci.files[0].measured.keyId, keyOf(join(W.lab, 'bio-line-2')))
+      assert.equal(ci.files[1].measured.keyId, keyOf(fake))
+      assert.notEqual(ci.files[1].measured.keyId, ci.files[0].measured.keyId)
+      assert.match(ci.files[1].text, new RegExp(`\\(key id ${keyOf(fake)}\\)`))
+      assert.deepEqual(ci.searched.folders, [W.lab])
+      assert.ok(ci.searched.ledgers >= 4, JSON.stringify(ci.searched))
+      const ciText = (await call(c, 'check_inputs', { paths: ['scratch.txt'] })).result.content[0].text
+      assert.match(ciText, /Tell the person about each untraced or changed file before relying on it\./)
+      assert.match(ciText, new RegExp(`Searched \\d+ ledgers under ${W.lab.replace(/[\\^$.*+?()[\]{}|/]/g, '\\$&')}\\.$`))
+
+      const rs = (await call(c, 'record_step', { action: 'Copied a note', inputs: ['scratch.txt'], outputs: ['out.csv'] })).result.structuredContent
+      assert.match(rs.warning, /the step is recorded/)
+      assert.match(rs.warning, /Tell the person/)
+      const tr = (await call(c, 'trace', { path: 'in.csv' })).result
+      assert.deepEqual(tr.structuredContent.searched.folders, [W.lab])
+      assert.match(tr.content[0].text, /Searched \d+ ledgers under /)
+      const au = (await call(c, 'audit_summary', {})).result
+      assert.deepEqual(au.structuredContent.searched.folders, [W.lab])
+      assert.ok(au.structuredContent.searched.ledgers >= 4)
+      assert.equal((await c.end()).code, 0)
+
+      // the baseline's false negative: no --search, so the instruments' ledgers are not looked at
+      const c2 = client(entry, ['--root', W.root], { home: W.home, cwd: W.dir })
+      await c2.send('initialize', { protocolVersion: '2025-11-25', capabilities: {} })
+      c2.notify('notifications/initialized')
+      const ci2 = (await call(c2, 'check_inputs', { paths: ['in.csv'] })).result
+      assert.equal(ci2.structuredContent.files[0].state, 'untraced')
+      assert.deepEqual(ci2.structuredContent.searched, { folders: [W.root], ledgers: 1 })
+      assert.match(ci2.content[0].text, /Searched 1 ledger under /)
+      assert.equal((await c2.end()).code, 0)
+    } finally { for (const p of live) p.kill('SIGKILL'); W.cleanup() }
+  })
+
+  test('iqc help mcp shows --search in the client setup, what starting writes and one writer per root; the record example works as printed', async () => {
+    const W = lab()
+    try {
+      const h = await run(entry, ['help', 'mcp'], { home: W.home })
+      assert.equal(h.code, 0)
+      const json = JSON.parse(h.stdout.match(/\{"command": "node",[\s\S]*?\]\}/)[0])
+      assert.deepEqual(json.args.slice(1), ['mcp', '--root', '/lab/agent-workspace', '--search', '/lab'])
+      assert.match(h.stdout, /Starting it writes <root>\/ImmutableQC\//)
+      assert.match(h.stdout, /~\/\.immutableqc\/keys\//)
+      assert.match(h.stdout, /one writer at a time/)
+      assert.match(h.stdout, /never uses the network/)
+      // the record example: its input is inside the root, and it names the lab folder to search
+      const r = await run(entry, ['help', 'record'], { home: W.home })
+      const ex = r.stdout.slice(r.stdout.indexOf('node iqc.mjs record')).replace(/\\\n\s*/g, '').trim()
+      const words = [...ex.matchAll(/"([^"]*)"|(\S+)/g)].map((m) => m[1] ?? m[2])
+      const opt = (k) => words[words.indexOf(k) + 1]
+      assert.ok(!/^\.\./.test(opt('--in')) && opt('--search') && opt('--root'), ex)
+      // run it here, with the example's own relative paths (its folders mapped onto this lab)
+      const root = join(W.lab, 'agent-3'), rel = (p) => p.split('\\').join('/') // a new workspace (the fixture's has its own key)
+      put(join(root, rel(opt('--in'))), readFileSync(join(W.lab, 'hplc-3', 'run-0914', 'injection-01.csv')))
+      put(join(root, rel(opt('--out'))), 'mean\n1\n')
+      const done = await run(entry, ['record', '--root', root, '--search', W.lab, '--actor', opt('--actor'), '--action', opt('--action'), '--in', rel(opt('--in')), '--out', rel(opt('--out')), '--json', '-'], { home: W.home, cwd: root })
+      assert.equal(done.code, 0, done.out)
+      assert.equal(JSON.parse(done.stdout).inputs[0].state, 'measured')
+    } finally { W.cleanup() }
+  })
+})

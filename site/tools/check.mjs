@@ -38,7 +38,7 @@ const AXE = readFileSync(req.resolve('axe-core/axe.min.js'), 'utf8')
 
 const ARGS = Object.fromEntries(process.argv.slice(2).map((a) => { const m = /^--([\w-]+)(?:=(.*))?$/.exec(a); return m ? [m[1], m[2] ?? true] : [a, true] }))
 // the document set (every check); the hand-written pages (every check that applies to them); old addresses that redirect
-const DOCS = ['overview.html', 'sealed.html', 'check.html', 'regulatory.html', 'roadmap.html', 'about.html', '404.html']
+const DOCS = ['overview.html', 'sealed.html', 'check.html', 'regulatory.html', 'roadmap.html', 'about.html', 'agents.html', '404.html']
 const HAND = ['index.html', 'app/']
 const REDIRECTS = { 'dashboard/': 'app/' }
 const ALL = [...DOCS, ...HAND, ...Object.keys(REDIRECTS)]
@@ -842,7 +842,8 @@ if (PAGES.includes('overview.html')) {
     const cover = 1 - missing.length / wa.size
     R.nojs.push({ pg, words: wa.size, coverage: +cover.toFixed(3), missing: missing.slice(0, 40) })
     if (cover < 0.95) fail(`no-JS: ${pg} shows only ${(cover * 100).toFixed(1)}% of its words without JavaScript (missing ${missing.slice(0, 12).join(' ')})`)
-    if (!b.includes(HAND.includes(pg) ? V1_STATUS : STATUS)) fail(`no-JS: ${pg} lacks the status line`)
+    // agents.html (IQC-AG-01) describes the agent on real files, so it has v1's status line, as the landing page and the app do
+    if (!b.includes(HAND.includes(pg) || pg === 'agents.html' ? V1_STATUS : STATUS)) fail(`no-JS: ${pg} lacks the status line`)
     if (pg === 'index.html') {
       // without JavaScript: the hero on Caught with every value the script would write, its controls off (no Play, the
       // step buttons disabled), and the download's SHA-256 beside its link

@@ -1,0 +1,20 @@
+# Immutable QC
+
+> {{agentLine}}
+
+{{llmsCore}}
+## Start here
+
+- [For AI agents](https://immutableqc.com/agents.html): run, connect, the tools and the limits
+- [llms-full.txt](https://immutableqc.com/llms-full.txt): everything on one page, with every command's help
+- [iqc.mjs](https://immutableqc.com/download/iqc.mjs): the agent (SHA-256 above)
+- [App](https://immutableqc.com/app/): audit a lab folder in the browser
+- [Demo](https://immutableqc.com/app/#demo): a pass, a review and a fail
+
+## Docs
+
+{{docLinks}}
+
+## Optional
+
+- [joseqc.com](https://joseqc.com): the founder's site, for contact

@@ -1,0 +1,111 @@
+# Immutable QC: the agent and its MCP server, on one page
+
+> {{agentLine}}
+
+This is the long text for AI agents and the people who build them: everything below is plain text, and the short version is https://immutableqc.com/llms.txt. The same facts are on https://immutableqc.com/agents.html.
+
+{{llmsCore}}
+## The commands
+
+What `node iqc.mjs help` and `node iqc.mjs help <command>` print, for iqc.mjs {{version}}.
+
+### iqc help
+
+{{help}}
+### iqc help watch
+
+{{help_watch}}
+
+### iqc help seal
+
+{{help_seal}}
+
+### iqc help audit
+
+{{help_audit}}
+
+### iqc help record
+
+{{help_record}}
+
+### iqc help trace
+
+{{help_trace}}
+
+### iqc help review
+
+{{help_review}}
+
+### iqc help mcp
+
+{{help_mcp}}
+
+## The MCP server in detail
+
+- JSON-RPC 2.0, one message per line, on standard input and output. Standard output carries protocol messages only; everything else goes to standard error. No dependencies.
+- Protocol versions: 2026-07-28, with no handshake (each request carries its version and the client's capabilities in _meta; server/discover), and the handshake versions {{legacyProtocols}} (initialize, then notifications/initialized; ping).
+- Results: a plain text summary, and the same data as JSON text; from 2025-06-18 also structuredContent, matching each tool's outputSchema. Annotations from 2025-03-26: every tool but record_step is read-only.
+- Errors: a bad argument or a refused path is a tool error (isError: true) with a sentence saying why; an unknown method, an unknown tool and a malformed message are JSON-RPC errors.
+- The server's instructions, sent at the start of a session, give the loop below and name the root and the search folders it was started with.
+- In a client's configuration file the entry usually sits under a name; the file and its place depend on the client:
+
+{
+  "mcpServers": {
+    "immutableqc": {{configJSON}}
+  }
+}
+
+## From a pipeline (Python)
+
+A pipeline step can record itself by calling iqc record with the standard library's subprocess module. With --json - the JSON is the standard output and the human lines go to the standard error.
+
+{{pythonExample}}
+
+## Sign-off by a person
+
+A person signs off agent steps: approved, question or rejected, with a note.
+- On the command line: node iqc.mjs review <ledger id>:<n>[:<link>] --reviewer "J. Rivera" --decision approved --search /lab. iqc record prints each step's reference. The review goes in the reviewer's own ledger (./<reviewer>.ledger.jsonl by default); a reference whose link no longer matches is refused.
+- In the app: "Review and sign off" signs review records with the browser's key; "Download your review ledger" saves them. Keep that file in the lab folder: an audit finds every *.ledger.jsonl.
+- There is no review tool over MCP, so an agent cannot approve its own steps. A signing key identifies whoever holds it on that computer or in that browser, not a person.
+
+## What the agent reads and writes
+
+Reads: the files under the folders it is given (bytes, size and times), its ledgers and its key.
+Writes, and nothing else:
+- <folder>/ImmutableQC/ledger.jsonl, the ledger: one record per line, each appended and flushed; a line is never edited, reordered or removed.
+- <folder>/ImmutableQC/README.txt: what the folder is and how to audit it.
+- <folder>/ImmutableQC/agent.lock while an agent writes; a second writer on the same ledger is refused.
+- ~/.immutableqc/keys/<key id>.jwk: a new ECDSA P-256 signing key for a new ledger (needed to add records, never to audit). Back it up; keep it out of the data folder.
+- For iqc record and iqc mcp, the agent's step ledger in <root>/ImmutableQC/; for iqc review, the reviewer's *.ledger.jsonl.
+- The pin file (--pin-file) and the reports (--report, --json) you ask for.
+
+## Exit codes
+
+- audit: {{exitLine}}.
+- trace: exit 0 when the file was measured or every branch ends in a measured file; 3 when something on the way is untraced; 2 usage or read error.
+- watch, seal: 0 done; 1 refused or failed (a broken ledger, a missing key, another agent running, a write error); 2 usage or read error.
+- record, review: 0 recorded; 1 refused; 2 usage or read error (a path outside the root, a missing option, a bad field).
+- head, status: 0 printed; 1 the ledger does not verify; 2 usage or read error.
+- mcp: 0 stopped cleanly; 1 refused at start; 2 usage error.
+
+## The ledger format, in brief
+
+- JSON Lines, UTF-8. Line 1 is the header: format immutableqc-ledger, version 1, the ledger id, the station, the algorithm ECDSA-P256-SHA256, the public key and its key id, and the header's signature.
+- Every later line is one record: n, kind (file, file-removed, session, step or review), its fields f, r (the record's SHA-256 fingerprint), prev (the link of the record before), h (this record's link) and sig (an ECDSA P-256 signature).
+- A file record holds the file's path, SHA-256, size, the time it was read and the event that sealed it (for example existing, added or changed); a file-removed record, a file recorded removed. A step record holds the actor, the tool, the action and its inputs and outputs by SHA-256 and size. A review record names the records it covers by ledger id, number and link.
+- An audit replays every link and signature, re-reads every file and traces every step's inputs: measured (a ledger sealed those bytes), derived (a recorded step wrote them) or untraced.
+
+## When it is not the right tool
+
+- You need the values inside files checked: it seals and compares whole files; reading values inside files is upcoming.
+- You need a hosted service: there is none; it runs on the computers you run it on, and never uses the network.
+- You need signatures that identify a person today: keys identify a computer or a browser; per-person signatures are upcoming.
+
+## Links
+
+- For AI agents: https://immutableqc.com/agents.html
+- The short version: https://immutableqc.com/llms.txt
+- The agent: https://immutableqc.com/download/iqc.mjs
+- The app: https://immutableqc.com/app/ (demo: https://immutableqc.com/app/#demo)
+{{docLinksPlain}}
+- Contact: https://joseqc.com

@@ -115,7 +115,7 @@ export async function recordStep(w, { actor, tool, action, inputs, outputs }) {
     actor: item.f.actor, tool: item.f.tool, action: item.f.action, at: item.f.at,
     inputs: files, outputs: outputs.map((o) => ({ path: displayPath(o.path), sha256: o.sha256, bytes: o.bytes })),
     untracedInputs: untraced,
-    ...(untraced ? { warning: `${plural(untraced, 'input matches', 'inputs match')} no sealed measurement and no recorded step output: an audit lists this step for review.` } : {}),
+    ...(untraced ? { warning: `${plural(untraced, 'input matches', 'inputs match')} no sealed measurement and no recorded step output: the step is recorded, and an audit lists it for review. Tell the person before relying on its result.` } : {}),
   }
 }
 

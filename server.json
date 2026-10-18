@@ -1,0 +1,22 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "com.immutableqc/laboratory-instrument-provenance",
+  "title": "Immutable QC: lab instrument files and AI agent steps",
+  "description": "Checks lab inputs against sealed instrument files; records and traces AI agent steps, locally.",
+  "version": "0.1.0",
+  "websiteUrl": "https://immutableqc.com/agents.html",
+  "repository": {
+    "url": "https://github.com/fabreu08/immutableqc-website",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/fabreu08/immutableqc-website/releases/download/v0.1.0/immutableqc-0.1.0.mcpb",
+      "fileSha256": "777c1c759a123057b1c0aa35b4ec053b8a2f6e0f8803f32ff94062b2fa5aec51",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}
