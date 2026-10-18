@@ -98,15 +98,21 @@ including a scripted MCP client.
 
 ## 6. Landing bot (start after the App and Agent-CLI PRs merge)
 
-Owns: `index.html`, `ui/landing.css`, `ui/landing.mjs`, `ui/test/landing*.test.mjs`.
+Owns: `index.html`, `ui/landing.css`, `ui/landing.mjs`, `ui/test/landing*.test.mjs`, and the landing-page rules in
+section 7g of `site/build.mjs` (only the lines about `index.html`).
 
-Task: spec section F of `docs/build-notes/spec-addendum-agents.md`: reposition the page around "Verify what your lab's
-agents did. In one click." Keep the luminous design and the restraint rule; update the hero story, the steps, "A pass
-shows / It does not show", the install section (agent, `iqc record`, MCP), and the Upcoming list (no network anchoring,
-no registry, no archive on a network). Keep it short (about 500 words of copy). Run
-`node agent/tools/bundle.mjs --stamp` so the printed SHA-256 is right. Screenshots at 1440 and 390 px in the PR.
-
----
+Task: spec section F of `docs/build-notes/spec-addendum-agents.md`, with the founder's headline (decided 2026-10-18):
+- H1: **"Lab data, tokenized. Records that verify themselves."**
+- Directly under it, the definition (keep its meaning; you may tighten the wording): "Every file is tokenized the moment
+  it is written: its SHA-256 fingerprint stands in for it, signed and chained to the one before. No blockchain, no
+  coins. Anyone can check it, and nothing leaves your lab."
+- Lead line: "Verify what your lab's agents did, in one click."
+- "Tokenized" appears only in the H1 and the definition; the bare word "token" stays banned. Add a build check that
+  `index.html` uses "tokeniz" at most twice and also says "No blockchain".
+Keep the luminous design and the restraint rule; update the hero story (measured file sealed → agent step recorded →
+an input nothing measured → caught for review), the steps, "A pass shows / It does not show", the install section (the
+agent, `iqc record`, the MCP server), and the Upcoming list. About 500 words of copy. Run
+`node agent/tools/bundle.mjs --stamp`. Screenshots at 1440 and 390 px in the PR.
 
 ## Not a bot role right now: the IQC TOKEN bot
 
