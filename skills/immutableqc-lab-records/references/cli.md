@@ -2,17 +2,20 @@
 
 `iqc` is one file, `iqc.mjs`, run with Node.js 22 or later on Windows, macOS or Linux. No dependencies; it never uses
 the network. Download it from https://immutableqc.com/download/iqc.mjs and check its SHA-256 against the one printed on
-https://immutableqc.com (Linux `sha256sum iqc.mjs`, macOS `shasum -a 256 iqc.mjs`, Windows
-`certutil -hashfile iqc.mjs SHA256`). `node iqc.mjs help <command>` prints every option.
+https://immutableqc.com/agents.html before you run it (Linux `echo "<sha256>  iqc.mjs" | sha256sum -c -`, macOS
+`echo "<sha256>  iqc.mjs" | shasum -a 256 -c -`, Windows `certutil -hashfile iqc.mjs SHA256`, then compare). `node iqc.mjs help <command>` prints every option.
 
 ## Record a step
 
 ```
-node iqc.mjs record --root /lab/agent-workspace --search /lab --actor analyst-bot --tool model-x \
-  --action "Normalized plate 07 to well A1" --in inputs/plate-07.csv --out analysis/plate-07-normalized.csv --json -
+cd /lab/agent-workspace && node iqc.mjs record --root /lab/agent-workspace --search /lab --actor analyst-bot \
+  --tool model-x --action "Normalized plate 07 to well A1" --in inputs/plate-07.csv \
+  --out analysis/plate-07-normalized.csv --json -
 ```
 
 - `--root <folder>`: the folder the step works in. Every `--in` and `--out` must be inside it.
+- `--in` and `--out` are read from the current folder, not from `--root` (the MCP tools read paths from the root), so
+  run it from inside the root, as above.
 - `--search <folder>`: where to look for the instruments' ledgers (repeatable; default the root). Give the lab folder.
 - `--actor <name>`, `--action <text>` (one line), `--tool <name>`.
 - `--in <file>` (repeatable), `--in-ref <sha256>:<bytes>:<label>` for an input that is not a file under the root,
@@ -40,6 +43,9 @@ node iqc.mjs audit /lab --report audit.html --json audit.json
 Finds every ledger under the folder, checks each one, re-reads every sealed file and traces every step's inputs.
 Exit 0 pass, 3 review, 1 fail, 2 usage or read error. Other options: `--expect-head <n>:<h>` (a head pinned earlier),
 `--expect-key <keyId>`, `--pin-file <file>`, `--allow-changes <glob>`, `--ledger <file>`, `--strict`.
+`--expect-key` fails only when no audited ledger has that key; it does not check that each measured input was sealed by
+it. To check, compare each measured key id with the lab's station key ids; a built-in check is upcoming. A ledger cut
+short (its last records deleted) shows only against a head pinned earlier (`--expect-head` or `--pin-file`).
 
 ## Sign off (for a person, never for the agent that took the step)
 
@@ -47,5 +53,7 @@ Exit 0 pass, 3 review, 1 fail, 2 usage or read error. Other options: `--expect-h
 node iqc.mjs review <ledger id>:<n>[:<link>] --reviewer "J. Rivera" --decision approved --note "Fits checked" --search /lab
 ```
 
-`iqc record` prints each step's reference (`<ledger id>:<n>:<link>`). The review goes in the reviewer's own ledger.
+`iqc record` prints each step's reference (`<ledger id>:<n>:<link>`). The review goes in the reviewer's own ledger
+(./<reviewer>.ledger.jsonl in the current folder; keep it in the lab folder, or pass --ledger), so an audit of the lab
+finds it. The reviewer's name is whatever is typed: check the review ledger's key id.
 Exit 0 recorded, 1 refused, 2 usage or read error.
