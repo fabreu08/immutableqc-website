@@ -3,11 +3,29 @@
 import { parseHead, isSealedText } from '../../core/immutableqc.mjs'
 import { usageError } from './util.mjs'
 
-export const COMMANDS = ['watch', 'seal', 'audit', 'head', 'status', 'help']
-const VALUE = ['ledger', 'key', 'station', 'interval', 'settle', 'ignore', 'report', 'json', 'expect-head', 'expect-key']
+export const COMMANDS = ['watch', 'seal', 'audit', 'head', 'status', 'record', 'trace', 'review', 'mcp', 'help']
+const VALUE = ['ledger', 'key', 'station', 'interval', 'settle', 'ignore', 'report', 'json', 'expect-head', 'expect-key', 'allow-changes', 'pin-file',
+  'root', 'actor', 'action', 'tool', 'in', 'out', 'in-ref', 'search', 'reviewer', 'decision', 'note']
 const FLAG = ['quiet', 'no-color', 'strict', 'help', 'version']
-const AUDIT_ONLY = ['report', 'json', 'expect-head', 'expect-key', 'strict']
-const PATHS = ['ledger', 'key', 'report', 'json']
+// options that may be given more than once (a list); --ledger is a list only for iqc audit
+const REPEAT = ['ignore', 'allow-changes', 'in', 'out', 'in-ref', 'search', 'ledger']
+const PATHS = ['ledger', 'key', 'report', 'json', 'pin-file', 'root', 'in', 'out', 'search']
+// the options of each command (--quiet, --no-color, --help and --version go with every command)
+const OLD = ['ledger', 'key', 'station', 'interval', 'settle', 'ignore']
+const OPTIONS = {
+  watch: [...OLD, 'pin-file'],
+  seal: [...OLD, 'pin-file'],
+  audit: [...OLD, 'report', 'json', 'expect-head', 'expect-key', 'strict', 'allow-changes', 'pin-file'],
+  head: OLD,
+  status: OLD,
+  record: ['root', 'actor', 'action', 'tool', 'in', 'out', 'in-ref', 'search', 'ledger', 'key', 'station', 'json', 'pin-file'],
+  trace: ['search', 'json', 'ignore'],
+  review: ['reviewer', 'decision', 'note', 'search', 'ledger', 'key', 'station', 'json', 'pin-file'],
+  mcp: ['root', 'actor', 'tool', 'search', 'ledger', 'key', 'station', 'pin-file', 'ignore', 'allow-changes'],
+}
+const ALWAYS = ['quiet', 'no-color', 'help', 'version']
+const owners = (name) => Object.keys(OPTIONS).filter((c) => OPTIONS[c].includes(name))
+const orList = (a) => (a.length <= 2 ? a.join(' and ') : `${a.slice(0, -1).join(', ')} and ${a[a.length - 1]}`)
 
 // Windows: a quoted folder that ends in a backslash ("D:\Results\") reaches the program as D:\Results" (the backslash
 // escapes the quote), and a path quoted with single quotes in cmd.exe keeps its quotes. Both are cleaned up here, on
@@ -50,9 +68,12 @@ export function parseArgs(argv, { platform = process.platform } = {}) {
           if (i + 1 >= argv.length) throw usageError(`--${name} needs a value.`)
           val = argv[++i]
         }
-        if (name === 'ignore') {
-          if (val === '') throw usageError('--ignore needs a pattern, for example --ignore "*.bak".')
-          opts.ignore.push(val)
+        if (name === 'ignore' || name === 'allow-changes') {
+          if (val === '') throw usageError(`--${name} needs a pattern, for example --${name} "*.bak".`)
+          ;(opts[name] ||= []).push(val)
+        } else if (REPEAT.includes(name)) {
+          if (val === '') throw usageError(`--${name} needs a value.`)
+          ;(opts[name] ||= []).push(PATHS.includes(name) ? cleanPathArg(val, platform) : val)
         } else {
           if (name in opts) throw usageError(`--${name} is given twice.`)
           opts[name] = PATHS.includes(name) ? cleanPathArg(val, platform) : val
@@ -80,12 +101,33 @@ export function parseArgs(argv, { platform = process.platform } = {}) {
     folder = pos.length ? pos[0] : null
     return { command, topic: folder, folder: null, opts, help: true, version }
   }
+  if (command !== null) {
+    for (const k of Object.keys(opts)) {
+      if (ALWAYS.includes(k) || OPTIONS[command].includes(k) || (k === 'ignore' && !opts.ignore.length)) continue
+      const o = owners(k)
+      throw usageError(`--${k} is an option of ${orList(o.map((c) => `iqc ${c}`))}, not of iqc ${command}.`)
+    }
+  }
+  if (opts.ledger) {
+    if (command !== 'audit' && opts.ledger.length > 1) throw usageError(`--ledger is given twice. Only iqc audit takes more than one ledger.`)
+    if (command === 'audit') opts.ledgers = opts.ledger
+    opts.ledger = opts.ledger[0]
+  }
+  let subjects = null, file = null
+  if (command === 'review') {
+    subjects = pos.splice(0)
+  } else if (command === 'trace') {
+    if (pos.length !== 1) throw usageError(`iqc trace takes one file${pos.length ? `, but got ${pos.length}` : ''}: iqc trace <file> [--search <folder>].`)
+    file = cleanPathArg(pos.shift(), platform)
+    if (file === '') throw usageError('The file is empty. Give the file to trace.')
+  } else if ((command === 'record' || command === 'mcp') && pos.length) {
+    throw usageError(`iqc ${command} takes no folder: give it with --root <folder> (the default is the current folder), not ${JSON.stringify(pos[0])}.`)
+  }
   if (pos.length > 1) {
     throw usageError(`iqc ${command} takes one folder, but got ${pos.length}: ${pos.map((p) => JSON.stringify(p)).join(' ')}. A path with spaces needs quotes, for example "D:\\Instrument Data".`)
   }
   if (pos.length) folder = cleanPathArg(pos[0], platform)
   if (folder === '') throw usageError('The folder is empty. Give a folder, or leave it out to use the current one.')
-  for (const k of AUDIT_ONLY) if (k in opts && command !== 'audit' && command !== null) throw usageError(`--${k} is an option of iqc audit, not of iqc ${command}.`)
   if ('interval' in opts) opts.interval = seconds('interval', opts.interval, { min: 0.05, max: 86400 })
   if ('settle' in opts) opts.settle = seconds('settle', opts.settle, { min: 0, max: 86400 })
   if ('station' in opts) {
@@ -102,6 +144,15 @@ export function parseArgs(argv, { platform = process.platform } = {}) {
     if (!/^[0-9a-fA-F]{16}$/.test(k)) throw usageError(`--expect-key ${JSON.stringify(opts['expect-key'])} is not a key id. A key id is 16 hex characters, as iqc head and iqc status print it.`)
     opts['expect-key'] = k.toLowerCase()
   }
-  for (const g of opts.ignore) if (/[\u0000-\u001f]/.test(g)) throw usageError(`--ignore ${JSON.stringify(g)} holds a control character.`)
-  return { command, folder, opts, help, version }
+  for (const k of ['ignore', 'allow-changes']) for (const g of opts[k] || []) if (/[\u0000-\u001f]/.test(g)) throw usageError(`--${k} ${JSON.stringify(g)} holds a control character.`)
+  if (command === 'record') {
+    for (const k of ['actor', 'action']) if (!(k in opts)) throw usageError(`iqc record needs --${k}. For example: iqc record --actor analysis-agent --action "Normalized plate 07" --in plate-07.csv --out plate-07-normalized.csv`)
+    if (!(opts.out || []).length) throw usageError('iqc record needs at least one --out <file>: the file (or files) the step wrote.')
+  }
+  if (command === 'review') {
+    if (!('reviewer' in opts)) throw usageError('iqc review needs --reviewer <name>: your name or initials, as it goes in the record.')
+    if (!('decision' in opts)) throw usageError('iqc review needs --decision approved, question or rejected.')
+    if (!subjects.length) throw usageError('iqc review needs the records it signs off, as <ledger id>:<record number>, for example 78f00a005a55fdf7162daf82f89fab15:3 (iqc record and iqc audit --json print them).')
+  }
+  return { command, folder, file, subjects, opts, help, version }
 }

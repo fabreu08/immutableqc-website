@@ -1,8 +1,8 @@
 // Where things are: the data folder, the ledger, its lock and README.txt, and how a file's path on disk becomes the
 // path stored in the ledger (relative, "/" between segments, NFC, percent-encoded as core's encodePath says).
 import { resolve, dirname, basename, join, sep, relative, isAbsolute } from 'node:path'
-import { statSync, existsSync } from 'node:fs'
-import { encodePath, LEDGER_DIR, LEDGER_FILE } from '../../core/immutableqc.mjs'
+import { statSync, existsSync, lstatSync, realpathSync } from 'node:fs'
+import { encodePath, isLedgerFolderPath, LEDGER_DIR, LEDGER_FILE } from '../../core/immutableqc.mjs'
 import { usageError } from './util.mjs'
 
 // The stored path of `abs` inside `root`, using the path module `p` (node:path, or path.win32 / path.posix in tests).
@@ -61,4 +61,36 @@ export function locate(root, ledgerOpt) {
 export function shownPath(root, abs) {
   const rel = relative(root, abs)
   return rel && !rel.startsWith('..') && !isAbsolute(rel) ? rel : abs
+}
+
+// A file an agent step names (iqc record, the MCP server): `p` resolved against `base` (the current folder for the
+// command line, the root for the MCP server), refused unless it is a regular file inside `root`. Refused: a path that
+// leaves the root ("..", or an absolute path elsewhere), a symbolic link (links are never followed), a file reached
+// through a linked folder that leads outside the root, the ledger's own folder, and anything that is not a file.
+// Returns {abs, rel (raw, "/" between segments), path (the stored form, core's encodePath)}.
+export function confinedFile(root, p, { base = root, what = 'file', own = new Set() } = {}) {
+  if (typeof p !== 'string' || p === '') throw usageError(`The ${what} path is empty.`)
+  if (/[\u0000]/.test(p)) throw usageError(`The ${what} path ${JSON.stringify(p)} holds a NUL character.`)
+  const abs = resolve(base, p)
+  const rel = relative(root, abs)
+  if (!rel || rel === '..' || rel.startsWith('..' + sep) || isAbsolute(rel)) {
+    throw usageError(`${JSON.stringify(p)} is outside the root ${root}: an agent step names only files under its root. Give a file inside it, or a wider --root.`)
+  }
+  let st
+  try { st = lstatSync(abs) } catch (e) {
+    throw usageError(e.code === 'ENOENT' ? `No ${what} at ${abs}.` : `Cannot look at the ${what} ${abs} (${e.code || e.message}).`)
+  }
+  if (st.isSymbolicLink()) throw usageError(`${JSON.stringify(p)} is a symbolic link: links are never followed. Name the file itself.`)
+  if (!st.isFile()) throw usageError(`${JSON.stringify(p)} is not a file${st.isDirectory() ? ' (it is a folder)' : ''}.`)
+  let real, realRoot
+  try { real = realpathSync(abs); realRoot = realpathSync(root) } catch (e) { throw usageError(`Cannot resolve ${abs} (${e.code || e.message}).`) }
+  const rr = relative(realRoot, real)
+  if (!rr || rr === '..' || rr.startsWith('..' + sep) || isAbsolute(rr)) {
+    throw usageError(`${JSON.stringify(p)} leads outside the root ${root} through a linked folder: links are never followed.`)
+  }
+  const raw = rel.split(sep).join('/')
+  let path
+  try { path = encodePath(raw) } catch (e) { throw usageError(`${JSON.stringify(p)} cannot be named in a record: ${e.message}`) }
+  if (isLedgerFolderPath(path) || own.has(path)) throw usageError(`${JSON.stringify(p)} is one of the ledger's own files, not data.`)
+  return { abs, rel: raw, path }
 }

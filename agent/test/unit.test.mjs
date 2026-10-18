@@ -15,7 +15,7 @@ import { mkdtempSync, writeFileSync, appendFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { generateKeyPair, publicKeyHex, createHeader, createRecords, serializeLine } from '../../core/immutableqc.mjs'
 import { AGENT, AGENT_VERSION } from '../src/util.mjs'
-import { HELP } from '../src/cli.mjs'
+import { HELP, COMMAND_HELP } from '../src/cli.mjs'
 import { stampHTML } from '../tools/bundle.mjs'
 import { AGENT as AGENT_DIR } from './_helpers.mjs'
 
@@ -129,6 +129,7 @@ test('README.txt and help: plain words, the app address and the audit command; v
   assert.match(README_TEXT, /node iqc\.mjs audit "<the data folder>"/)
   assert.ok(README_TEXT.split('\n').every((l) => l.length <= 80), 'README.txt lines fit 80 columns')
   assert.ok(HELP.split('\n').every((l) => l.length <= 100), 'help lines fit 100 columns')
+  for (const [k, t] of Object.entries(COMMAND_HELP)) assert.ok(t.split('\n').every((l) => l.length <= 100), `iqc help ${k}: lines fit 100 columns`)
   const pkg = JSON.parse(readFileSync(join(AGENT_DIR, 'package.json'), 'utf8'))
   assert.equal(pkg.version, VERSION)
   assert.equal(AGENT_VERSION, VERSION)
@@ -137,7 +138,7 @@ test('README.txt and help: plain words, the app address and the audit command; v
   assert.equal(pkg.type, 'module')
   assert.deepEqual(pkg.bin, { iqc: 'bin/iqc.mjs' })
   assert.equal(pkg.private, true)
-  assert.equal(pkg.engines.node, '>=20')
+  assert.equal(pkg.engines.node, '>=22')
   assert.equal(pkg.dependencies, undefined)
   assert.equal(pkg.devDependencies, undefined)
 })

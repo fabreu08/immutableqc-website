@@ -104,8 +104,10 @@ export function buildBundle() {
   const head = [
     '#!/usr/bin/env node',
     `// iqc.mjs: the Immutable QC agent (iqc), version ${version}, in one file. Seals every file in a folder as it is written,`,
-    '// and audits the folder against its seals. Run it with Node.js 20 or later: node iqc.mjs help',
-    '// No dependencies, and it never uses the network: it reads files, and writes its ledger, README.txt and lock file.',
+    '// records the steps an AI agent takes on files, and audits a lab folder against its ledgers. Run it with Node.js 22 or',
+    '// later: node iqc.mjs help',
+    '// No dependencies, and it never uses the network: it reads files, and writes its ledgers, README.txt, lock files and',
+    '// the pin file it is given.',
     '//',
     '// The SHA-256 of this file is printed on immutableqc.com, beside the download link. Compare it before you run the file:',
     '//   Windows: certutil -hashfile iqc.mjs SHA256    macOS: shasum -a 256 iqc.mjs    Linux: sha256sum iqc.mjs',
