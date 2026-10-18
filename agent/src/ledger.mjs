@@ -6,7 +6,7 @@
 // and verified again.
 import { readFileSync, openSync, writeSync, fsyncSync, closeSync, statSync, ftruncateSync, renameSync, unlinkSync, existsSync, mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
-import { verifyLedger, extendVerified, createHeader, createRecords, serializeLine, formatCount } from '../../core/immutableqc.mjs'
+import { verifyLedger, extendVerified, createHeader, createRecords, serializeLine, formatCount, formatPinLine } from '../../core/immutableqc.mjs'
 import { AGENT, UserError, EXIT_USAGE } from './util.mjs'
 
 export const README_TEXT = `Immutable QC: the sealed record of this data folder
@@ -31,7 +31,7 @@ How to audit (check every file against its seal):
   (the folder that holds this ImmutableQC folder) on the page. Your browser
   reads every file; nothing is uploaded.
 
-  On the command line, with Node.js 20 or later and iqc.mjs (from
+  On the command line, with Node.js 22 or later and iqc.mjs (from
   https://immutableqc.com):
 
       node iqc.mjs audit "<the data folder>"
@@ -49,10 +49,10 @@ export function ensureDir(dir) {
 }
 
 // README.txt beside the ledger, unless one is there already (it is never overwritten)
-export function ensureReadme(file) {
+export function ensureReadme(file, text = README_TEXT) {
   try {
     const fd = openSync(file, 'wx')
-    try { writeSync(fd, README_TEXT) } finally { closeSync(fd) }
+    try { writeSync(fd, text) } finally { closeSync(fd) }
     return true
   } catch {
     return false
@@ -139,13 +139,44 @@ function syncDir(dir) {
   } catch { /* not supported here */ }
 }
 
+// --pin-file: one line `immutableqc-head <ledgerId> <n>:<h> <time>` (core's formatPinLine) appended to a file kept
+// somewhere else (another drive, a share, a synced folder) after each batch of records, so a later audit with
+// --pin-file shows a ledger rewritten or restarted since. A pin that cannot be written is a warning (once per kind of
+// error until one is written again): sealing goes on.
+export class PinFile {
+  constructor(file, { out } = {}) {
+    this.file = file
+    this.out = out
+    this.failed = null
+    this.written = 0
+  }
+
+  pin(ledgerId, head) {
+    const line = formatPinLine(ledgerId, head, new Date().toISOString()) + '\n'
+    let fd
+    try {
+      fd = openSync(this.file, 'a')
+      try { writeAll(fd, Buffer.from(line, 'utf8')); fsyncSync(fd) } finally { closeSync(fd) }
+      this.failed = null
+      this.written++
+      return true
+    } catch (e) {
+      const code = e.code || e.message
+      if (this.failed !== code && this.out) this.out.warn(`Cannot append the head to the pin file ${this.file} (${code}). Sealing goes on; the pin file misses this head (record ${head.n}).`)
+      this.failed = code
+      return false
+    }
+  }
+}
+
 export class Appender {
-  constructor(file, verified, stat, { out } = {}) {
+  constructor(file, verified, stat, { out, pin = null } = {}) {
     this.file = file
     this.v = verified
     this.size = stat.size
     this.mtimeMs = stat.mtimeMs
     this.out = out
+    this.pinFile = pin
   }
 
   // Before planning and appending: if the ledger is not as the agent left it, read and verify it again. A ledger that
@@ -200,6 +231,7 @@ export class Appender {
     } finally {
       try { closeSync(fd) } catch { /* closed */ }
       try { const st = statSync(this.file); this.size = st.size; this.mtimeMs = st.mtimeMs } catch { /* checked on the next sync */ }
+      if (this.pinFile && done.length) this.pinFile.pin(this.v.header.ledgerId, this.v.head)
     }
     return done
   }
