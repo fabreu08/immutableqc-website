@@ -3,16 +3,17 @@
 //     chosen with <input webkitdirectory>, into a listing {root, items: [{raw, file}]} (raw: the path relative to the
 //     folder, "/" between segments, not yet encoded);
 //   - finding its ledger (locate): ImmutableQC/ledger.jsonl at the top, or one level down when the folder holds exactly
-//     one data folder with a ledger;
+//     one data folder with a ledger; a whole lab folder (core's discoverLedgers: several ledgers, deeper ones, reviewer
+//     ledgers named *.ledger.jsonl) is audited as one with core's auditMany (many.mjs, runAuditMany);
 //   - the Web Worker pool (Pool, hash-worker.mjs): the SHA-256 of every file (crypto.subtle.digest up to 256 MiB,
 //     core's incremental Sha256 over 8 MiB slices above) and the ledger's signatures (verifyLedger's verifyBatch);
-//   - the audit (runAudit) and the seal (runSeal), both with core's own functions and nothing else deciding a result;
+//   - the audit (runAudit; a lab's in many.mjs, loaded when needed) and the seal (runSeal), both with core's own
+//     functions and nothing else deciding a result;
 //   - the browser's key (IndexedDB, not extractable; held in this tab only when storage fails);
-//   - the demo's sample folder (ui/sample-data.mjs), sealed and audited by the same code as a real folder.
+//   - a key for the demo (DemoKeys); the demo's folders are in demo-agent.mjs, loaded only when the demo runs.
 // Errors meant for a person are AppError(title, message, {action}); a canceled run throws Canceled. Nothing here makes a
 // network request: the page's CSP has connect-src 'none'.
 import * as IQC from '../core/immutableqc.mjs'
-import { FOLDER as DEMO_FOLDER, STATION as DEMO_STATION, EDIT as DEMO_EDIT, sampleFiles } from '../ui/sample-data.mjs'
 
 export const TOOL = `immutableqc-app/${IQC.VERSION}`
 export const WHOLE_LIMIT = 256 * 1024 * 1024 // read at once up to this size
@@ -160,6 +161,8 @@ export async function measure(listing, { onProgress, signal, modified = false } 
 // ------------------------------------------------------------------------------------------- finding the ledger
 // -> {kind: 'folder', root, ledger: {raw, file}, files: [{raw, file}], parent?}
 //  | {kind: 'ledger-only', root, ledger, why: 'file' | 'ledger-folder'}   a ledger alone: the audit covers the ledger only
+//  | {kind: 'lab', root, found: [{ledgerPath, root, nested, item}], items} several ledgers (or one deeper down, or a
+//                                                                         reviewer ledger): audited together, auditMany
 //  | {kind: 'no-ledger', root, files}                                     ask for the ledger file
 export function locate(listing) {
   const items = listing.items
@@ -168,7 +171,8 @@ export function locate(listing) {
       listing.errors && listing.errors.length ? `The browser could not read ${listing.errors[0].raw} (${listing.errors[0].error}).` : 'There is no file in it to check.', { code: 'empty' })
   }
   const at = items.find((x) => x.raw === IQC.LEDGER_PATH)
-  if (at) return { kind: 'folder', root: listing.root, ledger: at, files: items.filter((x) => x !== at) }
+  const found = IQC.discoverLedgers(items.map((x) => x.raw))
+  if (at && found.length === 1) return { kind: 'folder', root: listing.root, ledger: at, files: items.filter((x) => x !== at) }
   // a ledger dropped on its own, or the ImmutableQC folder itself
   if (items.length === 1 && !items[0].raw.includes('/') && /\.jsonl$/i.test(items[0].raw)) return { kind: 'ledger-only', root: listing.root, ledger: items[0], why: 'file' }
   if (listing.root === IQC.LEDGER_DIR) {
@@ -177,14 +181,15 @@ export function locate(listing) {
   }
   // one level down: the folder dropped holds exactly one data folder with a ledger
   const down = items.filter((x) => { const s = x.raw.split('/'); return s.length === 3 && s[1] === IQC.LEDGER_DIR && s[2] === IQC.LEDGER_FILE })
+  const lab = () => {
+    const byRaw = new Map(items.map((x) => [x.raw, x]))
+    return { kind: 'lab', root: listing.root, found: found.map((d) => ({ ...d, item: byRaw.get(d.ledgerPath) })), items }
+  }
+  if (found.length > 1 || (found.length === 1 && down.length !== 1)) return lab()
   if (down.length === 1) {
     const top = down[0].raw.split('/')[0], pre = top + '/'
     const files = items.filter((x) => x !== down[0] && x.raw.startsWith(pre)).map((x) => ({ raw: x.raw.slice(pre.length), file: x.file }))
     return { kind: 'folder', root: top, parent: listing.root, ledger: { raw: IQC.LEDGER_PATH, file: down[0].file }, files }
-  }
-  if (down.length > 1) {
-    const names = down.map((x) => x.raw.split('/')[0])
-    throw new AppError('This folder holds several data folders', `${IQC.formatCount(names.length)} folders in it have their own ledger (${names.slice(0, 4).join(', ')}${names.length > 4 ? ', …' : ''}). Drop one data folder at a time: each one is audited against its own ledger.`, { code: 'several' })
   }
   return { kind: 'no-ledger', root: listing.root, files: items }
 }
@@ -223,7 +228,7 @@ export function prepareFiles(files, sealed = null) {
   return { list, skipped }
 }
 // the same, a slice at a time, for long lists
-async function prepareFilesSliced(files, sealed, signal) {
+export async function prepareFilesSliced(files, sealed, signal) {
   const CHUNK = 4000
   if (files.length <= CHUNK) return prepareFiles(files, sealed)
   const list = [], skipped = [], seen = new Set()
@@ -365,7 +370,7 @@ export class Pool {
 // ------------------------------------------------------------------------------------------------ hashing a list
 // Hash `list` (from prepareFiles) in the pool; progress through onProgress({stage: 'hash', …}). Returns the files map
 // for core (path -> {sha256, bytes, observedAt, modifiedAt} or null when a file could not be read) and the unreadable.
-async function hashList(pool, all, { onProgress, signal, whole, slice, progress }) {
+export async function hashList(pool, all, { onProgress, signal, whole, slice, progress }) {
   const list = all.filter((x) => x.file)
   const total = list.reduce((a, x) => a + x.size, 0)
   progress.filesTotal = list.length
@@ -401,7 +406,7 @@ async function hashList(pool, all, { onProgress, signal, whole, slice, progress 
   return { files, unreadable, bytes: total }
 }
 
-async function readLedger(item) {
+export async function readLedger(item) {
   const f = item.file
   if (!f) throw new AppError('The ledger could not be read', `The browser could not open ${item.raw} (${item.error || 'no access'}). If it is open in another program or on a disconnected drive, close it or reconnect, then try again.`, { code: 'ledger-unreadable' })
   if (f.size > MAX_LEDGER) throw new AppError('This ledger is too large for a browser tab', `It is ${IQC.formatBytes(f.size)}. ${AGENT_HINT}`, { code: 'ledger-too-large' })
@@ -410,7 +415,7 @@ async function readLedger(item) {
   }
 }
 
-async function verify(pool, bytes, { onProgress, signal, progress }) {
+export async function verify(pool, bytes, { onProgress, signal, progress }) {
   progress.stage = 'ledger'
   progress.ledgerDone = 0
   progress.ledgerTotal = 0
@@ -431,8 +436,10 @@ async function verify(pool, bytes, { onProgress, signal, progress }) {
 
 // ------------------------------------------------------------------------------------------------------ the audit
 // located: from locate() (kind 'folder' or 'ledger-only'), or {kind: 'folder', root, ledger, files} with a ledger the
-// person chose. Returns {report, verified, located, unreadable, skipped, bytes, ms}.
-export async function runAudit(located, { expectHead, expectKeyId, onProgress, signal, pool, whole, slice, chosen = false } = {}) {
+// person chose. Returns {report, verified, entries (for a re-audit with a reviewer ledger), located, unreadable, skipped,
+// bytes, ms}. many: audit it with auditMany even when the ledger holds only file records (several pinned heads or key
+// ids, a pin file), with expectHeads, expectKeyIds, pinLines; allowChanges goes to either.
+export async function runAudit(located, { expectHead, expectKeyId, expectHeads, expectKeyIds, allowChanges, pinLines, many = false, onProgress, signal, pool, whole, slice, chosen = false } = {}) {
   const t0 = Date.now()
   const progress = { stage: 'ledger', started: t0, root: located.root }
   const bytes = await readLedger(located.ledger)
@@ -453,14 +460,21 @@ export async function runAudit(located, { expectHead, expectKeyId, onProgress, s
   progress.stage = 'audit'
   if (onProgress) onProgress(progress)
   await yieldNow()
-  const report = IQC.audit(verified, files, {
-    expectHead: expectHead || undefined,
-    expectKeyId: expectKeyId || undefined,
-    where: 'browser',
-    tool: TOOL,
-    folder: located.root || undefined,
-  })
-  return { report, verified, located, unreadable, skipped, bytes: read, ms: Date.now() - t0 }
+  const entries = [{ verified, root: located.kind === 'folder' ? '' : null, files, label: located.root || undefined, ledgerPath: located.ledger.raw }]
+  // a ledger with agent steps or reviews is traced as auditMany does (a step's outputs are not "not sealed" files);
+  // a ledger of file records gets the one-ledger audit, the same report as iqc audit
+  const k = verified.kinds || {}
+  const report = k.step || k.review || many
+    ? IQC.auditMany(entries, { expectHeads: expectHeads || expectHead || undefined, expectKeyIds: expectKeyIds || expectKeyId || undefined, allowChanges, pinLines, where: 'browser', tool: TOOL, folder: located.root || undefined })
+    : IQC.audit(verified, files, {
+      expectHead: expectHead || undefined,
+      expectKeyId: expectKeyId || undefined,
+      allowChanges,
+      where: 'browser',
+      tool: TOOL,
+      folder: located.root || undefined,
+    })
+  return { report, verified, entries, located, unreadable, skipped, bytes: read, ms: Date.now() - t0 }
 }
 
 // ------------------------------------------------------------------------------------------------------- the seal
@@ -471,6 +485,10 @@ export async function runSeal(located, { station = 'Browser', onProgress, signal
   const t0 = Date.now()
   const progress = { stage: 'ledger', started: t0, root: located.root }
   if (located.kind === 'ledger-only') throw new AppError('Drop the data folder, not its ledger', 'Sealing reads every file of the data folder. Drop the folder that holds ImmutableQC/ledger.jsonl.', { code: 'seal-ledger-only' })
+  if (located.kind === 'lab') {
+    const names = located.found.map((d) => d.ledgerPath)
+    throw new AppError('This folder holds several ledgers', `${IQC.formatCount(names.length)} ledgers are in it (${names.slice(0, 3).join(', ')}${names.length > 3 ? ', …' : ''}). Seal one data folder at a time; audit the whole folder on Audit.`, { code: 'several', action: 'audit' })
+  }
   if (!IQC.isSealedText(station) || !station || [...station].length > 64) throw new AppError('The station name cannot be used', 'A station name is 1 to 64 characters, with no "|" and no control character.', { code: 'station' })
   let verified, header, prefix, key, appended = false
   if (located.kind === 'folder') {
@@ -583,24 +601,6 @@ export class KeyStore {
 }
 
 // ---------------------------------------------------------------------------------------------------- the demo
-export const DEMO = { folder: DEMO_FOLDER, station: DEMO_STATION, edit: DEMO_EDIT }
-const DEMO_TIME = Date.parse('2026-09-14T08:19:47.000Z')
-
-// The sample folder as Files in memory; edited: plate-07.csv as the shared copy has it (EDIT applied to the bytes).
-export function demoListing({ edited = false, ledgerText = null } = {}) {
-  const items = sampleFiles().map((f) => {
-    let bytes = f.bytes
-    if (edited && f.path === DEMO_EDIT.path) {
-      bytes = bytes.slice()
-      bytes.set(new TextEncoder().encode(DEMO_EDIT.after), DEMO_EDIT.offset)
-    }
-    return { raw: f.path, file: new File([bytes], f.name, { type: f.type, lastModified: DEMO_TIME }) }
-  })
-  if (ledgerText !== null) items.push({ raw: IQC.LEDGER_PATH, file: new File([ledgerText], IQC.LEDGER_FILE, { type: 'application/x-ndjson' }) })
-  items.sort((a, b) => (a.raw < b.raw ? -1 : a.raw > b.raw ? 1 : 0))
-  return { root: DEMO_FOLDER, items, errors: [], source: 'demo' }
-}
-
 // A key made for the demo alone, in memory, never stored.
 export class DemoKeys {
   async current() {

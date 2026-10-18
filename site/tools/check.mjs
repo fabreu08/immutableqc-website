@@ -915,10 +915,17 @@ async function firstLoad(pg, { slow = false, w = 390, h = 844, android = false }
 //               landing.mjs, sample-data.mjs and four fonts
 //   app/       12 requests · 151.0 KB (html 4.6, css 16.6, js 64.0, fonts 65.9): the page, theme.css, app.css, boot.js,
 //               app.mjs, engine.mjs, core/immutableqc.mjs (the format: 27 KB of the JS), sample-data.mjs and four fonts
+// app/ re-pinned 2026-10-17 (a lead decision, flagged in the App-agents PR; not a silent raise): core/immutableqc.mjs grew
+// in 8655698 (three verdicts, agent steps, reviewer sign-offs, auditMany and the trace to measurements) from 27 KB to
+// 47.3 KB gzipped, and the app loads core whole on first load (an audit needs all of it), so the base branch already
+// measured 171.1 KB (js 83.9) against 166 / 71. The App-agents branch first trimmed what the app owns: sample-data.mjs
+// and the demo's code and data, the lab audit (many.mjs) and the lab and review views (lab.mjs) now load only when
+// used. Measured after the trim: 11 requests · 168.2 KB (html 5.0, css 17.3, js 80.0, fonts 65.9). Pinned at that
+// with about 2% headroom: total 172 KB, js 82 KB.
 function HAND_BUDGET() {
   return {
     'index.html': { requests: 10, total: 110 * 1024, html: 10 * 1024, css: 19 * 1024, js: 10 * 1024, fonts: 72 * 1024 },
-    'app/': { requests: 13, total: 166 * 1024, html: 6 * 1024, css: 19 * 1024, js: 71 * 1024, fonts: 72 * 1024 },
+    'app/': { requests: 13, total: 172 * 1024, html: 6 * 1024, css: 19 * 1024, js: 82 * 1024, fonts: 72 * 1024 },
   }
 }
 for (const pg of [...DOC_PAGES, ...HAND_PAGES]) {
