@@ -1568,28 +1568,48 @@ ok(`budget: fonts ${(fontsUsed / 1024).toFixed(1)} KB <= 100 KB`, fontsUsed <= 1
     [/\bzero-knowledge\b/i, 'zero-knowledge proofs'],
     [/\b(?:salted|hiding) commitments?\b|\bcommitments in place of\b/i, 'salted commitments'],
     [/\bpublic (?:test )?networks?\b|\btest networks?\b|\btestnets?\b/i, 'a public or test network'],
-    [/\bon-?chain\b|\bdistributed ledgers?\b|\bconsensus\b/i, 'a chain or distributed ledger'],
+    [/\bon-?chain\b|\bdistributed ledgers?\b|\bconsensus\b|\bchain ?ids?\b|\bblock (?:height|explorer)s?\b|\bgas fees?\b/i, 'a chain or distributed ledger'],
+    [/\b(?:ethereum|bitcoin|sepolia|basescan|web3|dapps?)\b/i, 'a chain by name'],
     [/\bencrypted archives?\b|\bciphertext\b/i, 'the encrypted archive'],
     [/\banchor\w*\b[^.]{0,80}\bnetworks?\b(?! call)|\bnetworks?\b(?! call)[^.]{0,80}\banchor/i, 'anchoring on a network', true],
     [/\b(?:exchange platform|record exchange|request (?:the |a )?records? from us)\b/i, 'a record-exchange service'],
   ]
   const BLOCKCHAIN_OK = /^(?:(?:5\.3 )?Is my data put on a blockchain\?|Records never go on a blockchain or a shared ledger: each record history is a signed file the lab keeps\.)$/
+  // the founder's landing headline (docs/build-notes/BOT-PROMPTS.md, section 6): index.html alone may say "No blockchain"
+  // (its definition: "No blockchain, no coins.") and may use "tokenized" at most twice (the H1 and that definition), and
+  // only beside "No blockchain"; "tokeniz" stays banned on every other shipped page and script, and the bare word
+  // "token" stays banned everywhere (section 7). e2e/shipped-wording.test.mjs applies the same rule to every published
+  // file, read whole.
+  const LANDING_OK = /^No blockchain(?:, no coins)?\.$/
+  const COINS = /\bcoins?\b/i
   // a negated clause ("nothing is written to a network") is not a plan to anchor on one; every other name is banned outright
-  const guard = (where, sents) => { for (const [re, what, negOk] of GUARD) bad(where, sents, `patent guardrails: nothing names ${what}`, (s) => re.test(negOk ? unneg(s) : s)); bad(where, sents, 'patent guardrails: "blockchain" only in the About question and its answer', (s) => /blockchain/i.test(s) && !BLOCKCHAIN_OK.test(s)) }
+  const guard = (where, sents, landing = false) => {
+    for (const [re, what, negOk] of GUARD) bad(where, sents, `patent guardrails: nothing names ${what}`, (s) => re.test(negOk ? unneg(s) : s))
+    bad(where, sents, 'patent guardrails: "blockchain" only in the About question and its answer (and "No blockchain" on the landing page)', (s) => /blockchain/i.test(s) && !BLOCKCHAIN_OK.test(s) && !(landing && LANDING_OK.test(s)))
+    bad(where, sents, 'patent guardrails: no coins (only "no coins" in the landing page\'s definition)', (s) => COINS.test(s) && !(landing && LANDING_OK.test(s)))
+  }
+  const tokeniz = (where, t, landing = false) => {
+    const n = count(t, /tokeni[sz]/gi)
+    ok(`${where}: "tokenized" ${landing ? 'at most twice (the H1 and its definition), US spelling, and only beside "No blockchain"' : 'nowhere (only the landing page may use it)'} (BOT-PROMPTS.md, section 6; found ${n})`,
+      landing ? n <= 2 && !/tokenis/i.test(t) && (n === 0 || /\bNo blockchain\b/.test(t)) : n === 0)
+  }
   const noHistory = (h) => h.replace(/<section class="sec sec--side" id="history"[\s\S]*?<\/section>/g, ' ') // About's revision history (the Overview's Record history, section class "sec", stays checked)
   for (const [file, html] of Object.entries(pagesHTML)) guard(`${file} (its text and template words, revision history aside)`, proseOf(noHistory(html)))
   guard('assets/iqc.js strings', proseOfJS(jsStrings(js)))
   guard('og card', proseOf(ogHTML))
-  for (const [f, html] of Object.entries(HAND.pages)) guard(`${f} (its text)`, proseOf(html))
-  for (const [f, src] of Object.entries(HAND.scripts)) guard(`${f} strings`, proseOfJS(jsStrings(src)))
+  for (const [f, html] of Object.entries(HAND.pages)) { guard(`${f} (its text)`, proseOf(html), f === 'index.html'); tokeniz(`${f} (its text)`, textOf(html, true), f === 'index.html'); tokeniz(`${f} (its markup)`, html, f === 'index.html') }
+  for (const [f, src] of Object.entries(HAND.scripts)) { guard(`${f} strings`, proseOfJS(jsStrings(src))); tokeniz(`${f} strings`, jsStrings(src).join('\n')) }
   ok('patent guardrails: the registry contract and its scripts are gone (git history keeps them)', !existsSync(join(OUT, 'contracts')) && !existsSync(join(OUT, 'dashboard/registry-abi.js')) && !existsSync(join(OUT, 'dashboard/registry-artifact.js')))
   ok('patent guardrails: no network setting left in the copy', !('network' in C))
   // the guardrail lint catches what it is for
-  const flagged = (s) => GUARD.some(([re, , negOk]) => re.test(negOk ? unneg(s) : s)) || (/blockchain/i.test(s) && !BLOCKCHAIN_OK.test(s))
+  const flagged = (s, landing = false) => GUARD.some(([re, , negOk]) => re.test(negOk ? unneg(s) : s)) || (/blockchain/i.test(s) && !BLOCKCHAIN_OK.test(s) && !(landing && LANDING_OK.test(s))) || (COINS.test(s) && !(landing && LANDING_OK.test(s)))
   const mustFail = ['Anchoring heads on a public network is upcoming.', 'An encrypted archive on Filecoin is upcoming.', 'A shared registry anyone could check.', 'The registry code (a smart contract) is written.', 'Salted commitments in place of plain fingerprints.', 'Later, zero-knowledge proofs.', 'Batches would be anchored on a test network.', 'Records would go on-chain.', 'The head would be anchored to the network every hour.']
   const mustPass = ['Anchored fingerprint (simulated, no network call): the link of record 8, stored on this page in place of a real anchor.', 'A simulated anchor on these pages; nothing is written to a network.', 'Nothing on this site or in the app writes to a network.', 'In use, a lab would pin that fingerprint by its own means: a pin file on another drive or share, a printout or a notebook entry.', 'Is my data put on a blockchain?']
   ok(`7h lints: every sample claim is caught (${mustFail.filter((x) => !flagged(x)).join(' | ') || 'all caught'})`, mustFail.every(flagged))
-  ok(`7h lints: the wording that stays passes (${mustPass.filter(flagged).join(' | ') || 'all pass'})`, !mustPass.some(flagged))
+  ok(`7h lints: the wording that stays passes (${mustPass.filter((x) => flagged(x)).join(' | ') || 'all pass'})`, !mustPass.some((x) => flagged(x)))
+  // the landing page's narrow exception: "No blockchain, no coins." there, and nowhere else; no other blockchain or coin
+  const landFail = ['Built on a blockchain.', 'Earn coins for every record.', 'No blockchain, but a chain ID.', 'Records are minted on Ethereum.']
+  ok(`7h lints: the landing page's exception is narrow (${landFail.filter((x) => !flagged(x, true)).join(' | ') || 'all caught'})`, landFail.every((x) => flagged(x, true)) && flagged('No blockchain, no coins.') && !flagged('No blockchain, no coins.', true) && !flagged('No blockchain.', true))
 }
 
 // ------------------------------------------------------------------------------------------------ 9. write, or compare with what is committed
