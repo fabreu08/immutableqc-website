@@ -259,6 +259,52 @@ code{overflow-wrap:anywhere}
 .inside p{margin-top:8px;font-size:var(--t-small);color:var(--ink-3)}
 .demo-result{margin-top:16px}
 
+/* a lab's result (lab.mjs): agent activity, the trace back to measurements, ledgers, review mode */
+.acts,.io,.ledgers,.ttree,.ttree ul,.rv-pick ul{list-style:none;margin:0;padding:0}
+.acts{display:grid;gap:12px}
+.act{padding:16px;border-radius:12px;border:1px solid var(--line-2);background:var(--glass-flat);display:grid;gap:10px;min-width:0}
+.act[data-review="rejected"]{border-color:var(--alert-line)}
+.act[data-review="question"]{border-color:var(--note-line)}
+.act-h{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+.act-h h3{font:600 1rem/1.35 var(--sans);margin:0;color:var(--ink);min-width:0;overflow-wrap:anywhere}
+.act-meta{color:var(--ink-3);font:400 .8125rem/1.45 var(--mono);overflow-wrap:anywhere}
+.act-io{display:grid;grid-template-columns:72px minmax(0,1fr);gap:8px;align-items:start}
+.act-io .label{padding-top:4px}
+.io{display:grid;gap:6px;min-width:0}
+.io>li{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;min-width:0;color:var(--ink-2);font-size:.875rem}
+.io code{color:var(--ink);overflow-wrap:anywhere;min-width:0}
+.io .faint{font-size:.8125rem}
+.trace summary .faint{font-weight:400}
+.ttree{display:grid;gap:6px;font-size:.875rem;color:var(--ink-2)}
+.ttree ul{margin:6px 0 0 10px;padding-left:14px;border-left:1px solid var(--line-2);display:grid;gap:6px}
+.tn{display:inline-flex;flex-wrap:wrap;align-items:center;gap:6px 8px;min-width:0}
+.tn code{color:var(--ink);overflow-wrap:anywhere}
+.ledgers{display:grid;gap:12px}
+.ledgers>li{display:grid;gap:8px;padding-bottom:12px;border-bottom:1px solid var(--line);min-width:0}
+.ledgers>li:last-child{border-bottom:0;padding-bottom:0}
+.lg-h{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
+.lg-h b{color:var(--ink);overflow-wrap:anywhere;min-width:0}
+.kv-tight{gap:6px}
+.kv-tight code{overflow-wrap:anywhere;font-size:.8125rem}
+.review-mode{border-color:var(--signal-line);margin-bottom:16px}
+.rv-form{display:grid;gap:14px;margin-top:14px}
+.rv-form fieldset{border:0;margin:0;padding:0;min-width:0}
+.rv-form legend{color:var(--ink);font-size:var(--t-small);margin-bottom:8px}
+.rv-pick ul{display:grid;gap:4px}
+.rv-pick label,.seg-choice label{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:8px;color:var(--ink-2);font-size:.9375rem;cursor:pointer;min-width:0}
+.rv-pick label span{overflow-wrap:anywhere;min-width:0}
+.rv-pick label:hover,.seg-choice label:hover{background:var(--glass-flat)}
+.rv-pick input,.seg-choice input{accent-color:var(--signal);width:18px;height:18px;flex:none}
+.seg-choice{display:flex;flex-wrap:wrap;gap:8px}
+.seg-choice label{border:1px solid var(--line-2)}
+.rv-form textarea{width:100%;font:inherit;color:var(--ink);background:var(--well);border:1px solid var(--line-ui);border-radius:var(--r-s);padding:10px 12px;resize:vertical}
+.rv-error:empty{display:none}
+.rv-error{color:var(--alert);font-size:var(--t-small)}
+.rv-done p{margin-bottom:8px}
+.rv-done code{font-size:.8125rem;overflow-wrap:anywhere}
+.field-l{color:var(--ink)}
+.demo-actions .btn,.verdict-actions .btn,.rv-form .btn,.end-row .btn{white-space:normal;padding-top:8px;padding-bottom:8px;max-width:100%}
+
 /* ------------------------------------------------------------------------------------------- responsive */
 @media (max-width:1020px){
   .cols{grid-template-columns:minmax(0,1fr)}
@@ -300,6 +346,8 @@ code{overflow-wrap:anywhere}
   /* tap targets: 44 px on phones, as on the landing page (site/tools/check.mjs checks them at 320 and 390) */
   .btn-s{--h:44px}
   .brand,.modes .seg a,.site-nav a:not(.btn),.filter,.chip-copy,.copy,.input,input[type=text],input[type=search]{min-height:44px}
+  .trace summary,.fold>summary,.rv-pick label,.seg-choice label,.rv-form textarea{min-height:44px}
+  .act-io{grid-template-columns:minmax(0,1fr);gap:4px}
   .brand{min-width:44px}
   .icon-btn{width:44px;height:44px}
   .foot-nav a,.foot-meta a{display:inline-flex;align-items:center;min-height:44px;min-width:44px;padding:0}

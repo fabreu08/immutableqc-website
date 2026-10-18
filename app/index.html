@@ -16,7 +16,6 @@
 <link rel="stylesheet" href="app.css">
 <link rel="modulepreload" href="engine.mjs">
 <link rel="modulepreload" href="../core/immutableqc.mjs">
-<link rel="modulepreload" href="../ui/sample-data.mjs">
 <script src="boot.js" defer></script>
 <script type="module" src="app.mjs"></script>
 </head>
@@ -74,7 +73,7 @@
           <svg viewBox="0 0 120 120"><circle class="d-ring" cx="60" cy="60" r="54"/><circle class="d-ring2" cx="60" cy="60" r="43"/><path class="d-folder" d="M37 47v30h46V53H60l-5-6z"/><path class="d-arrow" d="M60 22v28M51 41l9 9 9-9"/></svg>
         </div>
         <h1 id="audit-h" tabindex="-1">Drop a data folder to audit it</h1>
-        <p class="drop-sub">The app finds <code><span class="nw">ImmutableQC/</span><wbr><span class="nw">ledger.jsonl</span></code> inside it and starts at once: every file re-read, every seal and link checked.</p>
+        <p class="drop-sub">The app finds <code><span class="nw">ImmutableQC/</span><wbr><span class="nw">ledger.jsonl</span></code> inside it and starts at once: every file re-read, every seal and link checked. A whole lab folder works too: every ledger in it, and every agent step traced to the measurements it used.</p>
         <div class="drop-actions">
           <button class="btn btn-primary" type="button" data-act="choose-folder" data-for="audit-folder"><svg aria-hidden="true"><use href="#i-folder"/></svg>Choose a folder</button>
           <a class="btn btn-ghost" href="#demo"><svg aria-hidden="true"><use href="#i-play"/></svg>Try it with sample data</a>
@@ -84,23 +83,34 @@
         <p class="local"><svg aria-hidden="true"><use href="#i-lock"/></svg><span>Nothing is uploaded: your browser reads the files, and this page is not allowed to open a connection.</span></p>
       </div>
       <details class="fold opts" id="audit-opts">
-        <summary>Pinned head and expected key id <span class="label">Optional</span></summary>
+        <summary>Pinned heads, key ids and expected changes <span class="label">Optional</span></summary>
         <div class="fold-body">
           <div class="fields">
             <div class="field">
-              <label for="audit-head">Pinned head</label>
+              <label for="audit-head">Pinned heads</label>
               <input type="text" id="audit-head" placeholder="12:9a0ed7c9…" autocomplete="off" spellcheck="false" aria-describedby="audit-head-hint">
-              <p class="hint" id="audit-head-hint">From <code>iqc head</code> or an earlier report: a record number, a colon and a 64-character link. A ledger rewritten since will not match it.</p>
+              <p class="hint" id="audit-head-hint">From <code>iqc head</code> or an earlier report: a record number, a colon and a 64-character link. A ledger rewritten since will not match it. Several: separate them with commas.</p>
             </div>
             <div class="field">
-              <label for="audit-key">Expected key id</label>
+              <label for="audit-key">Expected key ids</label>
               <input type="text" id="audit-key" placeholder="16 hex characters" autocomplete="off" spellcheck="false" aria-describedby="audit-key-hint">
-              <p class="hint" id="audit-key-hint">The key id from an earlier report: a ledger signed with another key will not match it.</p>
+              <p class="hint" id="audit-key-hint">The key id from an earlier report: a ledger signed with another key will not match it. Several: separate them with commas.</p>
+            </div>
+            <div class="field">
+              <label for="audit-allow">Files expected to change</label>
+              <input type="text" id="audit-allow" placeholder="logs/*.log, *.tmp" autocomplete="off" spellcheck="false" aria-describedby="audit-allow-hint">
+              <p class="hint" id="audit-allow-hint">Patterns with * and ?, separated by commas: a file that matches and was sealed again is listed, not sent to review.</p>
+            </div>
+            <div class="field">
+              <span class="field-l" id="audit-pins-l">Pin file</span>
+              <div class="btn-row"><button class="btn btn-ghost btn-s" type="button" data-act="choose-pins" aria-describedby="audit-pins-l audit-pins-name"><svg aria-hidden="true"><use href="#i-file"/></svg>Choose a pin file</button><button class="btn btn-ghost btn-s" type="button" data-act="clear-pins" hidden>Clear</button></div>
+              <input class="vh" type="file" id="audit-pins" accept=".txt,.pins,text/plain" tabindex="-1" aria-label="Choose a pin file">
+              <p class="hint" id="audit-pins-name">No pin file chosen.</p>
             </div>
           </div>
         </div>
       </details>
-      <p class="hint ready-hint">No ledger in the folder? The app asks for the ledger file next.</p>
+      <p class="hint ready-hint">No ledger in the folder? The app asks for the ledger file next. Reviewer ledgers (<code>*.ledger.jsonl</code>) in the folder are audited with the others.</p>
     </div>
 
     <div class="screen glass" data-view="ledger" hidden>
@@ -165,23 +175,26 @@
       <div class="demo-grid">
         <div class="demo-main">
           <p class="eyebrow">Demo · sample data</p>
-          <h1 id="demo-h" tabindex="-1">A pass and a fail, in under a minute</h1>
-          <p class="demo-lead">A small plate-reader folder is built in this tab, sealed with a fresh key and audited by the same code as a real folder. Nothing is installed or uploaded.</p>
+          <h1 id="demo-h" tabindex="-1">A pass, a review and a fail, in under a minute</h1>
+          <p class="demo-lead">A small lab folder is built in this tab: a plate-reader folder sealed with an instrument key, and an analysis agent that runs here and signs each step with its own key. The same code as a real folder audits it. Nothing is installed or uploaded.</p>
           <ol class="steps" data-slot="steps">
-            <li data-step="seal" class="wait"><span class="ci" aria-hidden="true"><svg class="ci-ok" focusable="false"><use href="#i-check"/></svg><svg class="ci-bad" focusable="false"><use href="#i-x"/></svg></span><span><b>Sealed</b> <span data-slot="s-seal">the sample folder, with a key made for this demo</span></span></li>
-            <li data-step="pass" class="wait"><span class="ci" aria-hidden="true"><svg class="ci-ok" focusable="false"><use href="#i-check"/></svg><svg class="ci-bad" focusable="false"><use href="#i-x"/></svg></span><span><b>Audited</b> <span data-slot="s-pass">every file re-read and checked</span></span></li>
-            <li data-step="edit" class="wait"><span class="ci" aria-hidden="true"><svg class="ci-ok" focusable="false"><use href="#i-check"/></svg><svg class="ci-bad" focusable="false"><use href="#i-x"/></svg></span><span><b>One value changed in a copy</b> <span data-slot="s-edit">as a sync conflict on a shared drive would</span></span></li>
-            <li data-step="fail" class="wait"><span class="ci" aria-hidden="true"><svg class="ci-ok" focusable="false"><use href="#i-check"/></svg><svg class="ci-bad" focusable="false"><use href="#i-x"/></svg></span><span><b>Audited again</b> <span data-slot="s-fail">the change is caught</span></span></li>
+            <li data-step="seal" class="wait"><span class="ci" aria-hidden="true"><svg class="ci-ok" focusable="false"><use href="#i-check"/></svg><svg class="ci-bad" focusable="false"><use href="#i-x"/></svg></span><span><b>Sealed</b> <span data-slot="s-seal">the instrument folder, with an instrument key made for this demo</span></span></li>
+            <li data-step="agent" class="wait"><span class="ci" aria-hidden="true"><svg class="ci-ok" focusable="false"><use href="#i-check"/></svg><svg class="ci-bad" focusable="false"><use href="#i-x"/></svg></span><span><b>Analysis agent ran</b> <span data-slot="s-agent">in this tab, each step signed with an agent key</span></span></li>
+            <li data-step="pass" class="wait"><span class="ci" aria-hidden="true"><svg class="ci-ok" focusable="false"><use href="#i-check"/></svg><svg class="ci-bad" focusable="false"><use href="#i-x"/></svg></span><span><b>Audited</b> <span data-slot="s-pass">the whole lab folder: every file re-read, every step traced</span></span></li>
+            <li data-step="edit" class="wait"><span class="ci" aria-hidden="true"><svg class="ci-ok" focusable="false"><use href="#i-check"/></svg><svg class="ci-bad" focusable="false"><use href="#i-x"/></svg></span><span><b>One change</b> <span data-slot="s-edit">a step that cites a file nothing measured, one value changed in a copy, or a sign-off</span></span></li>
+            <li data-step="fail" class="wait"><span class="ci" aria-hidden="true"><svg class="ci-ok" focusable="false"><use href="#i-check"/></svg><svg class="ci-bad" focusable="false"><use href="#i-x"/></svg></span><span><b>Audited again</b> <span data-slot="s-fail">each change is audited again</span></span></li>
           </ol>
           <div class="btn-row demo-actions">
-            <button class="btn btn-primary" type="button" data-act="demo-edit" hidden><svg aria-hidden="true"><use href="#i-edit"/></svg>Change one value</button>
+            <button class="btn btn-ghost" type="button" data-act="demo-cite" hidden><svg aria-hidden="true"><use href="#i-unsealed"/></svg>An agent cites a file nothing measured</button>
+            <button class="btn btn-primary" type="button" data-act="demo-edit" hidden><svg aria-hidden="true"><use href="#i-edit"/></svg>Change one value in a copy</button>
+            <button class="btn btn-ghost" type="button" data-act="demo-signoff" hidden><svg aria-hidden="true"><use href="#i-check"/></svg>Sign off as a reviewer</button>
             <button class="btn btn-ghost" type="button" data-act="demo-restart" hidden><svg aria-hidden="true"><use href="#i-redo"/></svg>Start over</button>
             <button class="btn btn-primary" type="button" data-act="demo-start" hidden><svg aria-hidden="true"><use href="#i-play"/></svg>Run the demo</button>
           </div>
         </div>
         <div class="demo-side">
           <div class="folder-card">
-            <p class="label"><svg aria-hidden="true"><use href="#i-folder"/></svg><span data-slot="d-folder">bio-line-2</span> <span class="faint">· in memory</span></p>
+            <p class="label"><svg aria-hidden="true"><use href="#i-folder"/></svg><span data-slot="d-folder">demo-lab</span> <span class="faint">· in memory</span></p>
             <ul class="tree" data-slot="tree"></ul>
           </div>
           <div class="inside" data-slot="inside" hidden></div>

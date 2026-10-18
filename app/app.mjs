@@ -2,14 +2,17 @@
 //   Audit (default)  drop a data folder, or choose one: the ledger is found and the audit starts at once; one verdict,
 //                    then problems, notes, the watch sessions, the ledger and a searchable file list; reports to download
 //   Seal             drop a folder: the browser's key (IndexedDB, not extractable) seals every file into ledger.jsonl
-//   Demo (#demo)     the sample folder from ui/sample-data.mjs, sealed, audited (pass), one value changed in a copy,
-//                    audited again (fail), all with the same code as a real folder
+//   Demo (#demo)     a lab folder built in the tab (demo-agent.mjs): the sample folder from ui/sample-data.mjs sealed
+//                    with an instrument key, a real analysis agent run in the page with its own key, audited (pass);
+//                    then a step citing a file nothing measured (review), one value changed in a copy (fail), a
+//                    reviewer's sign-off; all with the same code as a real folder
+// A lab folder (several ledgers) is audited with core's auditMany; its result, the agent activity, the ledgers and the
+// review mode (a sign-off signed with the browser's key) are drawn by lab.mjs, loaded only when needed.
 // The work is in engine.mjs (folders, the worker pool, the audit and the seal) and core (../core/immutableqc.mjs); this
 // module draws. Markup is built from escaped strings, with no inline style or handler (the CSP allows neither): sizes
 // and positions are custom properties set with style.setProperty. Every failure is shown as a readable message.
 import * as IQC from '../core/immutableqc.mjs'
-import { AppError, Canceled, Pool, KeyStore, DemoKeys, entriesOfDrop, listEntries, listInput, measure, yieldNow, locate, runAudit, runSeal, demoListing, DEMO, TOOL } from './engine.mjs'
-import { hexGroups } from '../ui/sample-data.mjs'
+import { AppError, Canceled, Pool, KeyStore, entriesOfDrop, listEntries, listInput, measure, yieldNow, locate, runAudit, runSeal, TOOL } from './engine.mjs'
 
 // test hooks, only with ?test in the address: ?test&worker=<name>.mjs (a worker that fails, say) and ?test&max=<n>
 const TEST = /[?&]test\b/.test(location.search) ? new URLSearchParams(location.search) : null
@@ -39,6 +42,7 @@ const dur = (ms) => {
   if (m < 60) return `${m} min ${pad(s % 60)} s`
   return `${Math.floor(m / 60)} h ${pad(m % 60)} min`
 }
+const hexGroups = (hex) => hex.match(/.{1,8}/g) || [] // a fingerprint in 8-character groups (theme.css .hash)
 const hashHTML = (hex, cls = '') => `<code class="hash${cls ? ' ' + cls : ''}">${hexGroups(String(hex)).map((g) => `<span>${esc(g)}</span>`).join('')}</code>`
 const shortHash = (hex, cls = '') => `<code class="hash hash-short${cls ? ' ' + cls : ''}"><span>${esc(String(hex).slice(0, 8))}</span>…</code>`
 const headHTML = (head) => `<code class="hash">${hexGroups(head.h).map((g, i) => `<span>${i ? '' : `${esc(head.n)}:`}${esc(g)}</span>`).join('')}</code>`
@@ -57,6 +61,7 @@ const STATE = {
   'back after removal': ['tag-back', 'back', 'Back after removal'],
   'not sealed': ['tag-unsealed', 'unsealed', 'Not sealed'],
   'not checked': ['tag-unchecked', 'unchecked', 'Not checked'],
+  superseded: ['tag-unchecked', 'back', 'Written again later'],
 }
 const CI = '<span class="ci" aria-hidden="true"><svg class="ci-ok" focusable="false"><use href="#i-check"/></svg><svg class="ci-bad" focusable="false"><use href="#i-x"/></svg></span>'
 const tag = (state, extra = '') => { const [c, i, w] = STATE[state] || STATE['not checked']; return `<span class="tag ${c}${extra}">${ic(i)}${esc(w)}</span>` }
@@ -67,7 +72,7 @@ const S = {
   keys: new KeyStore(),
   audit: { run: null, pending: null, last: null },
   seal: { run: null, last: null, text: null },
-  demo: { phase: 'idle', run: null, ledgerText: null, seal: null, auto: false },
+  demo: { phase: 'idle', run: null, lab: null, auto: false },
 }
 const TITLES = { audit: 'Audit a data folder · Immutable QC', seal: 'Seal a data folder · Immutable QC', demo: 'Demo with sample data · Immutable QC' }
 const section = (mode) => document.getElementById(mode) // the sections are #audit, #seal and #demo, as the tabs link them
@@ -242,21 +247,33 @@ function fieldError(input, msg) {
   p.textContent = msg
   input.setAttribute('aria-invalid', 'true')
 }
+// heads and key ids: one or several, separated by commas (a head may start with its ledger id); globs likewise
+const listOf = (v) => v.split(/[,\n]/).map((t) => t.trim()).filter(Boolean)
 function readExpectations() {
-  const hi = $('#audit-head'), ki = $('#audit-key')
-  const head = hi.value.trim(), key = ki.value.trim().toLowerCase()
+  const hi = $('#audit-head'), ki = $('#audit-key'), gi = $('#audit-allow')
+  const heads = listOf(hi.value), keys = listOf(ki.value.toLowerCase()), globs = listOf(gi.value)
   let bad = null
-  fieldError(hi, null)
-  fieldError(ki, null)
-  if (head) { try { IQC.parseHead(head) } catch { fieldError(hi, 'Write it as the record number, a colon and the 64-character link, for example 12:9a0ed7c9… (as iqc head prints it).'); bad = hi } }
-  if (key && !/^[0-9a-f]{16}$/.test(key)) { fieldError(ki, 'A key id is 16 characters, 0 to 9 and a to f.'); bad = bad || ki }
+  for (const el of [hi, ki, gi]) fieldError(el, null)
+  for (const h of heads) {
+    try { IQC.parseHead(h.replace(/^[0-9a-f]{32}[\s:]+/, '')) } catch { fieldError(hi, 'Write it as the record number, a colon and the 64-character link, for example 12:9a0ed7c9… (as iqc head prints it).'); bad = hi; break }
+  }
+  if (keys.some((k) => !/^[0-9a-f]{16}$/.test(k))) { fieldError(ki, 'A key id is 16 characters, 0 to 9 and a to f.'); bad = bad || ki }
+  if (globs.length) { try { IQC.ignoreMatcher(globs) } catch (e) { fieldError(gi, `This pattern cannot be read: ${e.message}`); bad = bad || gi } }
   if (bad) {
     $('#audit-opts').open = true
     bad.focus()
     announce('Check the optional fields: one of them cannot be read.')
     return null
   }
-  return { expectHead: head || undefined, expectKeyId: key || undefined }
+  const pins = S.audit.pins
+  return {
+    expectHead: heads.length === 1 && !/^[0-9a-f]{32}/.test(heads[0]) ? heads[0] : undefined,
+    expectKeyId: keys.length === 1 ? keys[0] : undefined,
+    expectHeads: heads.length ? heads : undefined,
+    expectKeyIds: keys.length ? keys : undefined,
+    allowChanges: globs.length ? globs : undefined,
+    pinLines: pins ? pins.text : undefined,
+  }
 }
 
 // ----------------------------------------------------------------------------------------------- reading a folder
@@ -295,6 +312,7 @@ async function startAudit(source) {
     const total = listing.items.reduce((a, x) => a + (x.size || 0), 0)
     prog.text('list', `${plural(listing.items.length, 'file', 'files')}, ${fmtB(total)}`)
     if (located.kind === 'no-ledger') { A.pending = located; askLedger(located); return }
+    if (located.kind === 'lab') prog.text('ledger', `${plural(located.found.length, 'ledger', 'ledgers')} found: signatures and links`)
     await auditLocated(located, exp, prog, ctl)
   } catch (e) {
     finishRun('audit')
@@ -309,15 +327,15 @@ async function auditLocated(located, exp, prog, ctl, { chosen = false } = {}) {
   const pool = new Pool(POOL())
   A.run.pool = pool
   try {
-    const res = await runAudit(located, {
-      ...exp, pool, signal: ctl.signal, chosen,
-      onProgress: (p) => prog.update(p),
-    })
+    const many = located.kind === 'lab' || exp.pinLines || (exp.expectHeads && !exp.expectHead) || (exp.expectKeyIds && !exp.expectKeyId)
+    const opts = { ...exp, pool, signal: ctl.signal, onProgress: (p) => prog.update(p) }
+    const res = located.kind === 'lab' ? await (await import('./many.mjs')).runAuditMany(located, opts) : await runAudit(located, { ...opts, chosen, many })
+    res.opts = { expectHeads: exp.expectHeads, expectKeyIds: exp.expectKeyIds, allowChanges: exp.allowChanges, pinLines: exp.pinLines, where: 'browser', tool: TOOL, folder: located.root || undefined }
     await yieldNow()
+    const box = show('audit', 'result')
+    await showResult(box, res, { mode: 'audit', level: 'h1', exp })
     finishRun('audit')
     A.last = res
-    const box = show('audit', 'result')
-    renderResult(box, res, { mode: 'audit', level: 'h1', exp })
     afterVerdict(box, res)
   } finally {
     pool.terminate()
@@ -396,6 +414,7 @@ function afterVerdict(box, res) {
 
 // --------------------------------------------------------------------------------------------- the result view
 function headline(r) {
+  if (r.kind === 'many') return cap(String(r.summary).replace(/^(?:Pass|Review|Fail): /, ''))
   const c = r.counts
   if (r.verdict === 'pass') {
     if (!r.filesChecked) return `Ledger intact: ${plural(c.records, 'record', 'records')}, every signature and link verified. The files were not checked.`
@@ -474,8 +493,11 @@ function rowHTML(row) {
 }
 
 const PAGE = 100
-function filesPanel(id, rows, { title = 'Files', sub } = {}) {
+const FLAG = { problems: 'problem', notes: 'note', steps: 'step', review: 'review' }
+const EMPTY = { problems: 'No problems.', notes: 'No notes.', steps: 'No agent steps.', review: 'Nothing needs review.' }
+function filesPanel(id, rows, { title = 'Files', sub, extra = [] } = {}) {
   const probs = rows.filter((r) => r.problem).length, notes = rows.filter((r) => r.note).length
+  const chip = (k, label) => `<button class="filter" type="button" aria-pressed="false" data-filter="${k}">${esc(label)} <span class="n">${esc(fmtN(rows.filter((r) => r[FLAG[k]]).length))}</span></button>`
   return `<section class="panel files" aria-labelledby="${id}-files-h" data-files>
 <div class="files-h"><h2 id="${id}-files-h">${esc(title)} <span class="label">${esc(sub || `${plural(rows.length, 'path', 'paths')} · problems first`)}</span></h2></div>
 <div class="files-tools">
@@ -483,7 +505,7 @@ function filesPanel(id, rows, { title = 'Files', sub } = {}) {
 <button class="filter" type="button" aria-pressed="true" data-filter="all">All <span class="n">${esc(fmtN(rows.length))}</span></button>
 <button class="filter" type="button" aria-pressed="false" data-filter="problems">Problems <span class="n">${esc(fmtN(probs))}</span></button>
 <button class="filter" type="button" aria-pressed="false" data-filter="notes">Notes <span class="n">${esc(fmtN(notes))}</span></button>
-</div>
+${extra.map(([k, label]) => chip(k, label)).join('')}</div>
 <label class="search">${ic('search')}<span class="vh">Search files by path or SHA-256</span><input type="search" placeholder="Path or fingerprint" autocomplete="off" spellcheck="false" data-search></label>
 </div>
 <table class="table ftable"><caption class="vh">${esc(title)}: state, path, size, SHA-256 and number of sealed versions</caption>
@@ -497,7 +519,7 @@ function bindFiles(panel, rows) {
   const tbody = $('[data-rows]', panel), info = $('[data-pageinfo]', panel), prev = $('[data-page="-1"]', panel), next = $('[data-page="1"]', panel), input = $('[data-search]', panel)
   const apply = () => {
     const q = st.q
-    st.list = rows.filter((r) => (st.filter === 'all' || (st.filter === 'problems' ? r.problem : r.note)) && (!q || r.hay.includes(q)))
+    st.list = rows.filter((r) => (st.filter === 'all' || r[FLAG[st.filter]]) && (!q || r.hay.includes(q)))
     st.page = 0
     draw()
   }
@@ -505,7 +527,7 @@ function bindFiles(panel, rows) {
     const n = st.list.length, pages = Math.max(1, Math.ceil(n / PAGE))
     st.page = Math.min(st.page, pages - 1)
     const a = st.page * PAGE, slice = st.list.slice(a, a + PAGE)
-    tbody.innerHTML = slice.length ? slice.map(rowHTML).join('') : `<tr class="empty-row"><td colspan="5">${esc(st.q ? `No file matches “${input.value.trim()}”.` : st.filter === 'problems' ? 'No problems.' : st.filter === 'notes' ? 'No notes.' : 'No files.')}</td></tr>`
+    tbody.innerHTML = slice.length ? slice.map((r) => (r.html ? r.html() : rowHTML(r))).join('') : `<tr class="empty-row"><td colspan="5">${esc(st.q ? `No file matches “${input.value.trim()}”.` : EMPTY[st.filter] || 'No files.')}</td></tr>`
     info.textContent = n ? `${fmtN(a + 1)}–${fmtN(a + slice.length)} of ${plural(n, 'path', 'paths')}` : 'No path to show'
     prev.disabled = st.page === 0
     next.disabled = st.page >= pages - 1
@@ -729,6 +751,7 @@ ${ledgerPanel(id, res)}
 ${filesPanel(id, rows)}
 <div class="end-row">
 ${demo ? `<button class="btn btn-ghost" type="button" data-act="demo-restart">${ic('redo')}Start over</button>` : `<button class="btn btn-ghost" type="button" data-act="reset">${ic('folder')}Audit another folder</button>`}
+${!demo && res.entries ? `<button class="btn btn-ghost" type="button" data-act="review-open">${ic('edit')}Review and sign off</button>` : ''}
 ${head ? `<button class="chip-copy" type="button" data-copy="${esc(headText(head))}">${ic('copy')}<span><span class="vh">Copy the </span>Head ${esc(head.n)}:${esc(head.h.slice(0, 8))}…</span></button>` : ''}
 ${L.keyId ? `<button class="chip-copy" type="button" data-copy="${esc(L.keyId)}">${ic('copy')}<span><span class="vh">Copy the </span>Key id ${esc(L.keyId)}</span></button>` : ''}
 </div>
@@ -754,7 +777,7 @@ function download(name, text, type) {
 function reportName(res, ext) {
   const r = res.report
   const date = (r.method.auditedAt || new Date().toISOString()).slice(0, 10)
-  return `immutableqc-audit-${slug((res.located && res.located.root) || r.ledger.station)}-${date}-${r.verdict}.${ext}`
+  return `immutableqc-audit-${slug((res.located && res.located.root) || (r.ledger ? r.ledger.station : 'lab'))}-${date}-${r.verdict}.${ext}`
 }
 async function copyText(btn) {
   const text = btn.dataset.copy
@@ -886,128 +909,13 @@ ${filesPanel(id, rows, { title: 'Files sealed', sub: `${plural(rows.length, 'pat
 }
 
 // ---------------------------------------------------------------------------------------------------------- the demo
-const D = () => S.demo
-function demoSteps(states) {
-  for (const li of $$('.steps li', section('demo'))) {
-    const s = states[li.dataset.step]
-    if (s) li.className = s
-  }
-}
-function demoText(slot, text) { $(`[data-slot="${slot}"]`, section('demo')).textContent = text }
-function demoButtons({ edit = false, restart = false, start = false }) {
-  const sec = section('demo')
-  $('[data-act="demo-edit"]', sec).hidden = !edit
-  $('[data-act="demo-restart"]', sec).hidden = !restart
-  $('[data-act="demo-start"]', sec).hidden = !start
-}
-function demoTree({ hashes = null, edited = false, ledger = false } = {}) {
-  const files = demoListing({ edited }).items
-  const ul = $('[data-slot="tree"]', section('demo'))
-  ul.innerHTML = files.map((it) => {
-    const isEdit = edited && it.raw === DEMO.edit.path
-    return `<li class="${isEdit ? 'is-edited' : ''}"><span class="t-path">${esc(it.raw)}${isEdit ? ` <span class="tag tag-changed">${ic('x')}Edited copy</span>` : ''}</span><span class="t-size">${esc(fmtB(it.file.size))}</span>${hashes && hashes.get(it.raw) ? shortHash(hashes.get(it.raw)) : '<span></span>'}</li>`
-  }).join('') + (ledger ? `<li class="is-ledger"><span class="t-path">${esc(IQC.LEDGER_PATH)}</span><span class="t-size">${esc(fmtB(new Blob([ledger]).size))}</span><span class="tag tag-sealed">${ic('check')}Ledger</span></li>` : '')
-}
-function demoInside(show) {
-  const box = $('[data-slot="inside"]', section('demo'))
-  box.hidden = !show
-  if (!show) { box.innerHTML = ''; return }
-  const e = DEMO.edit
-  box.innerHTML = `<p class="label">Inside ${esc(e.name)}, in the copy</p>
-<pre><span class="ln">1  </span>well,abs_450
-<span class="ln">2  </span>${esc(e.well)},<del>${esc(e.before)}</del><ins>${esc(e.after)}</ins>
-<span class="ln">3  </span>A02,0.517</pre>
-<p>${esc(`Same name, same size (${fmtN(e.size)} bytes); one value differs. The audit compares bytes, not values: it shows that the file changed, and the cell is highlighted here only to show what the copy holds.`)}</p>`
-}
-
-async function startDemo({ focus = true } = {}) {
-  const d = D()
-  if (d.run) return
-  const ctl = new AbortController()
-  d.run = { ctl }
-  d.phase = 'sealing'
-  d.ledgerText = null
-  show('demo', 'none')
-  demoButtons({})
-  demoInside(false)
-  demoTree({})
-  demoSteps({ seal: 'run', pass: 'wait', edit: 'wait', fail: 'wait' })
-  demoText('s-seal', 'the sample folder, with a key made for this demo')
-  demoText('s-pass', 'every file re-read and checked')
-  demoText('s-edit', 'as a sync conflict on a shared drive would')
-  demoText('s-fail', 'the change is caught')
-  announce('Demo started: sealing the sample folder.')
-  const pool = new Pool(POOL())
-  try {
-    const keys = new DemoKeys()
-    const sealed = await runSeal(locate(demoListing()), { station: DEMO.station, pool, keys, signal: ctl.signal })
-    d.ledgerText = sealed.text
-    d.seal = sealed
-    const hashes = new Map([...sealed.verified.files.values()].map((e) => [IQC.decodePath(e.path), e.latest.sha256]))
-    d.hashes = hashes
-    demoTree({ hashes, ledger: sealed.text })
-    demoText('s-seal', `${plural(sealed.plan.length, 'file', 'files')} of ${DEMO.folder}, key id ${sealed.key.keyId}, head ${sealed.verified.head.n}:${sealed.verified.head.h.slice(0, 8)}…`)
-    demoSteps({ seal: 'done', pass: 'run' })
-    const res = await runAudit(locate(demoListing({ ledgerText: sealed.text })), { pool, signal: ctl.signal })
-    d.phase = 'pass'
-    demoSteps({ pass: res.report.verdict === 'pass' ? 'done' : 'bad' })
-    demoText('s-pass', res.report.verdict === 'pass' ? `pass: all ${fmtN(res.report.counts.match)} files match their seals` : `unexpected: ${res.report.summary}`)
-    demoButtons({ edit: true, restart: true })
-    const box = show('demo', 'result')
-    renderResult(box, res, { mode: 'demo', level: 'h2', demo: true })
-    if (focus) focusEl($('.verdict', box))
-    announce(`Demo audit finished. Pass: ${headline(res.report)} Next: change one value.`)
-  } catch (e) {
-    if (e instanceof Canceled) return
-    d.phase = 'error'
-    demoButtons({ start: true })
-    demoSteps({ seal: 'wait', pass: 'wait' })
-    showError('demo', e, [`<button class="btn btn-primary" type="button" data-act="demo-restart">${ic('redo')}Start over</button>`])
-  } finally {
-    pool.terminate()
-    d.run = null
-  }
-}
-
-async function demoEdit() {
-  const d = D()
-  if (d.run || !d.ledgerText) return
-  d.run = { ctl: new AbortController() }
-  d.phase = 'editing'
-  demoButtons({})
-  const e = DEMO.edit
-  demoSteps({ edit: 'done', fail: 'run' })
-  demoText('s-edit', `${e.name}, well ${e.well}: ${e.before} became ${e.after}`)
-  demoTree({ hashes: d.hashes, edited: true, ledger: d.ledgerText })
-  demoInside(true)
-  const pool = new Pool(POOL())
-  try {
-    const res = await runAudit(locate(demoListing({ edited: true, ledgerText: d.ledgerText })), { pool, signal: d.run.ctl.signal })
-    const now = res.report.files.find((f) => f.path === e.path)
-    if (now && now.present) {
-      const hashes = new Map(d.hashes)
-      hashes.set(e.path, now.present.sha256)
-      demoTree({ hashes, edited: true, ledger: d.ledgerText })
-    }
-    d.phase = 'fail'
-    const caught = res.report.verdict === 'fail' && res.report.counts.changed === 1
-    demoSteps({ fail: caught ? 'bad' : 'wait' })
-    demoText('s-fail', caught ? `fail: ${e.name} changed since it was sealed` : `unexpected: ${res.report.summary}`)
-    demoButtons({ restart: true })
-    const box = show('demo', 'result')
-    renderResult(box, res, { mode: 'demo', level: 'h2', demo: true })
-    focusEl($('.verdict', box))
-    announce(`Demo audit finished. Fail: ${headline(res.report)}`)
-  } catch (err) {
-    if (err instanceof Canceled) return
-    d.phase = 'error'
-    demoButtons({ start: true })
-    showError('demo', err, [`<button class="btn btn-primary" type="button" data-act="demo-restart">${ic('redo')}Start over</button>`])
-  } finally {
-    pool.terminate()
-    d.run = null
-  }
-}
+// The lab folder of demo-agent.mjs, drawn by lab.mjs: both load only when the demo runs, so they cost nothing on the
+// first load.
+const lazy = {}
+const labUI = () => (lazy.ui ||= import('./lab.mjs'))
+// the demo's page code is in lab.mjs too (startDemo, demoChange), loaded with the demo
+function startDemo(opts) { return labUI().then((UI) => UI.startDemo(opts)).catch((e) => showError('demo', e)) }
+function demoChange(act) { return labUI().then((UI) => UI.demoChange(act)) }
 
 // ---------------------------------------------------------------------------------------------- events and boot
 function onClick(e) {
@@ -1032,8 +940,16 @@ function onClick(e) {
   } else if (act === 'audit-this') {
     const src = S.seal.failedSource
     if (src) { history.replaceState(null, '', '#audit'); setMode('audit'); startAudit(src) }
-  } else if (act === 'demo-edit') demoEdit()
+  } else if (act === 'demo-edit' || act === 'demo-cite' || act === 'demo-signoff') demoChange(act)
   else if (act === 'demo-restart' || act === 'demo-start') startDemo()
+  else if (act === 'choose-pins') { const input = $('#audit-pins'); input.value = ''; input.click() }
+  else if (act === 'clear-pins') { S.audit.pins = null; pinsShown() }
+  else if (/^review-/.test(act)) { const box = b.closest('[data-view="result"]'); if (box && box._res) labUI().then((UI) => UI.reviewAct(act, box, b)) }
+}
+function pinsShown() {
+  const p = S.audit.pins
+  $('#audit-pins-name').textContent = p ? `${p.name}: ${plural(p.lines, 'pin', 'pins')}` : 'No pin file chosen.'
+  $('[data-act="clear-pins"]').hidden = !p
 }
 
 function initDrop() {
@@ -1069,7 +985,16 @@ function boot() {
   $('#audit-folder').addEventListener('change', (e) => { const f = picked(e.target); if (f.length) startAudit({ input: f, name: '' }); else showError('audit', new AppError('The folder is empty', 'There is no file in it to check.')) })
   $('#seal-folder').addEventListener('change', (e) => { const f = picked(e.target); if (f.length) startSeal({ input: f, name: '' }); else showError('seal', new AppError('The folder is empty', 'There is no file in it to seal.')) })
   $('#audit-ledger').addEventListener('change', (e) => { const f = picked(e.target)[0]; if (f) chosenLedger(f) })
-  for (const id of ['audit-head', 'audit-key', 'seal-station']) $(`#${id}`).addEventListener('input', (e) => fieldError(e.target, null))
+  $('#audit-pins').addEventListener('change', async (e) => {
+    const f = picked(e.target)[0]
+    if (!f) return
+    const text = f.size > 4 * 1024 * 1024 ? '' : await f.text().catch(() => '')
+    const lines = IQC.parsePinLines(text)
+    S.audit.pins = { name: f.name, text, lines: lines.length }
+    pinsShown()
+    announce(`Pin file ${f.name}: ${plural(lines.length, 'line', 'lines')} read. ${lines.filter((x) => x.error).length ? 'Some lines cannot be read; the audit lists them.' : ''}`)
+  })
+  for (const id of ['audit-head', 'audit-key', 'audit-allow', 'seal-station']) $(`#${id}`).addEventListener('input', (e) => fieldError(e.target, null))
   initDrop()
   addEventListener('hashchange', () => { const m = modeOf(location.hash); if (m) setMode(m, { focus: true }) })
   addEventListener('error', (e) => { if (e.error || e.message) showFatal(e.error || new Error(e.message)) })
@@ -1082,6 +1007,13 @@ function showFatal(err) {
   for (const m of ['audit', 'seal']) if (S[m].run) { try { S[m].run.ctl.abort(); if (S[m].run.pool) S[m].run.pool.terminate() } catch { /* stopped */ } finishRun(m) }
   showError(mode, err instanceof AppError ? err : new AppError('Something went wrong', `The app stopped with this message: ${(err && err.message) || String(err)} Nothing was uploaded or changed. Try again, or reload the page.`))
 }
+
+// A result: one ledger's audit here; a lab's (auditMany) in lab.mjs, loaded on first use.
+async function showResult(box, res, opts) {
+  if (res.report.kind === 'many') { const UI = await labUI(); UI.renderMany(box, res, opts) } else renderResult(box, res, opts)
+}
+// what lab.mjs draws with: the same helpers and panels as a one-ledger result
+export const H = { POOL, Pool, Canceled, section, showError, show, $, $$, esc, fmtN, fmtB, plural, ic, cap, when, dayTime, shortHash, nameOf, tag, S, TOOL, announce, focusEl, download, readError, reviewPanel, notesPanel, filesPanel, bindFiles, headline, fieldError, uid: () => ++uid }
 
 // a test hook (only with ?test in the address): hash Blobs in the worker pool, with the slice limits given
 if (TEST) {
