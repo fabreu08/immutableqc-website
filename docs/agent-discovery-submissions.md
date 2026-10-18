@@ -15,7 +15,7 @@ contact email for any form is typed into the form, never written in the repo.
 | D3 | A sentence on cost ("Free to use during the open alpha.", if true; "price" stays banned on the site) | C1, C6 | Open; no file says anything about cost |
 | D4 | Client brand names outside the site (README, plugin folder, registry text) | C8 | Open. `site/tools/wording.mjs` `CLIENTS` bans them on the site, in `llms*.txt` and, for now, in the repository files (`e2e/repo-wording.test.mjs`) |
 | D5 | One "Source code" link to the repo from `agents.html`, `llms*.txt` and the JSON-LD `sameAs` | C1 | Open. Today the doc-set lint allows external links to joseqc.com only |
-| D6 | Questions for the patent attorney: whether `docs/patent-guardrails.md` should stay in a public repo; marketing words near claim language | before C1 | Open |
+| D6 | Questions for the patent attorney: whether `docs/patent-guardrails.md` should stay in a public repo; marketing words near claim language | now, not before C1: the repo is public, and `docs/patent-guardrails.md` (marked internal) is already readable on `claude/nifty-gates-h5guqf` and `bot/patent-claims` | Open; flag to the founder now |
 | D7 | The MCP server name `com.immutableqc/laboratory-instrument-provenance` (the registry searches names by substring) | C4, C9, C10 | Drafted in `server.json` |
 | D8 | Two agent behaviors: starting `iqc mcp` writes the ledger and a key at once; parallel `iqc record` calls on one root are refused while one holds the lock | none (documented as limits) | Open; `agents.html`, `llms*.txt`, the skill and `iqc help mcp` state both |
 
@@ -41,7 +41,7 @@ gh repo edit fabreu08/immutableqc-website \
   --homepage https://immutableqc.com \
   --add-topic mcp-server --add-topic model-context-protocol --add-topic lab-automation --add-topic laboratory \
   --add-topic self-driving-lab --add-topic research-data --add-topic data-integrity --add-topic provenance \
-  --add-topic tamper-evident --add-topic audit-trail --add-topic agent-skills --add-topic ai-agents \
+  --add-topic tamper-evident --add-topic agent-skills --add-topic ai-agents \
   --add-topic reproducibility --add-topic sha256 --add-topic nodejs
 ```
 
@@ -97,7 +97,9 @@ Needs D7. The registry verifies a `com.immutableqc/*` name by a TXT record at th
    ```
    openssl genpkey -algorithm Ed25519 -out key.pem
    PUBLIC_KEY="$(openssl pkey -in key.pem -pubout -outform DER | tail -c 32 | base64)"
+   PRIVATE_KEY="$(openssl pkey -in key.pem -noout -text | grep -A3 "priv:" | tail -n +2 | tr -d ' :\n')"
    ```
+   `PRIVATE_KEY` is the hex private key `mcp-publisher login dns` takes in C4 (from the registry's authentication doc).
    TXT record: `immutableqc.com. IN TXT "v=MCPv1; k=ed25519; p=${PUBLIC_KEY}"`. Keep `key.pem` out of the repository.
 2. The TXT values Google Search Console and Bing Webmaster Tools give for domain verification.
 3. Submit `https://immutableqc.com/sitemap.xml` in both (Bing reads `lastmod`; the sitemap carries one per page).
