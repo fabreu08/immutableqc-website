@@ -230,6 +230,14 @@ Networking", same provisionals; status not checked). Read their independent clai
 5. Before building any new feature in this space, search for patents on it (Google Patents, USPTO) and read the
    independent claims; record the result here. If in doubt, do not build it, and ask the founder.
 
+## Founder decisions on specific features
+- **`--pin-file` stays (2026-10-18).** The founder weighed the US 12,032,554 reading above (automatic pinning of heads
+  to a file on another system is the feature closest to its "data escrow database system" element) and chose to keep
+  `--pin-file` as built, accepting that risk on business grounds. Do not remove or weaken it on patent grounds without
+  asking the founder. It must stay within the rules above: a plain file the lab chooses, written by the lab's own
+  agent; no hosted escrow service, no network call, no per-record keys sent anywhere. Revisit it with a patent
+  attorney before a launch or a fundraise.
+
 ## What this changes
 - Removed from the plans: "anchoring heads on a public network", the registry contract (`contracts/RootRegistry.sol`,
   `dashboard/registry-*.js`), the encrypted archive on Filecoin, "privacy on public networks" (salted commitments,
