@@ -1,0 +1,49 @@
+name: overview-timing
+
+# The two Overview timing checks in site/tools/check.mjs, measured on a GitHub-hosted runner (docs/build-notes/BOT-PROMPTS.md,
+# QA bot): the story's step cost at 1280×800 with CPU 4× (median under 50 ms) and the Overview's LCP at 390×844 with
+# Slow 4G and CPU 4× (median of 5, at most Draft 4's 1592 ms + 100 ms). Runs on pushes to bot/qa-ci and by hand; re-run a
+# run to measure again. The numbers are printed in the log and kept as the overview-timing artifact. It changes no limit.
+# Every action is pinned to a full commit SHA; the version is in the comment beside it.
+on:
+  push:
+    branches: [bot/qa-ci]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  overview-timing:
+    name: Overview timing (story cost, LCP with --perf)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - name: Install the check tools (dev dependencies only)
+        working-directory: site
+        run: npm ci
+      - name: Install Chromium for Playwright
+        working-directory: site
+        run: npx playwright install --with-deps chromium
+      - name: Run the Overview checks with --perf and print the two timings
+        run: |
+          node site/tools/check.mjs --perf --only=overview.html --json=overview-timing.json
+      - name: Summarize the two timings
+        if: always()
+        run: |
+          node -e "const r = JSON.parse(require('fs').readFileSync('overview-timing.json', 'utf8')); const c = (r.story && r.story.cost) || {}; const g = (r.perf || []).find((x) => x.pg === 'overview.html' && x.size === '390×844' && x.fonts === 'shipped') || {}; console.log('story cost median ' + c.median + ' ms (limit under 50), max ' + c.max + ' ms; Overview LCP at 390x844 ' + g.lcp + ' ms (limit 1692), runs ' + JSON.stringify(g.runs))"
+      - name: Keep the results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: overview-timing
+          path: overview-timing.json
+          if-no-files-found: ignore
