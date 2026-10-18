@@ -23,7 +23,7 @@ measured. Each actor has its own ledger and key.
 **Upcoming** (being built now):
 
 - `iqc record --actor <name> --action "<what it did>" --in <file> --out <file>`, one call per pipeline step.
-- `iqc trace <file>`, the lineage of a file back to measurements.
+- `iqc trace <file>`, which traces a file back to the sealed measurements behind it.
 - `iqc mcp`, a dependency-free Model Context Protocol server on stdio with four tools: `check_inputs`, `record_step`,
   `trace` and `audit_summary`. Paths stay inside the root you give it.
 - `iqc audit` over a whole lab folder, with `--allow-changes` for files you expect to change.
