@@ -375,7 +375,9 @@ const REST_STEPS = {
   'index.html': (p) => [
     ['hero off-screen while its story plays (scrolled past it)', async () => { await p.evaluate(() => scrollTo(0, scrollY + document.getElementById('viz').getBoundingClientRect().bottom + 40)); await p.waitForTimeout(600) }],
     ['hero in view, paused (Pause pressed)', async () => { await p.evaluate(() => scrollTo(0, 0)); await p.waitForTimeout(600); if ((await heroPhase(p)).play === 'Pause') await p.click('#viz .viz-play'); await p.evaluate(() => document.activeElement.blur()); await p.mouse.move(1, 1); await p.waitForTimeout(500) }],
-    ['after its story played to the end (twice, then it rests on Caught)', async () => { await p.reload({ waitUntil: 'networkidle' }); await p.waitForFunction(() => document.getElementById('viz').dataset.phase === 'caught' && document.querySelector('#viz .viz-play-t').textContent.trim() === 'Play', null, { timeout: 60000, polling: 500 }); await p.waitForTimeout(500) }],
+    // after a reload the hero sits wherever the layout puts it: at 390×844 its top is about 670 px down, under the 20%
+    // in view it needs to play, so it would wait on Caught with Pause forever; bring it into view so its story runs
+    ['after its story played to the end (twice, then it rests on Caught)', async () => { await p.reload({ waitUntil: 'networkidle' }); await p.evaluate(() => document.getElementById('viz').scrollIntoView({ block: 'center' })); await p.waitForFunction(() => document.getElementById('viz').dataset.phase === 'caught' && document.querySelector('#viz .viz-play-t').textContent.trim() === 'Play', null, { timeout: 60000, polling: 500 }); await p.waitForTimeout(500) }],
     ['after scrolling through, back at the top', async () => settle(p)],
   ],
   'app/': (p) => [
@@ -613,6 +615,7 @@ if (PAGES.includes('overview.html')) {
     const c = await p.evaluate(() => window.__cost.sort((a, b) => a - b))
     const med = c.length ? c[c.length >> 1] : 0
     S.cost = { callbacks: c, median: med, max: c.length ? c[c.length - 1] : 0 }
+    console.log(`story cost at 1280×800, CPU 4×: median ${med} ms of ${c.length} callbacks, max ${S.cost.max} ms (limit: under 50)`)
     if (c.length < 9 || med >= 50) fail(`story at 1280×800, CPU 4×: a step change costs ${med} ms (median of ${c.length}; at most 50)`)
     await ctx.close()
   }
