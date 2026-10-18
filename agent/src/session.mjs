@@ -14,23 +14,45 @@
 // removal). A seal handles the files present when it starts, then exits; it waits for files that are being written
 // or are locked as long as other files make progress, and at most a minute without progress.
 import { hostname } from 'node:os'
-import { existsSync } from 'node:fs'
+import { existsSync, statSync } from 'node:fs'
+import { resolve, dirname } from 'node:path'
 import { isFirstScan, planSeal, formatBytes, formatHead, formatDuration, formatCount } from '../../core/immutableqc.mjs'
 import { AGENT, UserError, EXIT_OK, EXIT_FAIL, EXIT_USAGE, Wake, sleep, pool, isoOf, plural } from './util.mjs'
-import { dataFolder, locate, displayPath } from './paths.mjs'
+import { dataFolder, locate, displayPath, relPathOrNull } from './paths.mjs'
 import { acquireLock } from './lock.mjs'
 import { createKey, loadKey } from './keys.mjs'
-import { readLedger, brokenMessage, createLedger, ensureDir, ensureReadme, Appender } from './ledger.mjs'
+import { readLedger, brokenMessage, createLedger, ensureDir, ensureReadme, Appender, PinFile } from './ledger.mjs'
 import { walk, outOfSight, skipper, hashFile, sameStat, BUSY, Stopped } from './scan.mjs'
 import { stationProblem } from './args.mjs'
 
 const MINUTE = 60000
 const HASHERS = 4
+// The default settle time: 10 s, because the Windows SMB client caches file information (size, times) for 10 s by
+// default, and instrument software often writes a file in bursts. --settle changes it.
+export const DEFAULT_SETTLE_S = 10
+
+// --pin-file <path>: its folder must exist. A pin file inside the data folder is one of the agent's own files (never
+// sealed). Returns a PinFile, or null without the option.
+export function pinFileFor(opts, out, loc = null) {
+  if (!opts['pin-file']) return null
+  const file = resolve(opts['pin-file'])
+  let st = null
+  try { st = statSync(file) } catch { /* not there yet */ }
+  if (st && !st.isFile()) throw new UserError(`--pin-file ${file} is not a file.`, EXIT_USAGE)
+  try { if (!statSync(dirname(file)).isDirectory()) throw new Error('not a folder') } catch {
+    throw new UserError(`The folder of the pin file ${file} does not exist. Give a file in an existing folder (another drive or a share, so the pin is kept apart from the ledger).`, EXIT_USAGE)
+  }
+  if (loc) {
+    const p = relPathOrNull(loc.root, file)
+    if (p) loc.own.add(p)
+  }
+  return new PinFile(file, { out })
+}
 
 // Opens the ledger for writing: verifies an existing one whole (and refuses a broken one), or starts a new one with
 // a new key (or the --key file). Returns {appender, key, station, created}. A missing ledger whose folder was set up
 // before (README.txt is written only once a ledger exists) is not replaced silently: it may have been moved or deleted.
-export async function openForWriting(loc, opts, out) {
+export async function openForWriting(loc, opts, out, { pin = null } = {}) {
   const r = await readLedger(loc.ledgerPath, { missingOk: true })
   if (!r && loc.isDefault && existsSync(loc.readmePath)) {
     throw new UserError(`There is no ledger at ${loc.ledgerPath}, but its folder was set up before (its README.txt is there): the ledger may have been moved, renamed or deleted. Nothing was written. ` +
@@ -40,7 +62,7 @@ export async function openForWriting(loc, opts, out) {
     if (!r.verified.ok) throw new UserError(brokenMessage(r.verified, loc.ledgerPath))
     const key = await loadKey({ header: r.verified.header, keyOpt: opts.key, out })
     const station = opts.station || r.verified.header.station
-    return { appender: new Appender(loc.ledgerPath, r.verified, r.stat, { out }), key, station, created: false }
+    return { appender: new Appender(loc.ledgerPath, r.verified, r.stat, { out, pin }), key, station, created: false }
   }
   let station = opts.station
   if (!station) {
@@ -50,16 +72,17 @@ export async function openForWriting(loc, opts, out) {
   }
   const key = opts.key ? await loadKey({ keyOpt: opts.key, out }) : await createKey()
   const made = await createLedger(loc.ledgerPath, { key, station })
-  return { appender: new Appender(loc.ledgerPath, made.verified, made.stat, { out }), key, station, created: true }
+  return { appender: new Appender(loc.ledgerPath, made.verified, made.stat, { out, pin }), key, station, created: true }
 }
 
 export async function runSession(kind, { folder, opts, out, signals = process }) {
   const root = dataFolder(folder)
   const loc = locate(root, opts.ledger)
+  const pin = pinFileFor(opts, out, loc)
   ensureDir(loc.dir)
   const lock = acquireLock(loc.lockPath, { command: kind, out })
   try {
-    const open = await openForWriting(loc, opts, out)
+    const open = await openForWriting(loc, opts, out, { pin })
     if (loc.isDefault) ensureReadme(loc.readmePath)
     const s = new Session(kind, { root, loc, opts, out, ...open, signals })
     return await s.run()
@@ -71,7 +94,7 @@ export async function runSession(kind, { folder, opts, out, signals = process })
 class Session {
   constructor(kind, { root, loc, opts, out, appender, key, station, created, signals }) {
     Object.assign(this, { kind, root, loc, opts, out, appender, key, station, created, signals })
-    this.settleMs = Math.round((opts.settle ?? 3) * 1000)
+    this.settleMs = Math.round((opts.settle ?? DEFAULT_SETTLE_S) * 1000)
     this.intervalMs = Math.round((opts.interval ?? 2) * 1000)
     this.ignore = opts.ignore || []
     this.skip = skipper(this.ignore, loc.own)
@@ -144,6 +167,7 @@ class Session {
     out.print(`Watching ${this.root}`)
     out.print(`  ledger ${this.loc.shown}, ${plural(this.v.recordCount, 'record', 'records')}, station ${this.station}, key id ${this.key.keyId}`)
     out.print(`  every ${this.intervalMs / 1000} s; a file is sealed once it has not changed for ${this.settleMs / 1000} s. Press Ctrl+C to stop.`)
+    if (this.appender.pinFile) out.print(`  after each batch of records, the head is appended to the pin file ${this.appender.pinFile.file}`)
     this.warnUnclean()
     out.stamp = true
     let first = true, caughtUp = false
