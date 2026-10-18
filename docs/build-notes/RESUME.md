@@ -33,6 +33,22 @@ Branch `claude/nifty-gates-h5guqf`. Nothing goes live until it is merged to `mai
 - Small open items: "Folder read" counts the ledger file and "Files re-read" does not; core's note details show encoded
   paths; the landing page and app use 24 px desktop tap targets and an 11 px text floor (the docs use 44 px and 12 px).
 
+## Status 2026-10-18 (session usage limit close)
+- Merged into `claude/nifty-gates-h5guqf`: the core change (three verdicts, `step`/`review` records, `auditMany`), all
+  seven Grok bot branches (patent claims, QA/CI, shorter docs, marketing drafts, agent CLI with `record`/`trace`/
+  `review`/`mcp`, app agent activity and review mode). All checks pass, including the full browser check.
+- Founder decisions: keep `--pin-file` (recorded in `docs/patent-guardrails.md`); landing headline "Lab data, tokenized.
+  Records that verify themselves." (brief in `BOT-PROMPTS.md` section 6, owned by the IQC marketing Grok bot).
+- Running when the limit approached (Claude workflows; resume with Workflow `resumeFromRunId`, completed agents cached):
+  - Adversarial review, run `wf_9757161e-96e`, on a frozen worktree of commit 3a4eeb7 (read-only). Next: fix the
+    confirmed findings in core/, agent/, app/ (not index.html or ui/landing.*), re-run every check.
+  - Agent discovery, run `wf_2ee4dd54-bca` (research, plan in `docs/agent-discovery.md`, build of llms.txt, robots.txt,
+    sitemap, Agent Skill, AGENTS.md, MCP metadata and lints; landing brief in `docs/build-notes/landing-agent-brief.md`;
+    approval-ready submissions in `docs/agent-discovery-submissions.md`). Its edits may be uncommitted in the working
+    tree: review, run every check, then commit.
+- Outside help: Grok (Patent Elbert) on a `--pin-file` design-around for US 12,032,554; Gemini on that patent's
+  prosecution history and prior art. Results come back to the founder.
+
 ## Next (in order)
 0. **No patented work** (founder, 2026-10-15): follow `docs/patent-guardrails.md`. **Done 2026-10-17 (Draft 8):** anchoring
    on a network, the registry contract (`contracts/`, `dashboard/registry-*.js`, deleted), the Filecoin archive,
