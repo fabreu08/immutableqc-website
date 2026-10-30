@@ -33,6 +33,14 @@ Branch `claude/nifty-gates-h5guqf`. Nothing goes live until it is merged to `mai
 - Small open items: "Folder read" counts the ledger file and "Files re-read" does not; core's note details show encoded
   paths; the landing page and app use 24 px desktop tap targets and an 11 px text floor (the docs use 44 px and 12 px).
 
+## Status 2026-10-30
+- Merged the Grok branches `bot/agent-copy-honesty` and `bot/pin-file-design-around`. Grok is out of tokens; the
+  landing page is back with Claude.
+- Fixed the critical and high findings of the adversarial review: `reports/review-fixes.md` (what changed, re-test,
+  four decisions for the founder, what is still open). Full findings: `reports/adversarial-review.md`.
+- Next: the founder's redesign brief (audit, two paths with live prototypes, a decision page, then wait for a choice).
+  Token budget is tight: Sonnet for mechanical work, few agents, short reports.
+
 ## Status 2026-10-18 (session usage limit close)
 - Merged into `claude/nifty-gates-h5guqf`: the core change (three verdicts, `step`/`review` records, `auditMany`), all
   seven Grok bot branches (patent claims, QA/CI, shorter docs, marketing drafts, agent CLI with `record`/`trace`/

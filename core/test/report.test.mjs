@@ -30,7 +30,9 @@ test('report HTML: every string is escaped (a path like <img src=x onerror=alert
   assert.ok(H.includes('PC &lt;b&gt;bold&lt;/b&gt; &amp; &quot;q&quot;'))
   assert.ok(!H.includes('<b>bold</b>'))
   assert.ok(H.includes('a%7Cb &quot;quoted&quot; &amp; &#39;single&#39;%0A.csv'), 'paths are shown encoded, then escaped')
-  assert.ok(H.includes('node iqc.mjs audit &#39;My &lt;data&gt; folder&#39;'))
+  // R9 (WS-1/MISSED-5): a folder name with characters outside [A-Za-z0-9._/@%+=:,-] becomes a placeholder
+  assert.ok(H.includes('On the command line (replace &lt;folder&gt; with the folder&#39;s path): node iqc.mjs audit &lt;folder&gt;'))
+  assert.ok(!H.includes('My &lt;data&gt; folder&#39;'))
 })
 
 test('report HTML: the sections, in the order of the spec', () => {
@@ -54,7 +56,7 @@ test('report HTML: the sections, in the order of the spec', () => {
 test('report HTML: a pass, and a report on the ledger only', async () => {
   const B = await build([sessionItem('watch-started', 1), fileItem('a.csv', 'a', 'existing', 2), sessionItem('watch-stopped', 3)])
   const v = await IQC.verifyLedger(B.text)
-  const pass = IQC.renderReportHTML(IQC.audit(v, new Map([['a.csv', { sha256: sha('a'), bytes: 1 }]])))
+  const pass = IQC.renderReportHTML(IQC.audit(v, new Map([['a.csv', { sha256: sha('a'), bytes: 1 }]]), { expectHead: IQC.formatHead(v.head) }))
   assert.ok(pass.includes('class="verdict pass"') && pass.includes('<span class="word">Pass</span><span class="sentence">1 file matches its seal, and the ledger is intact.</span>'))
   assert.ok(pass.includes('<p class="none">None.</p>'))
   const only = IQC.renderReportHTML(IQC.audit(v, null))

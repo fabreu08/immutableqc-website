@@ -2,7 +2,7 @@
 // path stored in the ledger (relative, "/" between segments, NFC, percent-encoded as core's encodePath says).
 import { resolve, dirname, basename, join, sep, relative, isAbsolute } from 'node:path'
 import { statSync, existsSync, lstatSync, realpathSync } from 'node:fs'
-import { encodePath, isLedgerFolderPath, LEDGER_DIR, LEDGER_FILE } from '../../core/immutableqc.mjs'
+import { encodePath, isNeverDataPath, LEDGER_DIR, LEDGER_FILE } from '../../core/immutableqc.mjs'
 import { usageError } from './util.mjs'
 
 // The stored path of `abs` inside `root`, using the path module `p` (node:path, or path.win32 / path.posix in tests).
@@ -91,6 +91,38 @@ export function confinedFile(root, p, { base = root, what = 'file', own = new Se
   const raw = rel.split(sep).join('/')
   let path
   try { path = encodePath(raw) } catch (e) { throw usageError(`${JSON.stringify(p)} cannot be named in a record: ${e.message}`) }
-  if (isLedgerFolderPath(path) || own.has(path)) throw usageError(`${JSON.stringify(p)} is one of the ledger's own files, not data.`)
+  // core's one rule of what is never data (any ImmutableQC folder, any *.ledger.jsonl), and the agent's own files
+  if (isNeverDataPath(path) || own.has(path)) throw usageError(`${JSON.stringify(p)} is one of the ledger's own files, not data.`)
+  // an output in the folder of another ledger (a station's folder under the root) would be audited against that
+  // ledger, not this agent's: the audit would report it missing
+  if (what === 'output') {
+    const segs = raw.split('/')
+    for (let k = 1; k < segs.length; k++) {
+      const dir = join(root, ...segs.slice(0, k))
+      if (existsSync(join(dir, LEDGER_DIR, LEDGER_FILE))) {
+        throw usageError(`${JSON.stringify(p)} is inside ${segs.slice(0, k).join('/')}, a folder that has its own ledger (${LEDGER_DIR}/${LEDGER_FILE}). An output belongs in the agent's own folder, not in another ledger's: write it under the root outside that folder, or give a --root of its own.`)
+      }
+    }
+  }
   return { abs, rel: raw, path }
+}
+
+// iqc record and iqc mcp write to the ledger they open: refused when its folder or file is a symbolic link or a
+// junction (the write would land somewhere else, signed for this ledger), or when the default folder resolves outside
+// the root.
+export function refuseLinkedLedger(loc) {
+  for (const f of loc.isDefault ? [loc.dir, loc.ledgerPath] : [loc.ledgerPath]) {
+    let st = null
+    try { st = lstatSync(f) } catch { /* not there yet */ }
+    if (st && st.isSymbolicLink()) throw usageError(`${f} is a symbolic link or a junction: links are never followed, so nothing is written there. Use a real folder.`)
+  }
+  if (loc.isDefault) {
+    try {
+      const rr = relative(realpathSync(loc.root), realpathSync(loc.dir))
+      if (rr === '..' || rr.startsWith('..' + sep) || isAbsolute(rr)) throw usageError(`${loc.dir} leads outside the root ${loc.root} through a linked folder: links are never followed, so nothing is written there.`)
+    } catch (e) {
+      if (e && e.exitCode !== undefined) throw e
+      /* the folder is not there yet */
+    }
+  }
 }

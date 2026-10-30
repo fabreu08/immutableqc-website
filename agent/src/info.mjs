@@ -1,7 +1,7 @@
 // iqc head and iqc status: read-only views of a ledger (no lock, nothing written).
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { formatHead, formatBytes, formatCount, ignoreMatcher } from '../../core/immutableqc.mjs'
+import { formatHead, formatBytes, formatCount, ignoreMatcher, isNeverDataPath } from '../../core/immutableqc.mjs'
 import { EXIT_OK, EXIT_FAIL, pool, plural, whenUTC } from './util.mjs'
 import { dataFolder, locate, displayPath } from './paths.mjs'
 import { readLedgerSettled } from './ledger.mjs'
@@ -33,7 +33,9 @@ export async function runHead({ folder, opts, out }) {
   out.result(head)
   out.note(`Record ${v.head.n} of ledger ${v.header.ledgerId} (station ${v.header.station}, key id ${v.keyId}).`)
   out.note('Pin it somewhere else (an email, an ELN entry, a printout). A later audit shows whether the ledger was rewritten or cut short since:')
-  out.note(`  iqc audit ${folder == null ? '.' : /\s/.test(folder) ? `"${folder}"` : folder} --expect-head ${head} --expect-key ${v.keyId}`)
+  // a name that could run as code in a shell is not copied into the line
+  const q = (t) => (/^[\w.\\\/@%+=:,~-]+$/.test(t) ? t : /^[\w .\\\/@%+=:,~-]+$/.test(t) ? `"${t}"` : '<path>')
+  out.note(`  iqc audit ${folder == null ? '.' : q(folder)}${opts.ledger ? ` --ledger ${q(opts.ledger)}` : ''} --expect-head ${v.header.ledgerId}:${head} --expect-key ${v.keyId}`)
   return EXIT_OK
 }
 
@@ -116,7 +118,7 @@ async function changes(root, v, loc, opts) {
       unread.push(p)
     }
   })
-  if (v) for (const e of v.files.values()) if (e.latest.kind === 'file' && !w.files.has(e.path) && !outOfSight(w, e.path) && !ig(e.path) && !loc.own.has(e.path)) removed.push(e.path)
+  if (v) for (const e of v.files.values()) if (e.latest.kind === 'file' && !w.files.has(e.path) && !outOfSight(w, e.path) && !ig(e.path) && !isNeverDataPath(e.path) && !loc.own.has(e.path)) removed.push(e.path)
   const sort = (a) => a.sort((x, y) => (x < y ? -1 : x > y ? 1 : 0))
   return { added: sort(added), changed: sort(changed), removed: sort(removed), unread: sort(unread), unchanged, bytes }
 }

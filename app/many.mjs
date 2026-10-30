@@ -6,9 +6,9 @@ import { readLedger, verify, prepareFilesSliced, hashList, yieldNow, TOOL } from
 
 // A lab folder (locate kind 'lab'): every ledger read and verified, every file under each ledger's root (without the
 // folders of the ledgers nested in it) re-read once, then core's auditMany over them all. opts: expectHeads, expectKeyIds,
-// allowChanges, pinLines (as auditMany takes them). Returns {report, entries (for a re-audit with a reviewer ledger),
+// stationKeys, reviewerKeys, allowChanges, pinLines (as auditMany takes them). Returns {report, entries (for a re-audit with a reviewer ledger),
 // located, unreadable, skipped, bytes, ms}.
-export async function runAuditMany(located, { expectHeads, expectKeyIds, allowChanges, pinLines, onProgress, signal, pool, whole, slice } = {}) {
+export async function runAuditMany(located, { expectHeads, expectKeyIds, stationKeys, reviewerKeys, allowChanges, pinLines, onProgress, signal, pool, whole, slice } = {}) {
   const t0 = Date.now()
   const progress = { stage: 'ledger', started: t0, root: located.root, ledgerDone: 0, ledgerTotal: 0 }
   const entries = []
@@ -19,7 +19,7 @@ export async function runAuditMany(located, { expectHeads, expectKeyIds, allowCh
     const verified = await verify(pool, bytes, { signal, progress: one, onProgress: (p) => { progress.ledgerDone = records + (p.ledgerDone || 0); progress.ledgerTotal = records + (p.ledgerTotal || 0); if (onProgress) onProgress(progress) } })
     records += verified.recordCount
     problems += verified.problems.length
-    entries.push({ verified, root: d.root, files: null, ledgerPath: d.ledgerPath })
+    entries.push({ verified, root: d.root, nested: d.nested || [], folderOwn: d.root === '', files: null, ledgerPath: d.ledgerPath })
   }
   progress.ledgerDone = progress.ledgerTotal = progress.records = records
   progress.ledgerProblems = problems
@@ -47,7 +47,7 @@ export async function runAuditMany(located, { expectHeads, expectKeyIds, allowCh
   progress.stage = 'audit'
   if (onProgress) onProgress(progress)
   await yieldNow()
-  const report = IQC.auditMany(entries, { expectHeads, expectKeyIds, allowChanges, pinLines, where: 'browser', tool: TOOL, folder: located.root || undefined })
+  const report = IQC.auditMany(entries, { expectHeads, expectKeyIds, stationKeys, reviewerKeys, allowChanges, pinLines, where: 'browser', tool: TOOL, folder: located.root || undefined })
   return { report, entries, located, unreadable: h.unreadable, skipped, bytes: h.bytes, ms: Date.now() - t0 }
 }
 

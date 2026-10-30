@@ -6,12 +6,12 @@ import { lstatSync, writeFileSync } from 'node:fs'
 import { resolve, join, relative, isAbsolute, sep, basename } from 'node:path'
 import { planStep, planReview, parseRef, encodePath, formatBytes, DECISIONS } from '../../core/immutableqc.mjs'
 import { UserError, EXIT_OK, EXIT_USAGE, EXIT_REVIEW, plural } from './util.mjs'
-import { dataFolder, locate, confinedFile, displayPath, relPathOrNull } from './paths.mjs'
+import { dataFolder, locate, confinedFile, displayPath, relPathOrNull, refuseLinkedLedger } from './paths.mjs'
 import { acquireLock } from './lock.mjs'
 import { ensureDir, ensureReadme } from './ledger.mjs'
 import { openForWriting, pinFileFor } from './session.mjs'
 import { hashFile } from './scan.mjs'
-import { labLedgers, traceRefs, stateData, treeLines, treeLeaves, LedgerCache } from './lab.mjs'
+import { labLedgers, traceRefs, stateData, treeLines, LedgerCache } from './lab.mjs'
 
 export const AGENT_README_TEXT = `Immutable QC: the record of what an agent did in this folder
 =============================================================
@@ -80,9 +80,12 @@ export function sealedHere(ledgers, abs, sha256) {
 }
 
 // Each file's trace state, for check_inputs and iqc record: [{path, sha256, bytes, state, …, sealedHere?}]
-export async function traceFiles(ledgers, refs) {
-  if (!refs.length) return { files: [], report: null }
-  const t = await traceRefs(ledgers, refs.map(({ path, sha256, bytes }) => ({ path, sha256, bytes })))
+// trust: {stationKeys, reviewerKeys} (key id lists from --station-key and --reviewer-key): which ledgers count as measuring
+export const trustOf = (opts) => ({ stationKeys: opts['station-key'] || [], reviewerKeys: opts['reviewer-key'] || [] })
+
+export async function traceFiles(ledgers, refs, trust = {}) {
+  if (!refs.length) return { files: [], report: null, lineage: null, notes: [] }
+  const t = await traceRefs(ledgers, refs.map(({ path, sha256, bytes }) => ({ path, sha256, bytes })), trust)
   const files = refs.map((r, k) => {
     const d = stateData(t.report, t.inputs[k])
     const o = { path: displayPath(r.path), sha256: r.sha256, bytes: r.bytes, ...d }
@@ -95,7 +98,7 @@ export async function traceFiles(ledgers, refs) {
     }
     return o
   })
-  return { files, report: t.report }
+  return { files, report: t.report, lineage: t.lineage, notes: t.notes }
 }
 
 // Appends one step record and traces its inputs. w: {root, loc, appender, key, station, cache, searchDirs, out}
@@ -105,17 +108,22 @@ export async function recordStep(w, { actor, tool, action, inputs, outputs }) {
   await w.appender.sync()
   const own = { abs: w.loc.ledgerPath, rootAbs: w.root, rel: w.loc.shown, root: '' }
   const ledgers = await labLedgers(w.searchDirs, { extra: [own], cache: w.cache })
-  const { files } = await traceFiles(ledgers, inputs)
+  const { files, lineage, notes } = await traceFiles(ledgers, inputs, w.trust)
   const [rec] = await w.appender.append([item], w.key.privateKey)
   const v = w.appender.v
   const untraced = files.filter((f) => f.state === 'untraced').length
+  const noInputs = inputs.length === 0
+  // a derived input can still rest on an untraced one, or on a step that recorded no inputs: core's summary says
+  const resting = !untraced && !noInputs && lineage && !lineage.tracesToMeasured
   return {
     ledger: { path: w.loc.ledgerPath, ledgerId: v.header.ledgerId, station: v.header.station, keyId: v.keyId },
     record: rec.n, link: rec.h, reference: `${v.header.ledgerId}:${rec.n}:${rec.h}`,
     actor: item.f.actor, tool: item.f.tool, action: item.f.action, at: item.f.at,
     inputs: files, outputs: outputs.map((o) => ({ path: displayPath(o.path), sha256: o.sha256, bytes: o.bytes })),
-    untracedInputs: untraced,
-    ...(untraced ? { warning: `${plural(untraced, 'input matches', 'inputs match')} no sealed measurement and no recorded step output: the step is recorded, and an audit lists it for review. Tell the person before relying on its result.` } : {}),
+    untracedInputs: untraced, noInputs, ...(notes.length ? { notes } : {}),
+    ...(untraced ? { warning: `${plural(untraced, 'input matches', 'inputs match')} no sealed measurement and no recorded step output: the step is recorded, and an audit lists it for review. Tell the person before relying on its result.` }
+      : noInputs ? { warning: 'The step names no inputs, so its outputs trace to nothing measured: the step is recorded, and an audit lists it for review. Name every file the step read. Tell the person before relying on its result.' }
+      : resting ? { warning: `Not every input traces back to a measurement (${lineage.sentence}): the step is recorded, and an audit lists it for review. Tell the person before relying on its result.` } : {}),
   }
 }
 
@@ -149,6 +157,7 @@ export function searchDirsOf(opts, def) {
 export async function runRecord({ opts, out, stdout }) {
   const root = dataFolder(opts.root == null ? '.' : opts.root)
   const loc = locate(root, opts.ledger)
+  refuseLinkedLedger(loc)
   checkStepFields({ actor: opts.actor, tool: opts.tool, action: opts.action, station: opts.station })
   const pin = pinFileFor(opts, out, loc)
   const searchDirs = searchDirsOf(opts, root)
@@ -162,9 +171,9 @@ export async function runRecord({ opts, out, stdout }) {
   const lock = acquireLock(loc.lockPath, { command: 'record', out })
   let r, open
   try {
-    open = await openForWriting(loc, opts, out, { pin })
+    open = await openForWriting(loc, opts, out, { pin, role: 'step' })
     if (loc.isDefault) ensureReadme(loc.readmePath, AGENT_README_TEXT)
-    r = await recordStep({ root, loc, ...open, cache: new LedgerCache(), searchDirs, out }, { actor: opts.actor, tool: opts.tool, action: opts.action, inputs, outputs })
+    r = await recordStep({ root, loc, ...open, cache: new LedgerCache(), searchDirs, out, trust: trustOf(opts) }, { actor: opts.actor, tool: opts.tool, action: opts.action, inputs, outputs })
   } finally {
     lock.release()
   }
@@ -177,26 +186,29 @@ export async function runRecord({ opts, out, stdout }) {
   for (const f of r.inputs) out.event(f.state === 'untraced' ? 'untraced' : f.state, f.state === 'untraced' ? 'yellow' : f.state === 'measured' ? 'green' : 'cyan', `${f.path}  ${formatBytes(f.bytes)}  ${f.sha256.slice(0, 8)}…  ${f.text.replace(/^(?:measured|derived|untraced): /, '')}`)
   for (const f of r.outputs) out.event('wrote', 'blue', `${f.path}  ${formatBytes(f.bytes)}  ${f.sha256.slice(0, 8)}…`)
   if (r.warning) out.warn(r.warning)
+  for (const n of r.notes || []) out.note(n)
   writeJson(opts, r, stdout)
   return EXIT_OK
 }
 
 // ------------------------------------------------------------------------------------------------------- iqc trace
-export async function traceOne(ledgers, file) {
+export async function traceOne(ledgers, file, trust = {}) {
   const ref = await refOf(file)
-  const t = await traceRefs(ledgers, [{ path: ref.path, sha256: ref.sha256, bytes: ref.bytes }])
+  const t = await traceRefs(ledgers, [{ path: ref.path, sha256: ref.sha256, bytes: ref.bytes }], trust)
   const x = t.inputs[0]
-  const leaves = x && x.tree ? treeLeaves(x.tree) : { measured: 0, untraced: 1, cut: false }
-  const cycle = !!(x && x.tree && JSON.stringify(x.tree).includes('"stop":"cycle"'))
-  const traces = !!x && !leaves.untraced && !cycle && leaves.measured > 0
+  // core's complete summary decides; the tree is only for showing (it is cut at 200 nodes, and at 50,000 in all)
+  const lin = t.lineage
+  const traces = !!x && x.state !== 'untraced' && lin.tracesToMeasured
   const d = stateData(t.report, x)
   const here = sealedHere(ledgers, ref.abs, ref.sha256)
+  const why = [lin.untraced ? `${plural(lin.untraced, 'input', 'inputs')} nothing measured` : '', lin.cycle ? 'a cycle of steps' : '', lin.empty ? 'a step on the way recorded no inputs' : ''].filter(Boolean).join(', ')
   const sentence = !x || x.state === 'untraced' ? 'Untraced: these bytes match no sealed measurement and no recorded agent step output.'
     : x.state === 'measured' ? `Measured: ${d.text.replace(/^measured: /, '')}.`
-    : traces ? `Derived: it traces to ${plural(leaves.measured, 'measured file', 'measured files')}${leaves.cut ? ' (the tree is cut short; the audit has the whole count)' : ''}.`
-    : `Derived, but not every input on the way traces to a measurement: ${plural(leaves.untraced, 'input', 'inputs')} nothing measured${cycle ? ', and a cycle of steps' : ''}.`
+    : traces ? `Derived: it traces to ${plural(lin.measured, 'measured file', 'measured files')}${lin.over ? ' or more' : ''}.`
+    : `Derived, but not every input on the way traces to a measurement: ${why || 'nothing measured on the way'}.`
   return {
-    path: displayPath(ref.path), sha256: ref.sha256, bytes: ref.bytes, ...d, tracesToMeasured: traces, measuredFiles: leaves.measured, untracedInputs: leaves.untraced,
+    path: displayPath(ref.path), sha256: ref.sha256, bytes: ref.bytes, ...d, tracesToMeasured: traces, measuredFiles: x && x.state === 'untraced' ? 0 : lin.measured, untracedInputs: lin.untraced,
+    noInputsOnTheWay: !!lin.empty, ...(lin.cycle ? { cycle: true } : {}), ...(t.notes.length && x && x.state !== 'untraced' ? { notes: t.notes } : {}),
     ...(here ? { sealedHere: here } : {}), sentence, tree: x ? x.tree : null, lines: x && x.tree ? treeLines(t.report, x.tree) : [],
   }
 }
@@ -214,11 +226,12 @@ export async function runTrace({ file, opts, out, stdout }) {
   try { path = encodePath(raw) } catch { path = 'file' }
   const searchDirs = searchDirsOf(opts, cwd)
   const ledgers = await labLedgers(searchDirs)
-  const r = await traceOne(ledgers, { abs, path })
+  const r = await traceOne(ledgers, { abs, path }, trustOf(opts))
   out.result(`${r.path}  ${formatBytes(r.bytes)}  ${r.sha256}`)
   out.print(r.sentence)
   if (r.sealedHere) out.print(`In ${r.sealedHere.ledger}: ${r.sealedHere.state}${r.sealedHere.record ? ` (record ${r.sealedHere.record})` : ''}.`)
   if (r.state === 'derived') for (const l of r.lines.slice(1)) out.print(l)
+  for (const n of r.notes || []) out.print(n)
   out.print(`Searched ${plural(ledgers.length, 'ledger', 'ledgers')} under ${searchDirs.join(', ')}.`)
   const { lines, ...data } = r
   writeJson(opts, data, stdout)
@@ -278,7 +291,7 @@ export async function runReview({ subjects, opts, out, stdout }) {
   const lock = acquireLock(loc.lockPath, { command: 'review', out })
   let rec, open
   try {
-    open = await openForWriting(loc, opts, out, { pin })
+    open = await openForWriting(loc, opts, out, { pin, role: 'review' })
     const item = planReview({ station: open.station, reviewer: opts.reviewer, subjects: resolved.map(({ ledgerId, n, h }) => ({ ledgerId, n, h })), decision: opts.decision, note: opts.note })
     await open.appender.sync()
     ;[rec] = await open.appender.append([item], open.key.privateKey)

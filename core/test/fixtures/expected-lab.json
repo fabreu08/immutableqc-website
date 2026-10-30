@@ -22,10 +22,14 @@
   }
  ],
  "verdict": "pass",
- "summary": "Pass: all 4 ledgers are intact, all 4 files match their seals and 3 agent steps are recorded with every input traced.",
+ "summary": "Pass: all 4 ledgers are intact, all 4 files match their seals and 3 agent steps are recorded with every input traced (3 notes).",
  "problems": [],
  "forReview": [],
- "notes": [],
+ "notes": [
+  "station-keys-not-listed",
+  "reviewer-keys-not-listed",
+  "no-pinned-head"
+ ],
  "counts": {
   "ledgers": 4,
   "records": 14,

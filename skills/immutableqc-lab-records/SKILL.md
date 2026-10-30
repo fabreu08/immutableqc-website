@@ -28,10 +28,11 @@ iqc never uses the network.
 Before you use instrument exports or other lab files, call `check_inputs` with their paths (or run
 `node iqc.mjs trace <file> --search <lab folder>` for one file). Each file comes back in one of three states:
 
-- **measured**: some ledger sealed these exact bytes, whatever its key. The result names the station and the ledger's
-  key id; the station name is a label the sealer picks. Only files a lab station sealed read as measured. Never run
-  `iqc seal` or `iqc watch` on files yourself. Compare the key id with the lab's station key ids (`iqc status` on each
-  station prints them); if the person has not given you those, tell them which key id sealed the file.
+- **measured**: a ledger that holds no agent steps sealed these exact bytes (an agent's own ledger never measures its
+  own inputs). The result names the station and the ledger's key id; the station name is a label the sealer picks.
+  Only files a lab station sealed read as measured. Never run `iqc seal` or `iqc watch` on files yourself. If the
+  person gives you the lab's station key ids (the status command on each station prints one), pass each as `--station-key
+  <keyId>`: then only a ledger signed by a listed key measures. If not, tell them which key id sealed the file.
 - **derived**: a recorded agent step wrote these bytes. Call `trace` on it to see whether every branch ends in a
   measured file (`tracesToMeasured`).
 - **untraced**: no ledger sealed these bytes and no recorded step wrote them. Tell the person before you rely on the
@@ -82,9 +83,16 @@ measured.
 - A rewrite by whoever holds a ledger's key: a head pinned somewhere else (`iqc audit --expect-head`, or a pin file)
   exposes that.
 - A ledger cut short, its last records deleted with their files: that needs no key, and it shows only against a head
-  pinned earlier (`iqc head`, then `iqc audit --expect-head`, or `--pin-file`). `audit_summary` checks no pinned head.
-- That a measured file came from the lab's station: measured means some ledger sealed those bytes, whatever its key.
-  Compare the key id with the lab's station key ids; a built-in check is upcoming.
+  pinned earlier (`iqc head`, then `iqc audit --expect-head`, or `--pin-file`). Every audit without a pinned head says
+  so in a note, and a pin file that names a ledger no audited ledger has fails. `audit_summary` checks a pin file only
+  when the server was started with `--pin-file`.
+- That a measured file came from the lab's station, unless the station keys are listed (`--station-key`). Without
+  them, any ledger that holds no agent steps measures, whatever its key, and the audit adds a note naming the keys it
+  counted.
+- That a reviewer is a person: a reviewer is a signing key and the name is a label. Without `--reviewer-key`, an
+  approval counts from any key; with it, only listed keys approve. A rejection or a question counts from any key.
+- That a step used what it names. A step that names no inputs goes to review, because its outputs trace to nothing
+  measured.
 - Anything a step read and did not name.
 - A trace follows the steps as the agent recorded them: a step can name inputs it did not use, or outputs it did not compute from them. A person's review checks that.
 - A key identifies a computer or a browser, not a person; per-person signatures are upcoming. Values inside files are

@@ -7,7 +7,7 @@ import { createHash } from 'node:crypto'
 import { spawnSync } from 'node:child_process'
 import * as IQC from '../../core/immutableqc.mjs'
 import { SHA256, SHA256_EDITED, EDIT, FILES, FOLDER } from '../../ui/sample-data.mjs'
-import { locate, listInput, listEntries, entriesOfDrop, prepareFiles, ledgerHeaderProblem, runAudit, runSeal, DemoKeys, AppError, Canceled, TOOL, MAX_FILES, yieldNow } from '../engine.mjs'
+import { locate, listInput, listEntries, entriesOfDrop, prepareFiles, prepareFilesSliced, ledgerHeaderProblem, runAudit, runSeal, DemoKeys, AppError, Canceled, TOOL, MAX_FILES, yieldNow } from '../engine.mjs'
 import { runAuditMany, signReview } from '../many.mjs'
 import * as DA from '../demo-agent.mjs'
 const { demoListing } = DA
@@ -143,17 +143,20 @@ test('locate: the ledger at the top, one folder down, alone, in its own folder, 
   assert.throws(() => locate({ root: 'x', items: [], errors: [] }), (e) => e.code === 'empty' && e.title === 'The folder is empty')
 })
 
-test('prepareFiles: encoded paths, without the ledger folder and system files (unless sealed), each path once', T, () => {
-  const items = ['a 50%.csv', 'ImmutableQC/agent.lock', 'run/.DS_Store', 'run/x.tmp', 'Thumbs.db', 'caf\u00e9.txt', 'cafe\u0301.txt', 'sub/ImmutableQC/kept.txt'].map((raw) => ({ raw, file: file(raw) }))
+test('prepareFiles: encoded paths, without what is never data and system files (unless sealed), each path once; NFC twins are read from neither', T, () => {
+  const items = ['a 50%.csv', 'ImmutableQC/agent.lock', 'run/.DS_Store', 'run/x.tmp', 'Thumbs.db', 'caf\u00e9.txt', 'cafe\u0301.txt', 'sub/ImmutableQC/kept.txt', 'Sub/immutableqc/other.txt', 'reviews/a.ledger.jsonl'].map((raw) => ({ raw, file: file(raw) }))
   const { list, skipped } = prepareFiles(items, new Map([['run/x.tmp', {}]]))
-  assert.deepEqual(list.map((x) => x.path), ['a 50%25.csv', 'run/x.tmp', 'café.txt', 'sub/ImmutableQC/kept.txt'])
-  assert.equal(skipped.length, 1)
-  assert.match(skipped[0].why, /same name/)
+  // (an ImmutableQC folder at any depth and any case, and any *.ledger.jsonl, are never data: core's isNeverDataPath)
+  assert.deepEqual(list.map((x) => x.path), ['a 50%25.csv', 'run/x.tmp', 'caf\u00e9.txt'])
+  assert.equal(skipped.length, 0)
+  // INT-2: the two spellings of one name are not read at all: the path is listed with no file, so core counts it "not checked"
+  const twin = list[2]
+  assert.equal(twin.file, null)
+  assert.match(twin.error, /same name/)
   const un = prepareFiles([{ raw: 'gone.csv', file: null, error: 'NotFoundError: gone' }]).list[0]
   assert.equal(un.file, null)
   assert.match(un.error, /gone/)
 })
-
 test('ledgerHeaderProblem: a ledger header passes; anything else says why', T, () => {
   assert.equal(ledgerHeaderProblem(new TextEncoder().encode('{"format":"immutableqc-ledger","version":1}\n{"n":1}\n')), null)
   assert.match(ledgerHeaderProblem(new Uint8Array()), /empty/)
@@ -247,13 +250,56 @@ test('audit: a chosen file that is not a ledger, an unreadable ledger, a file th
   const listing = demoListing({ ledgerText: sealed.text })
   listing.items = listing.items.map((x) => (x.raw === 'run-1007/run.json' ? { raw: x.raw, file: null, error: 'NotReadableError: busy' } : x))
   const res = await runAudit(locate(listing), { pool })
-  assert.equal(res.report.verdict, 'pass')
+  // INT-2 (R1): a sealed file that could not be read is never a pass; it is a review item, not a note
+  assert.equal(res.report.verdict, 'review')
   assert.equal(res.report.files.find((f) => f.path === 'run-1007/run.json').state, 'not checked')
   assert.deepEqual(res.unreadable.map((u) => u.path), ['run-1007/run.json'])
-  assert.ok(res.report.notes.some((n) => n.code === 'not-checked'))
+  assert.ok(res.report.forReview.some((g) => g.code === 'not-checked'))
+  assert.ok(!res.report.notes.some((n) => n.code === 'not-checked'))
+  // INT-1 (R1): a ledger alone seals files nobody checked against a folder: a review item, never a pass
   const only = await runAudit({ kind: 'ledger-only', root: null, ledger: { raw: 'ledger.jsonl', file: file('ledger.jsonl', sealed.text) } }, { pool })
-  assert.equal(only.report.verdict, 'pass')
+  assert.equal(only.report.verdict, 'review')
   assert.equal(only.report.filesChecked, false)
+  assert.ok(only.report.forReview.some((g) => g.code === 'files-not-checked'))
+})
+
+test('INT-1: a ledger renamed to *.ledger.jsonl is not a pass: the files it seals were not checked against a folder (review)', T, async () => {
+  const pool = nodePool()
+  const sealed = await runSeal(locate(demoListing()), { pool, keys: new DemoKeys(), station: 'Browser' })
+  const edited = demoListing({ edited: true })
+  const items = [...edited.items, { raw: 'ImmutableQC/station.ledger.jsonl', file: file('station.ledger.jsonl', sealed.text) }]
+  const located = locate({ root: 'renamed', errors: [], items })
+  assert.equal(located.kind, 'lab')
+  const res = await runAuditMany(located, { pool })
+  assert.equal(res.report.verdict, 'review')
+  assert.ok(res.report.forReview.some((g) => g.code === 'files-not-checked'))
+  assert.doesNotMatch(res.report.summary, /intact and .* match/i)
+  assert.equal(res.report.counts.match, 0)
+  // under its own name, in place, the same edit is a fail
+  const inPlace = await runAudit(locate(demoListing({ edited: true, ledgerText: sealed.text })), { pool })
+  assert.equal(inPlace.report.verdict, 'fail')
+})
+
+test('INT-2: two names that are one once written in NFC: neither is read, the sealed path is not checked, the audit is a review', T, async () => {
+  const pool = nodePool()
+  const one = [{ raw: 'caf\u00e9.csv', file: file('caf\u00e9.csv', 'original') }, { raw: 'other.csv', file: file('other.csv', 'other') }]
+  const sealed = await runSeal(locate({ root: 'twin', errors: [], items: one }), { pool, keys: new DemoKeys(), station: 'Browser' })
+  // the sealed file edited, and the original bytes kept under the NFD spelling of the same name: before, the decoy won
+  const items = [{ raw: 'caf\u00e9.csv', file: file('caf\u00e9.csv', 'EDITED') }, { raw: 'cafe\u0301.csv', file: file('cafe\u0301.csv', 'original') }, one[1], { raw: IQC.LEDGER_PATH, file: file('ledger.jsonl', sealed.text) }]
+  const res = await runAudit(locate({ root: 'twin', errors: [], items }), { pool })
+  assert.equal(res.report.verdict, 'review')
+  assert.equal(res.report.files.find((f) => f.path === 'caf\u00e9.csv').state, 'not checked')
+  assert.equal(res.report.counts.match, 1)
+  assert.ok(res.report.forReview.some((g) => g.code === 'not-checked'))
+  assert.match(res.report.summary, /not checked|could not be checked/)
+  assert.deepEqual(res.unreadable.map((u) => u.path), ['caf\u00e9.csv'])
+  // a long list is prepared in slices: the twins are found across slices too
+  const many = Array.from({ length: 4600 }, (_, i) => ({ raw: `f${i}.txt`, file: file(`f${i}.txt`, 'x') }))
+  many[0] = { raw: 'caf\u00e9.txt', file: file('x') }
+  many[4500] = { raw: 'cafe\u0301.txt', file: file('y') }
+  const sliced = await prepareFilesSliced(many, new Map())
+  assert.equal(sliced.list.length, 4599)
+  assert.equal(sliced.list.find((x) => x.path === 'caf\u00e9.txt').file, null)
 })
 
 test('audit: the core fixtures give the expected verdicts through the app pipeline', T, async () => {
@@ -319,7 +365,20 @@ test('runAuditMany: the lab fixture through the app pipeline gives core\'s expec
   const head = `${want.ledgers[1].ledgerId} ${want.ledgers[1].head}`
   const pinned = (await runAuditMany(located, { pool: nodePool(), expectHeads: [head], expectKeyIds: ['0123456789abcdef'] })).report
   assert.equal(pinned.expectations.heads[0].ok, true)
-  assert.deepEqual(pinned.problems.map((p) => p.code), ['expect-key'])
+  // (with several ledgers, each one signed by a key that is not listed is a problem too: R3)
+  assert.deepEqual(pinned.problems.map((p) => p.code), ['expect-key', 'unexpected-key', 'unexpected-key', 'unexpected-key', 'unexpected-key'])
+  // station keys and reviewer keys reach auditMany (R4, R6): the listed instrument key measures, another key does not
+  const ids = want.ledgers.map((L) => L.keyId)
+  const keyed = (await runAuditMany(located, { pool: nodePool(), stationKeys: [ids[1], ids[2]], reviewerKeys: [ids[3]] })).report
+  assert.equal(keyed.verdict, 'pass')
+  assert.ok(!keyed.notes.some((n) => n.code === 'station-keys-not-listed' || n.code === 'reviewer-keys-not-listed'))
+  const agentOnly = (await runAuditMany(located, { pool: nodePool(), stationKeys: [ids[0]] })).report
+  assert.equal(agentOnly.verdict, 'review', 'the agent key is not a station: nothing it lists is measured')
+  assert.ok(agentOnly.forReview.some((g) => g.code === 'untraced-input'))
+  assert.ok(agentOnly.problems.some((p) => p.code === 'station-key-not-found') === false)
+  const notFound = (await runAuditMany(located, { pool: nodePool(), stationKeys: ['0123456789abcdef'] })).report
+  assert.ok(notFound.problems.some((p) => p.code === 'station-key-not-found'))
+  await assert.rejects(runAuditMany(located, { pool: nodePool(), stationKeys: ['nope'] }), /key id, 16 hex/)
 })
 
 test('signReview: a review record signed with a browser key, on a new reviewer ledger then appended; the re-audit counts it', T, async () => {
@@ -356,7 +415,9 @@ test('runAudit: a single ledger with agent steps is traced with auditMany; a pla
   // a pin file or several heads send even a plain ledger to auditMany
   const pinned = await runAudit(locate({ root: 'bio-line-2', errors: [], items: await walkDir(FXL + 'lab/bio-line-2') }), { pool: nodePool(), many: true, pinLines: 'immutableqc-head 0123456789abcdef0123456789abcdef 1:' + '0'.repeat(64) + ' 2026-10-01T00:00:00.000Z' })
   assert.equal(pinned.report.kind, 'many')
-  assert.ok(pinned.report.notes.some((n) => n.code === 'pin-other-ledger'))
+  // R3: a pin whose ledger is not among the audited ones is a problem (the ledger was deleted or started over)
+  assert.equal(pinned.report.verdict, 'fail')
+  assert.ok(pinned.report.problems.some((p) => p.code === 'pin-ledger-missing'))
 })
 
 test('demo lab: the instrument folder sealed, the analysis agent run in the page (deterministic), pass; cite: review; edit: fail; sign-off: approved', T, async () => {
@@ -391,5 +452,6 @@ test('demo lab: the instrument folder sealed, the analysis agent run in the page
   assert.equal(r.verdict, 'pass')
   assert.deepEqual(r.steps.map((s) => s.review.state), ['approved', 'approved'])
   assert.equal(r.ledgers.find((L) => L.role === 'reviewer').ledgerPath, `reviews/${DA.reviewFile(DA.REVIEWER)}`)
-  assert.equal(r.notes.length, 0)
+  // the instrument key is the station key and the reviewer key is listed, so only the pin note is left (R4, R6, R7)
+  assert.deepEqual(r.notes.map((n) => n.code), ['no-pinned-head'])
 })

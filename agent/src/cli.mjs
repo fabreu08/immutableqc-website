@@ -22,11 +22,14 @@ Usage:  node iqc.mjs <command> [folder] [options]
                     1 fail, 2 usage or read error.
                     --report <file.html>   write the audit report (one HTML file, prints well)
                     --json <file.json>     write the machine-readable report (- for the output)
-                    --expect-head <n>:<h>  fail unless record n's link is h (a head pinned earlier)
-                    --expect-key <keyId>   fail unless the ledger is signed with this key id
+                    --expect-head <ledger id>:<n>:<h>  fail unless record n's link is h (a head
+                                           pinned earlier; iqc head prints it); repeatable
+                    --expect-key <keyId>   fail unless a ledger has this signing key; repeatable
+                    --station-key <keyId>  a key allowed to measure; repeatable (see iqc help audit)
+                    --reviewer-key <keyId> a key whose approvals count; repeatable
                     --allow-changes <glob> files whose recorded changes are expected; repeatable
                     --pin-file <file>      check the heads written there by watch or seal
-                    --ledger <file>        one more ledger to audit; repeatable
+                    --ledger <file>        a ledger kept elsewhere, audited against the folder
                     --strict               count items for review and notes as failures
   head   [folder]   Print the current head, to pin somewhere else (an email, an ELN entry,
                     a printout).
@@ -99,16 +102,31 @@ step's inputs back to the files instruments sealed. Prints the verdict; exit 0 p
 
   --report <file.html>    the audit report: one self-contained HTML file
   --json <file.json>      the machine-readable report (- writes it to the standard output)
-  --expect-head <n>:<h>   fail unless record n's link is h (a head pinned earlier with iqc head)
-  --expect-key <keyId>    fail unless the ledger is signed with this key id
+  --expect-head <ledger id>:<n>:<h>
+                          fail unless record n's link is h in that ledger (a head pinned
+                          earlier with iqc head, which prints this form). Without the ledger id
+                          it binds to the folder's own ledger. Repeatable.
+  --expect-key <keyId>    fail unless a ledger is signed with this key id; with several ledgers,
+                          fail on a ledger signed with another key. Repeatable.
+  --station-key <keyId>   the key of an instrument station (repeatable). With it, a file counts
+                          as measured only when a ledger signed by a listed key sealed it; a
+                          listed key that signs no audited ledger fails. Without it, any ledger
+                          that holds no agent steps measures, and a note says which keys counted.
+  --reviewer-key <keyId>  the key of a reviewer (repeatable). With it, only listed keys approve;
+                          a rejection or question counts from any key.
   --allow-changes <glob>  recorded changes to files that match are expected (not for review);
                           repeatable
   --pin-file <file>       the heads written by watch or seal --pin-file: fail when a ledger no
-                          longer holds one
-  --ledger <file>         one more ledger to audit (repeatable); for a folder whose ledger is
-                          kept elsewhere, the first --ledger is that ledger
-  --strict                count items for review and notes as failures
+                          longer holds one, or when a pinned ledger is not among those audited
+  --ledger <file>         a ledger kept elsewhere (repeatable). One that seals files or holds
+                          agent steps is audited against the folder, whatever its name; when the
+                          folder has its own ledger, it has no folder, and the audit says so
+  --strict                count items for review and notes as failures (a note that no head was
+                          pinned fails too)
   --ignore --quiet --no-color
+
+Without --expect-head or --pin-file, records removed from the end of a ledger cannot show; the
+audit says so in a note.
 
 Example: node iqc.mjs audit "D:\\Lab" --report audit.html --pin-file "H:\\pins\\results.pins"`,
   head: `iqc head [folder] [options]
@@ -117,7 +135,8 @@ Prints the current head (record number and link, n:h) on its own line, to pin so
 an email, an ELN entry, a printout. A later audit with --expect-head shows whether the ledger was
 rewritten or cut short since. Exit 1 if the ledger does not verify.
 
-Options: --ledger --quiet --no-color
+Prints, on standard error, the audit command that checks it: --expect-head <ledger id>:<n>:<h>
+and --expect-key. Options: --ledger --quiet --no-color
 Example: node iqc.mjs head "D:\\Results"`,
   status: `iqc status [folder] [options]
 
@@ -144,8 +163,15 @@ wrote them) or untraced. Exit 0 recorded, 1 refused or could not write, 2 usage 
   --in-ref <ref>     an input that is not a file under the root: <sha256>:<bytes>:<label>
   --out <file>       a file it wrote; repeatable, at least one
   --search <folder>  where to look for ledgers to trace the inputs (default: the root); repeatable
+  --station-key <keyId>  count a file as measured only when a ledger signed by this key sealed it
+                     (repeatable; see iqc help audit)
   --json <file>      the record and the traces as JSON (- for the output)
   --ledger --key --station --pin-file --quiet --no-color
+
+Name every file the step read: a step with no --in traces to nothing measured, and an audit
+lists it for review. An output may not be in an ImmutableQC folder, a *.ledger.jsonl file or the
+folder of another ledger, and the root's ledger may not belong to a station (one that holds file
+records): use a root of the agent's own.
 
 Example, run in D:\\Lab\\agent-workspace, where inputs\\run-07.csv is a copy of a file the station
 D:\\Lab\\hplc-3 sealed (the same bytes trace as measured):
@@ -158,6 +184,8 @@ and prints the tree. Exit 0 when the file was measured, or every branch ends in 
 3 when something on the way is untraced (or the steps form a cycle); 2 for a usage or read error.
 
   --search <folder>  where to look for ledgers (default: the current folder); repeatable
+  --station-key <keyId>   count a file as measured only when a ledger signed by this key sealed it
+  --reviewer-key <keyId>  count an approval only from this key (both repeatable; see iqc help audit)
   --json <file>      the trace as JSON (- for the output)
 
 Example: node iqc.mjs trace summary.csv --search "D:\\Lab"`,
@@ -198,6 +226,8 @@ or one iqc record. It stops when standard input closes, with an mcp-stopped reco
                      folder reads as untraced
   --actor <name>     the actor of each step unless the agent names one (default "agent")
   --tool <name>      the tool of each step unless the agent names one (default "-")
+  --station-key <keyId>   count a file as measured only when a ledger signed by this key sealed it
+  --reviewer-key <keyId>  count an approval only from this key (both repeatable; see iqc help audit)
   --ledger --key --station --pin-file --ignore --quiet
 
 Client setup (JSON; the file and its place depend on the client):

@@ -64,8 +64,9 @@ test('args: commands, options in any order, --name=value, repeatable --ignore, d
   assert.equal(a.folder, 'data')
   assert.deepEqual(a.opts, { ignore: ['*.bak', 'cache'], quiet: true, interval: 0.5, settle: 10 })
   const b = parseArgs(['audit', '--expect-head', `7:${'AB'.repeat(32)}`, '--expect-key', 'C5E3895EADB5EDB4', '--strict', '--json', '-'])
-  assert.deepEqual(b.opts['expect-head'], { n: 7, h: 'ab'.repeat(32) })
-  assert.equal(b.opts['expect-key'], 'c5e3895eadb5edb4')
+  // changed on purpose: --expect-head and --expect-key repeat (a lab has several ledgers and keys), and a head may name its ledger
+  assert.deepEqual(b.opts['expect-head'], [{ ledgerId: null, n: 7, h: 'ab'.repeat(32) }])
+  assert.deepEqual(b.opts['expect-key'], ['c5e3895eadb5edb4'])
   assert.equal(b.opts.json, '-')
   assert.equal(b.folder, null)
   assert.equal(parseArgs(['seal', '--', '--odd-folder']).folder, '--odd-folder')

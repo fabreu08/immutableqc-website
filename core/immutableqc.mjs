@@ -1,7 +1,7 @@
 // Immutable QC core: ledger format version 1 (docs/product-v1.md, section 3; agent steps, reviews and the multi-ledger
 // audit: section 3 as extended by docs/build-notes/spec-addendum-agents.md, B and C).
 //
-// The one implementation of the format, used by the command-line agent (Node 20+) and the web app (current Chrome,
+// The one implementation of the format, used by the command-line agent (Node 22+) and the web app (current Chrome,
 // Firefox and Safari). An ES module with no imports and no dependencies. Signatures use the platform's WebCrypto
 // (globalThis.crypto.subtle, read lazily, so the module loads anywhere); SHA-256 is the pure-JS hasher below
 // (FIPS 180-4), synchronous and incremental. Every hex string is lowercase. "path" means an encoded path, the form
@@ -22,6 +22,8 @@
 //   encodePath(rawRelPath) -> path          NFC, `/` separators, `%`, `|` and control characters as %XX; throws
 //   decodePath(path) -> raw;  validatePath(path) -> null | reason (a phrase)
 //   isLedgerFolderPath(path)                 true for the root `ImmutableQC` folder and anything inside it
+//   isNeverDataPath(path)                    the one rule of what is never data (planSeal never seals it, audit never
+//         reports it): any segment named ImmutableQC (any case), any file named *.ledger.jsonl (any case)
 //   ignoreMatcher(globs) -> (path) => bool   DEFAULT_IGNORES plus globs (* and ?), see the function
 //   payloadOf(kind, f) -> text;  fingerprintOf(kind, f) -> r;  genesisOf(header) -> g;  linkOf(prevHex, rHex, n) -> h
 //   encodeRef({sha256, bytes, path | rawPath}) -> '<sha256>:<bytes>:<path, "," as %2C>';  parseRef(text) -> {sha256, bytes, path}
@@ -53,8 +55,12 @@
 //   planSeal(verified, files, {mode: 'first'|'watch'|'unwatched', station, observedAt, ignore}) -> [{kind, f, ctx?}]
 //   audit(verified, files|null, {expectHead, expectKeyId, allowChanges, strict, auditedAt, where: 'browser'|'command
 //         line', tool, ignore, folder}) -> report       (section 3.8; JSON.stringify(report) is the machine-readable form)
-//   auditMany([{verified, root?, files?, label?, ledgerPath?}], {expectHeads, expectKeyIds, allowChanges, pinLines, strict,
-//         auditedAt, where, tool, ignore, folder, maxDepth}) -> report   (addendum C; see "report (auditMany)" below)
+//   auditMany([{verified, root?, files?, label?, ledgerPath?, nested?, folderOwn?}], {expectHeads, expectKeyIds,
+//         stationKeys, reviewerKeys, allowChanges, pinLines, strict, auditedAt, where, tool, ignore, folder, maxDepth})
+//         -> report   (addendum C; see "report (auditMany)" below). nested: paths under root that belong to other
+//         ledgers (discoverLedgers' nested; left out of this ledger's audit). folderOwn: the audited folder's own
+//         ledger (also any entry with root ''): an expected head with no ledger id binds to it when several are audited.
+//         stationKeys, reviewerKeys: key ids (16 hex; throws otherwise), see the rules below.
 //   discoverLedgers(relativePaths) -> [{ledgerPath, root, nested?}]   the ledgers in a dropped or walked folder (addendum C)
 //   parsePinLines(textOrLines) -> [{line, ledgerId, n, h, at} | {line, text, error}];  formatPinLine(ledgerId, {n, h}, at)
 //   renderReportHTML(report) -> HTML         (section 3.9; an auditMany report too)
@@ -63,7 +69,9 @@
 //
 // `files` (planSeal, audit): a Map, a plain object, or an array of {path, …}, keyed by encoded path, each value
 //   {sha256, bytes, observedAt?, modifiedAt?}, or null for a file that is present but could not be read yet (planSeal
-//   leaves it alone; audit marks it "not checked"). The root `ImmutableQC` folder is never sealed or reported.
+//   leaves it alone; audit marks it "not checked", a review item). No path isNeverDataPath matches is sealed or reported;
+//   a sealed path it (or an ignore pattern, or an auditMany entry's nested folder) now leaves out is state "excluded"
+//   and the note excluded-after-seal, never missing.
 //
 // verified (verifyLedger): {ok, header, headerOk, keyId, records, recordCount, goodCount, firstProblemLine, problems,
 //   head, files, sessions, gaps, kinds}. problems: [{line, n, code, message, detail}], sorted by line; message is a
@@ -81,28 +89,40 @@
 //   filesChecked, counts, problems (the ledger's, then expect-head, expect-key, then changed and missing files by path),
 //   forReview [{code, message, count, items, records: [{ledgerId, n}]}] with codes sealed-more-than-once (a path with
 //   more than one sealed version) and removed (a recorded removal), each unless its path matches allowChanges (globs,
-//   the ignore rule's syntax; matched changes are listed in allowChanges.matched), notes [{code, message, count, items}]
-//   with codes unwatched, not-sealed, back-after-removal, not-checked, unclean-stop (watch or MCP server sessions), gaps;
+//   the ignore rule's syntax; matched changes are listed in allowChanges.matched), not-checked (a sealed file present
+//   but null in the map: unreadable, or NFC/NFD twin names) and files-not-checked (no file map, and the ledger seals
+//   files), notes [{code, message, count, items}] with codes unwatched, not-sealed, back-after-removal,
+//   excluded-after-seal, unclean-stop (watch or MCP server sessions), gaps, no-pinned-head (no expectHead: records cut
+//   from the end show only against a pinned head);
 //   allowChanges {patterns, matched}, ledger (with role: measured, agent, reviewer, mixed or empty), sessions,
 //   mcpSessions, gaps, expectations, files [{path, state, versions, latest, sealed, present, matchesN, records}] by path,
-//   method, rerun}. File states: match, changed, missing, removed, back after removal, not sealed, not checked.
+//   method, rerun}. File states: match, changed, missing, removed, back after removal, not sealed, not checked,
+//   excluded. A pass sentence claims only what was checked ("1 of 2 sealed files matches its seal (1 left out)").
+//   rerun: a folder or pattern goes into the command only when every character is in [A-Za-z0-9._/@%+=:,-] (a pattern
+//   may also hold * ? and spaces, in double quotes); otherwise <folder> or <pattern>, and the line says what to put.
 //   Verdict: fail on any problem; else review when forReview is not empty; else pass. strict: review and notes fail.
 // report (auditMany): the same format, version and verdict levels, kind: 'many', and: counts (ledgers, records, files
 //   as above summed, steps, inputs, measuredInputs, derivedInputs, untracedInputs, outputs, outputsChanged,
 //   outputsMissing, outputsNotChecked, reviews, stepsApproved, stepsQuestion, stepsRejected, stepsAwaiting, problems,
-//   review, notes, …); problems [{code, message, ledgerId, ledger, records: [{ledgerId, ledger, n}], …}] (each ledger's,
-//   prefixed with its label when there are several, then output-changed, output-missing, review-subject-changed,
-//   expect-head, expect-key, pin, pin-unreadable); forReview (sealed-more-than-once, removed, untraced-input,
+//   review, notes, pinsChecked, pinFails, pinsMissing, unexpectedKeys, …); problems [{code, message, ledgerId, ledger,
+//   records: [{ledgerId, ledger, n}], …}] (each ledger's, prefixed with its label when there are several, then
+//   output-changed, output-missing, review-subject-changed, expect-head, expect-key, unexpected-key (several ledgers: a
+//   ledger whose key is not in expectKeyIds; the message lists the keys found), station-key-not-found, pin,
+//   pin-ledger-missing (a pin whose ledger id no audited ledger has), pin-unreadable, ledger-not-pinned (pins or
+//   pinned heads hold for other ledgers, and none names the folderOwn one)); forReview (files-not-checked,
+//   not-checked, outputs-not-checked, duplicate-ledger, sealed-more-than-once, removed, untraced-input, no-inputs,
 //   step-cycle, input-changed-after-use, review-rejected, review-question); notes (each ledger's, awaiting-review,
-//   review-unknown-ledger, unexpected-key, pin-other-ledger, duplicate-ledger, outputs-not-checked);
+//   review-unknown-ledger, unexpected-key (one ledger), station-keys-not-listed, reviewer-keys-not-listed,
+//   review-unlisted-key, no-pinned-head (each ledger no pin or expected head covers));
 //   ledgers [{ledger, label, root, ledgerPath, ledgerId, station, keyId, role, records, goodRecords, head, intact,
 //   createdAt, kinds, steps, filesChecked, verdict, summary, report (its own audit, without method and rerun)}];
 //   steps [{ledgerId, ledger, label, n, h, station, actor, tool, action, at, inputs [{path, sha256, bytes, state:
 //   measured|derived|untraced, measured?: [{ledgerId, ledger, station, path, n, observedAt, event, sealedAgainN?}],
-//   step?: {ledgerId, ledger, n}, changedAfter?: {…, n, observedAt, afterUse}}], outputs [{path, sha256, bytes, state:
+//   step?: {ledgerId, ledger, n}, changedAfter?: {…, n, observedAt, afterUse}, why?: why an untraced input's bytes do
+//   not count}], outputs [{path, sha256, bytes, state:
 //   match|changed|missing|not checked|superseded, present?, matchesStep?, supersededBy?}], review {state: approved|
-//   question|rejected|awaiting review, decisions [{reviewer, decision, note, at, ledgerId, ledger, n, latest}]},
-//   lineage {measured, untraced, over, cycle, empty, tracesToMeasured, sentence}}]; reviews [{ledgerId, ledger, n, h,
+//   question|rejected|awaiting review, decisions [{reviewer, keyId, decision, note, at, ledgerId, ledger, n, latest}]},
+//   lineage {measured, untraced, over, cycle, empty, tracesToMeasured, sentence}}]; reviews [{ledgerId, ledger, keyId, n, h,
 //   station, reviewer, decision, note, at, subjects [{ledgerId, n, h, state: matches|changed|unknown ledger, ledger?,
 //   kind?, path?, why?}]}]; lineage {maxDepth, outputs [{ledgerId, ledger, n, path, sha256, state, …lineage, tree |
 //   null, treeOmitted?}]}, a tree node being {path, sha256, bytes, state, measured?, step?, inputs?, stop?: cycle|
@@ -110,6 +130,16 @@
 //   allowChanges, method, rerun. A step's output path is relative to its own ledger's root; inputs are matched by
 //   SHA-256 only (paths are labels). A step's lineage covers all its inputs (a step does not say which input made which
 //   output). Trees stop at maxDepth steps (default 32), 200 nodes each and 50,000 in all; the summaries are complete.
+// auditMany rules (R1 to R7 of the review fixes):
+//   measured: file records count only from ledgers signed by a stationKeys key, or, with none listed, from ledgers that
+//     hold no step records (note station-keys-not-listed names the keys counted). derived: the latest producing step
+//     before the consumer (same ledger: lower record number; other ledgers: at <= the consumer's at), followed even when
+//     a station sealed the same bytes. No time order between a station's observedAt and a step's at is checked.
+//   no-inputs: a step with no inputs is a review item unless approved. reviews: a reviewer is a key; per key the latest
+//     decision (highest n in its ledger; across ledgers of one key, latest at); rejected > question > approved >
+//     awaiting; with reviewerKeys only listed keys approve (others: review-unlisted-key); rejections count from any key.
+//   pins and expected heads: checked against every copy of a ledger id (a shorter copy: "cut, or an older copy"); a
+//     head with no ledger id binds to the only ledger, else the folderOwn one, else it fails ("name the ledger id").
 
 export const VERSION = '0.1.0'
 export const FORMAT = 'immutableqc-ledger'
@@ -382,6 +412,20 @@ export function decodePath(p) {
 export function isLedgerFolderPath(p) {
   return p === LEDGER_DIR || (typeof p === 'string' && p.startsWith(LEDGER_DIR + '/'))
 }
+
+// The one rule of what is never data, for seal and audit alike (planSeal never seals these paths, audit never reports
+// them): any path with a segment named `ImmutableQC` (any case: Windows and macOS folders usually ignore case), so a
+// ledger folder at any depth with its ledger, lock, pin and README files, and any file named `*.ledger.jsonl` (a
+// reviewer's or another kept ledger).
+export function isNeverDataPath(p) {
+  if (typeof p !== 'string' || p === '') return false
+  const segs = p.split('/')
+  const dir = LEDGER_DIR.toLowerCase()
+  for (const s of segs) if (s.toLowerCase() === dir) return true
+  const name = segs[segs.length - 1].toLowerCase()
+  return name.length > _LEDGER_EXT.length && name.endsWith(_LEDGER_EXT)
+}
+const _LEDGER_EXT = '.ledger.jsonl'
 
 // Ignore rules, shared by planSeal and audit: DEFAULT_IGNORES plus the given globs. `*` matches any run of characters
 // and `?` one character, never "/"; matching ignores case (Windows and macOS folders usually do). A glob without "/"
@@ -1241,7 +1285,7 @@ export function planSeal(verified, files, { mode, station, observedAt, ignore } 
   if (!isTime(observedAt)) throw new Error('observedAt must be a real UTC time written as YYYY-MM-DDTHH:mm:ss.sssZ.')
   const present = _fileMap(files) || new Map()
   const ig = ignoreMatcher(ignore)
-  const skip = (p) => isLedgerFolderPath(p) || ig(p)
+  const skip = (p) => isNeverDataPath(p) || ig(p)
   const state = verified.files
   const out = []
   for (const p of [...present.keys()].sort(_cmp)) {
@@ -1277,7 +1321,7 @@ export function formatHead(head) {
   return `${head.n}:${head.h}`
 }
 
-const _STATES = ['match', 'changed', 'missing', 'removed', 'back after removal', 'not sealed', 'not checked']
+const _STATES = ['match', 'changed', 'missing', 'removed', 'back after removal', 'not sealed', 'not checked', 'excluded']
 
 export function audit(verified, files, opts = {}) {
   return _auditOne(verified, files, opts, null)
@@ -1298,9 +1342,10 @@ function _headCheck(verified, exp, what = 'pinned head') {
 
 // The file changes that put an audit in review: each sealed path with more than one version (changed after its first
 // seal), and each recorded removal, unless the path matches allowChanges. Returns {groups, allowed}.
-function _changeReview(verified, allow, ledgerId) {
+function _changeReview(verified, allow, ledgerId, skip = () => false) {
   const changed = [], changedRecs = [], removed = [], removedRecs = [], allowed = []
   for (const e of [...verified.files.values()].sort((x, y) => _cmp(x.path, y.path))) {
+    if (skip(e.path)) continue
     const fv = e.versions.filter((v) => v.kind === 'file')
     const rem = e.versions.filter((v) => v.kind === 'file-removed')
     if (fv.length < 2 && !rem.length) continue
@@ -1323,11 +1368,17 @@ function _changeReview(verified, allow, ledgerId) {
   return { groups, allowed }
 }
 
-// covered: paths (step inputs and outputs of this ledger) that are not listed as "not sealed" (auditMany)
-function _auditOne(verified, files, { expectHead, expectKeyId, allowChanges, strict = false, auditedAt, where = 'command line', tool, ignore, folder } = {}, covered) {
+// many (auditMany only): {covered: paths (step inputs and outputs of this ledger) that are not listed as "not sealed",
+// nested: paths under the root that belong to other ledgers}; auditMany adds files-not-checked and no-pinned-head itself.
+function _auditOne(verified, files, { expectHead, expectKeyId, allowChanges, strict = false, auditedAt, where = 'command line', tool, ignore, folder } = {}, many = null) {
   const present = _fileMap(files)
   const checked = present !== null
   const ig = ignoreMatcher(ignore)
+  const covered = many ? many.covered : null
+  const nested = many && many.nested && many.nested.length ? many.nested : null
+  const inNested = (p) => !!nested && nested.some((x) => p === x || p.startsWith(x + '/'))
+  // why a sealed path is left out of this audit now (null: it is not)
+  const leftOut = (p) => (isNeverDataPath(p) ? "a ledger's own file, never data" : inNested(p) ? "inside another ledger's folder" : ig(p) ? 'it matches an ignore pattern' : null)
   const allow = _globMatcher(allowChanges, 'A pattern of files expected to change')
   const H = verified.header
   const ledgerId = H && typeof H.ledgerId === 'string' ? H.ledgerId : null
@@ -1335,17 +1386,21 @@ function _auditOne(verified, files, { expectHead, expectKeyId, allowChanges, str
   const ledgerProblems = problems.length
   const fileProblems = [], notes = []
   const out = []
-  const c = { sealed: verified.files.size, match: 0, changed: 0, missing: 0, removed: 0, backAfterRemoval: 0, notSealed: 0, notChecked: 0 }
+  const c = { sealed: verified.files.size, match: 0, changed: 0, missing: 0, removed: 0, backAfterRemoval: 0, notSealed: 0, notChecked: 0, excluded: 0 }
   let bytesChecked = 0, filesChecked = 0
-  const unwatched = [], back = [], unread = []
+  const unwatched = [], back = [], unread = [], excluded = []
+  const skipped = new Set()
 
   for (const e of verified.files.values()) {
     const fv = e.versions.filter((v) => v.kind === 'file')
     const latest = e.latest
     const lastFile = fv[fv.length - 1] || null
-    const cur = checked ? (present.has(e.path) ? present.get(e.path) : undefined) : undefined
+    const why = leftOut(e.path)
+    if (why) skipped.add(e.path)
+    const cur = checked && !why ? (present.has(e.path) ? present.get(e.path) : undefined) : undefined
     let state, matchesN = null
-    if (!checked) state = 'not checked'
+    if (why) state = latest.kind === 'file' ? 'excluded' : 'removed'
+    else if (!checked) state = latest.kind === 'file' ? 'not checked' : 'removed'
     else if (cur === null) state = 'not checked'
     else if (latest.kind === 'file') {
       if (cur === undefined) state = 'missing'
@@ -1377,13 +1432,14 @@ function _auditOne(verified, files, { expectHead, expectKeyId, allowChanges, str
       fileProblems.push({ code: 'missing', path: e.path, n: latest.n, message: `${e.path} is missing: it was sealed in record ${latest.n}, and no removal was recorded.` })
     } else if (state === 'removed') c.removed++
     else if (state === 'back after removal') { c.backAfterRemoval++; back.push(`${e.path}: removed in record ${latest.n}, present again and not sealed since${matchesN ? ` (it matches the version sealed in record ${matchesN})` : ''}`) }
-    else if (state === 'not checked') { c.notChecked++; if (checked) unread.push(`${e.path}: present, but it could not be read`) }
-    for (const v of e.versions) if (v.event.endsWith('-unwatched')) unwatched.push(`${e.path}: ${v.event} in record ${v.n}, found ${_when(v.observedAt)}`)
+    else if (state === 'not checked') { c.notChecked++; if (checked) unread.push(`${e.path}: present, but not checked (it could not be read, or another name in a different Unicode form maps to it)`) }
+    else if (state === 'excluded') { c.excluded++; excluded.push(`${e.path}: sealed in record ${latest.n}, now left out (${why})`) }
+    if (!why) for (const v of e.versions) if (v.event.endsWith('-unwatched')) unwatched.push(`${e.path}: ${v.event} in record ${v.n}, found ${_when(v.observedAt)}`)
   }
   const notSealed = []
   if (checked) {
     for (const [p, v] of present) {
-      if (verified.files.has(p) || isLedgerFolderPath(p) || ig(p)) continue
+      if (verified.files.has(p) || isNeverDataPath(p) || inNested(p) || ig(p)) continue
       if (covered && covered.has(p)) { if (v) { bytesChecked += Number(v.bytes); filesChecked++ } continue }
       c.notSealed++
       if (v) { bytesChecked += Number(v.bytes); filesChecked++ }
@@ -1414,14 +1470,18 @@ function _auditOne(verified, files, { expectHead, expectKeyId, allowChanges, str
   const expectFails = Object.values(expectations).filter((x) => !x.ok).length
 
   // for review: recorded changes and removals (unless expected to change)
-  const { groups: forReview, allowed } = _changeReview(verified, allow, ledgerId)
+  const { groups: forReview, allowed } = _changeReview(verified, allow, ledgerId, (p) => skipped.has(p))
+  // sealed files present that could not be checked, and (one ledger on its own) sealed files with no folder to check
+  if (unread.length) forReview.push({ code: 'not-checked', message: `${_plural(unread.length, 'sealed file is', 'sealed files are')} present but could not be checked (unreadable, or another name in a different Unicode form maps to ${unread.length === 1 ? 'it' : 'them'}).`, count: unread.length, items: unread, records: [] })
+  const live = [...verified.files.values()].filter((e) => e.latest.kind === 'file' && !skipped.has(e.path)).length
+  if (!checked && !many && live) forReview.push({ code: 'files-not-checked', message: `The ledger seals ${_plural(live, 'file', 'files')}, but no folder was checked against it.`, count: 1, items: [`the ledger seals ${_plural(live, 'file', 'files')}, but no folder was checked against it`], records: [] })
 
   // notes
   const note = (code, message, items) => notes.push({ code, message, count: items.length, items })
   if (unwatched.length) note('unwatched', `${_plural(unwatched.length, 'change was', 'changes were')} found by a later scan: ${unwatched.length === 1 ? 'it' : 'they'} happened while nothing was watching, so ${unwatched.length === 1 ? 'its' : 'their'} time is unknown.`, unwatched)
   if (notSealed.length) note('not-sealed', `${_plural(notSealed.length, 'file is', 'files are')} present but never sealed${verified.firstProblemLine ? ` by the records before the first problem (line ${verified.firstProblemLine})` : ''}.`, notSealed)
   if (back.length) note('back-after-removal', `${_plural(back.length, 'file is', 'files are')} present again after ${back.length === 1 ? 'its' : 'their'} removal was recorded, and not sealed since.`, back)
-  if (unread.length) note('not-checked', `${_plural(unread.length, 'sealed file', 'sealed files')} could not be read, so ${unread.length === 1 ? 'it was' : 'they were'} not checked.`, unread)
+  if (excluded.length) note('excluded-after-seal', `${_plural(excluded.length, 'sealed file is', 'sealed files are')} now left out of the audit (a ledger's own file, inside another ledger's folder, or ignored), so ${excluded.length === 1 ? 'it was' : 'they were'} not checked.`, excluded)
   const mcpS = verified.mcpSessions || []
   const unclean = [...verified.sessions.filter((s) => s.type === 'watch' && s.clean === false), ...mcpS.filter((s) => s.clean === false)]
   if (unclean.length) {
@@ -1432,6 +1492,7 @@ function _auditOne(verified, files, { expectHead, expectKeyId, allowChanges, str
   }
   if (verified.gaps.length) note('gaps', `Nothing was watching during ${_plural(verified.gaps.length, 'period', 'periods')} between sessions; changes made then are sealed with an -unwatched event and an unknown time.`,
     verified.gaps.map((g) => `from ${_when(g.from)} to ${_when(g.to)} (${formatDuration(g.ms)}), between record ${g.afterN} and record ${g.beforeN}`))
+  if (!many && !expectations.head) note('no-pinned-head', _NO_PIN_TEXT, [verified.head ? `the head now is ${formatHead(verified.head)}` : 'the ledger has no readable head'])
 
   const failing = ledgerProblems + c.changed + c.missing + expectFails
   const verdict = failing || (strict && (forReview.length || notes.length)) ? 'fail' : forReview.length ? 'review' : 'pass'
@@ -1484,16 +1545,33 @@ function _auditOne(verified, files, { expectHead, expectKeyId, allowChanges, str
   }
   report.summary = _summary(report, expectations)
   const pin = verified.head && verified.head.n > 0 ? formatHead(verified.head) : null
-  const dir = folder ? _shellArg(folder) : '<data folder>'
   report.rerun = [
     'In a browser: open immutableqc.com/app/ and drop the data folder. Every file is read in the browser; nothing is uploaded.',
-    `On the command line: node iqc.mjs audit ${dir}${pin ? ` --expect-head ${pin}` : ''}${verified.keyId ? ` --expect-key ${verified.keyId}` : ''}${patterns.map((g) => ` --allow-changes ${_shellArg(g)}`).join('')}`,
+    _commandLine(folder, '<data folder>', `${pin ? ` --expect-head ${pin}` : ''}${verified.keyId ? ` --expect-key ${verified.keyId}` : ''}`, patterns),
     pin ? `Pin the head ${pin} somewhere else (an email, an ELN entry, a printout). A later audit with --expect-head shows whether the ledger was rewritten from the start or cut short since.` : 'Pin the head once the ledger has records (iqc head), to expose a later rewrite.',
   ]
   return report
 }
 
-const _shellArg = (s) => (/^[\w./:@%+-]+$/.test(s) ? s : `'${String(s).replace(/'/g, `'\\''`)}'`)
+// The re-run command is copied into bash, zsh, cmd or PowerShell, so a name goes in only when every character is literal
+// in all four ([A-Za-z0-9._/@%+=:,-]); a pattern may also hold * ? and spaces, in double quotes. Anything else is
+// written as a placeholder (<folder>, <pattern>) with a line saying what to put there.
+const _SAFE_ARG = /^[A-Za-z0-9._/@%+=:,-]+$/
+const _shellArg = (s) => (typeof s === 'string' && _SAFE_ARG.test(s) ? s : null)
+const _patternArg = (g) => (_shellArg(g) || (typeof g === 'string' && /^[A-Za-z0-9._/@%+=:,*? -]+$/.test(g) && g.trim() ? `"${g}"` : null))
+function _commandLine(folder, fallback, rest, patterns) {
+  const subs = []
+  let dir = fallback
+  if (folder) { dir = _shellArg(folder); if (!dir) { dir = '<folder>'; subs.push("<folder> with the folder's path") } }
+  let pats = ''
+  for (const g of patterns) {
+    const a = _patternArg(g)
+    if (a) pats += ` --allow-changes ${a}`
+    else { pats += ' --allow-changes <pattern>'; if (!subs.includes('<pattern> with the pattern')) subs.push('<pattern> with the pattern') }
+  }
+  return `On the command line${subs.length ? ` (replace ${_joinList(subs)})` : ''}: node iqc.mjs audit ${dir}${rest}${pats}`
+}
+const _NO_PIN_TEXT = 'Records removed from the end of a ledger show only against a pinned head (--pin-file or --expect-head).'
 const _when = (iso) => (typeof iso === 'string' && iso.length >= 19 ? `${iso.slice(0, 10)} ${iso.slice(11, 19)} UTC` : String(iso))
 
 function _joinList(parts) {
@@ -1509,6 +1587,11 @@ const _REVIEW_PHRASE = {
   'step-cycle': (k) => `${_plural(k, 'agent step is', 'agent steps are')} part of a cycle of steps`,
   'review-rejected': (k) => `${_plural(k, 'agent step was', 'agent steps were')} rejected by a reviewer`,
   'review-question': (k) => `${_plural(k, 'agent step was', 'agent steps were')} questioned by a reviewer`,
+  'not-checked': (k) => `${_plural(k, 'sealed file', 'sealed files')} could not be checked`,
+  'files-not-checked': (k) => `${_plural(k, 'ledger seals', 'ledgers seal')} files that no folder was checked against`,
+  'outputs-not-checked': (k) => `${_plural(k, 'agent output', 'agent outputs')} could not be checked`,
+  'no-inputs': (k) => `${_plural(k, 'agent step names', 'agent steps name')} no inputs`,
+  'duplicate-ledger': (k) => `${_plural(k, 'ledger is a copy', 'ledgers are copies')} of another ledger (the same ledger id)`,
 }
 function _reviewSentence(groups) {
   const parts = groups.map((g) => (_REVIEW_PHRASE[g.code] ? _REVIEW_PHRASE[g.code](g.count) : g.message.replace(/\.$/, '')))
@@ -1523,15 +1606,23 @@ function _strictPart(c) {
   return `${what} as ${rv + nt === 1 ? 'a failure' : 'failures'} in strict mode`
 }
 
+// what a pass says of the sealed files: only what was checked ("N of M" when some were not checked or left out)
+function _passFiles(c) {
+  const off = (c.notChecked || 0) + (c.excluded || 0)
+  if (!off) return c.match === 0 ? null : c.match === 1 ? '1 file matches its seal' : `all ${formatCount(c.match)} files match their seals`
+  const why = [c.notChecked ? `${formatCount(c.notChecked)} not checked` : '', c.excluded ? `${formatCount(c.excluded)} left out` : ''].filter(Boolean).join(', ')
+  if (c.match === 0) return off === 1 ? `the sealed file was not checked (${why})` : `none of the ${formatCount(off)} sealed files was checked (${why})`
+  return `${formatCount(c.match)} of ${_plural(c.match + off, 'sealed file', 'sealed files')} ${c.match === 1 ? 'matches its seal' : 'match their seals'} (${why})`
+}
+
 function _summary(r, exp) {
   const c = r.counts
   if (r.verdict === 'pass') {
     const tail = c.notes ? ` (${_plural(c.notes, 'note', 'notes')})` : ''
-    if (!r.filesChecked) return `Pass: the ledger is intact (${_plural(c.records, 'record', 'records')} checked); the files were not checked${tail}.`
+    if (!r.filesChecked) return `Pass: the ledger is intact (${_plural(c.records, 'record', 'records')} checked); ${c.sealed ? 'every sealed file is recorded as removed or left out' : 'it seals no files'}${tail}.`
     if (c.sealed === 0) return `Pass: the ledger is intact, and it seals no files yet${tail}.`
-    if (c.match === 0) return `Pass: the ledger is intact, and every sealed file is recorded as removed${tail}.`
-    if (c.match === 1) return `Pass: 1 file matches its seal, and the ledger is intact${tail}.`
-    return `Pass: all ${formatCount(c.match)} files match their seals, and the ledger is intact${tail}.`
+    const files = _passFiles(c)
+    return files ? `Pass: ${files}, and the ledger is intact${tail}.` : `Pass: the ledger is intact, and every sealed file is recorded as removed${tail}.`
   }
   if (r.verdict === 'review') return _reviewSentence(r.forReview)
   const parts = []
@@ -1652,6 +1743,7 @@ export function auditMany(entries, opts = {}) {
   const maxDepth = Math.max(1, Math.min(256, Math.floor(Number(opts.maxDepth)) || 32))
   if (!Array.isArray(entries) || !entries.length) throw new Error('auditMany needs a list of at least one ledger: [{verified, root, files}].')
   _globMatcher(allowChanges, 'A pattern of files expected to change')
+  const stationKeys = _keyList(opts.stationKeys, 'station'), reviewerKeys = _keyList(opts.reviewerKeys, 'reviewer')
   const many = entries.length > 1
   const Ls = entries.map((en, li) => {
     if (!_isObj(en) || !_isObj(en.verified) || !Array.isArray(en.verified.records) || !(en.verified.files instanceof Map)) throw new TypeError(`auditMany: entry ${li + 1} needs {verified}, from verifyLedger.`)
@@ -1660,16 +1752,21 @@ export function auditMany(entries, opts = {}) {
     const station = H && typeof H.station === 'string' ? H.station : null
     const root = typeof en.root === 'string' ? en.root : null
     const label = typeof en.label === 'string' && en.label ? en.label : root ? root : station || (ledgerId ? `ledger ${ledgerId.slice(0, 8)}` : `ledger ${li + 1}`)
-    return { li, v, H, ledgerId, station, root, label, files: _fileMap(en.files == null ? null : en.files), ledgerPath: typeof en.ledgerPath === 'string' ? en.ledgerPath : null, good: v.records.slice(0, v.goodCount), steps: [] }
+    const nested = Array.isArray(en.nested) ? en.nested.filter((x) => typeof x === 'string' && x !== '').map((x) => x.replace(/\/+$/, '')) : []
+    const folderOwn = en.folderOwn === true || en.root === ''
+    return { li, v, H, ledgerId, station, root, label, nested, folderOwn, files: _fileMap(en.files == null ? null : en.files), ledgerPath: typeof en.ledgerPath === 'string' ? en.ledgerPath : null, good: v.records.slice(0, v.goodCount), steps: [] }
   })
   const pre = (L) => (many ? `${L.label}: ` : '')
   const recRef = (L, n) => ({ ledgerId: L.ledgerId, ledger: L.li, n })
-  const byId = new Map(), dupes = []
+  // byId: the first ledger with each id (reviews resolve against it); copiesOf: every ledger with that id (pins and
+  // expected heads are checked against each copy)
+  const byId = new Map(), idCopies = new Map(), dupes = []
   for (const L of Ls) {
     if (!L.ledgerId) continue
-    if (byId.has(L.ledgerId)) dupes.push(`${L.label} has the same ledger id as ${byId.get(L.ledgerId).label} (${L.ledgerId}): the first one is used to trace steps and resolve reviews`)
-    else byId.set(L.ledgerId, L)
+    if (byId.has(L.ledgerId)) { dupes.push(`${L.label} has the same ledger id as ${byId.get(L.ledgerId).label} (${L.ledgerId}): it is a copy of that ledger (the first one is used to trace steps and resolve reviews)`); idCopies.get(L.ledgerId).push(L) }
+    else { byId.set(L.ledgerId, L); idCopies.set(L.ledgerId, [L]) }
   }
+  const copiesOf = (id) => idCopies.get(id) || []
 
   // steps (from the records before each ledger's first problem)
   const S = [], stepAt = new Map()
@@ -1689,12 +1786,20 @@ export function auditMany(entries, opts = {}) {
   for (const L of Ls) {
     const covered = new Set()
     for (const s of L.steps) { for (const r of s.outputs) covered.add(r.path); for (const r of s.inputs) covered.add(r.path) }
-    L.report = _auditOne(L.v, L.files, { allowChanges, strict: false, auditedAt, where, tool, ignore }, covered)
+    L.report = _auditOne(L.v, L.files, { allowChanges, strict: false, auditedAt, where, tool, ignore }, { covered, nested: L.nested })
   }
 
-  // lineage index: every sealed file version by SHA-256 (measured), every step output by SHA-256 (derived)
-  const measured = new Map()
+  // lineage index: every sealed file version by SHA-256 (measured), every step output by SHA-256 (derived). File
+  // records count as measurements only from a ledger signed by a listed station key, or, with no station keys listed,
+  // from a ledger that holds no step records (an agent's own ledger never measures its own inputs); the others are
+  // kept apart, to say why an input they hold is untraced.
+  const countsAsMeasured = (L) => (stationKeys ? stationKeys.includes(L.v.keyId) : !(L.v.kinds && L.v.kinds.step))
+  const measured = new Map(), uncounted = new Map()
   for (const L of Ls) {
+    if (!countsAsMeasured(L)) {
+      for (const e of L.v.files.values()) for (const x of e.versions) if (x.kind === 'file') { const a = uncounted.get(x.sha256); if (a) { if (!a.includes(L)) a.push(L) } else uncounted.set(x.sha256, [L]) }
+      continue
+    }
     for (const e of L.v.files.values()) {
       const fv = e.versions.filter((x) => x.kind === 'file')
       let later = null
@@ -1726,23 +1831,31 @@ export function auditMany(entries, opts = {}) {
     const edges = new Set()
     for (const r of s.inputs) {
       const inp = { path: r.path, sha256: r.sha256, bytes: r.bytes, state: 'untraced' }
-      let p = null
+      // the producer: the latest step before this one that wrote these bytes (in its own ledger, by record order;
+      // across ledgers, by time, never one recorded later). A derived input is followed to its step even when a
+      // station sealed the same bytes too (listed in measured), so the lineage is not lost.
+      let p = null, later = null
+      for (const c of producers.get(r.sha256) || []) {
+        if (c === s) continue
+        if (c.L === s.L ? c.n > s.n : c.f.at > at) { later = later || c; continue }
+        if (!p || c.f.at > p.f.at || (c.f.at === p.f.at && c.L === p.L && c.n > p.n)) p = c
+      }
       const ms = measured.get(r.sha256)
       if (ms) {
-        inp.state = 'measured'
         inp.measured = ms.slice(0, 10).map(mOut)
         if (ms.length > 10) inp.measuredMore = ms.length - 10
+      }
+      if (p) { inp.state = 'derived'; inp.step = stepRef(p); edges.add(p.i) }
+      else if (ms) {
+        inp.state = 'measured'
         if (ms.every((m) => m.later)) {
           const m = ms[ms.length - 1]
           inp.changedAfter = { ledgerId: m.L.ledgerId, ledger: m.L.li, station: m.L.station, path: m.path, usedN: m.n, n: m.later.n, observedAt: m.later.observedAt, event: m.later.event, afterUse: m.later.observedAt > at }
         }
       } else {
-        const ps = producers.get(r.sha256)
-        if (ps) {
-          for (const c of ps) if (c !== s && c.f.at <= at) p = c
-          if (!p) for (const c of ps) if (c !== s) { p = c; break }
-        }
-        if (p) { inp.state = 'derived'; inp.step = stepRef(p); edges.add(p.i) }
+        const un = uncounted.get(r.sha256)
+        if (un) inp.why = stationKeys ? `sealed by key ${_joinList([...new Set(un.map((L) => L.v.keyId || 'unknown'))])}, not a listed station key` : `sealed only in ${_joinList(un.map((L) => L.label))}, a ledger that holds agent steps (an agent's own ledger never measures its inputs)`
+        else if (later) inp.why = `written only by a step recorded after this one (record ${later.n} of ${later.L.label})`
       }
       s.ins.push(inp)
       s.inP.push(p)
@@ -1787,7 +1900,7 @@ export function auditMany(entries, opts = {}) {
       if (!o || o.kind !== 'review') continue
       const subs = _listParse(o.f.subjects, _subjParse, 1, 'record reference')
       if (subs.why) continue
-      const rv = { ledgerId: L.ledgerId, ledger: L.li, n: o.n, h: o.h, station: o.f.station, reviewer: o.f.reviewer, decision: o.f.decision, note: o.f.note === '-' ? '' : o.f.note, at: o.f.at, subjects: [] }
+      const rv = { ledgerId: L.ledgerId, ledger: L.li, keyId: L.v.keyId, n: o.n, h: o.h, station: o.f.station, reviewer: o.f.reviewer, decision: o.f.decision, note: o.f.note === '-' ? '' : o.f.note, at: o.f.at, subjects: [] }
       for (const sj of subs.list) {
         const T = byId.get(sj.ledgerId)
         const x = { ledgerId: sj.ledgerId, n: sj.n, h: sj.h, state: 'matches' }
@@ -1810,12 +1923,35 @@ export function auditMany(entries, opts = {}) {
       reviews.push(rv)
     }
   }
+  // a reviewer is a signing key (the name is a label): each key's latest decision is the one with the highest record
+  // number in its ledger (across several ledgers of one key, the latest by time). Rejected if any key's latest is
+  // rejected, else question, else approved when a key's latest is approved (with reviewerKeys: a listed key), else
+  // awaiting review.
+  const approvedBy = new Map(), unlistedApprovals = []
   for (const s of S) {
-    const latest = new Map()
-    for (const d of s.revs) { const p = latest.get(d.reviewer); if (!p || d.at >= p.at) latest.set(d.reviewer, d) }
-    const ds = new Set([...latest.values()].map((d) => d.decision))
-    s.reviewState = ds.has('rejected') ? 'rejected' : ds.has('question') ? 'question' : ds.has('approved') ? 'approved' : 'awaiting review'
-    s.decisions = s.revs.map((d) => ({ reviewer: d.reviewer, decision: d.decision, note: d.note, at: d.at, ledgerId: d.ledgerId, ledger: d.ledger, n: d.n, latest: latest.get(d.reviewer) === d }))
+    const byKey = new Map()
+    for (const d of s.revs) {
+      const k = d.keyId || `ledger ${d.ledger}`
+      let m = byKey.get(k)
+      if (!m) byKey.set(k, (m = new Map()))
+      const p = m.get(d.ledger)
+      if (!p || d.n > p.n) m.set(d.ledger, d)
+    }
+    const latest = new Set()
+    let rej = false, que = false, app = false
+    for (const m of byKey.values()) {
+      let d = null
+      for (const x of m.values()) if (!d || x.at > d.at) d = x
+      latest.add(d)
+      if (d.decision === 'rejected') rej = true
+      else if (d.decision === 'question') que = true
+      else if (d.decision === 'approved') {
+        if (!reviewerKeys || reviewerKeys.includes(d.keyId)) { app = true; if (!approvedBy.has(d.keyId)) approvedBy.set(d.keyId, d.reviewer) }
+        else unlistedApprovals.push({ s, d })
+      }
+    }
+    s.reviewState = rej ? 'rejected' : que ? 'question' : app ? 'approved' : 'awaiting review'
+    s.decisions = s.revs.map((d) => ({ reviewer: d.reviewer, keyId: d.keyId, decision: d.decision, note: d.note, at: d.at, ledgerId: d.ledgerId, ledger: d.ledger, n: d.n, latest: latest.has(d) }))
   }
 
   // lineage summaries: strongly connected components of the step graph (iterative Tarjan), successors first, so each
@@ -1912,6 +2048,7 @@ export function auditMany(entries, opts = {}) {
   const fileGroupMessage = {
     'sealed-more-than-once': (k) => `${_plural(k, 'file was', 'files were')} changed after ${k === 1 ? 'it was' : 'they were'} first sealed (each change is recorded).`,
     removed: (k) => `${_plural(k, 'file was', 'files were')} removed (each removal is recorded).`,
+    'not-checked': (k) => `${_plural(k, 'sealed file is', 'sealed files are')} present but could not be checked (unreadable, or another name in a different Unicode form maps to ${k === 1 ? 'it' : 'them'}).`,
   }
   for (const g of forReview) g.message = fileGroupMessage[g.code](g.count)
   const noteMessages = new Map()
@@ -1923,6 +2060,15 @@ export function auditMany(entries, opts = {}) {
 
   const stepName = (s) => `${pre(s.L)}record ${s.n} (${s.f.actor}: ${_clip(s.f.action, 60)})`
   let outChanged = 0, outMissing = 0, outNotChecked = 0
+  // a ledger with no folder to check against: its sealed files (and its steps' outputs) were not checked
+  for (const L of Ls) {
+    if (L.files) continue
+    const live = L.report.files.filter((f) => f.state === 'not checked').length
+    const outs = new Set()
+    for (const s of L.steps) for (const o of s.outs) if (o.state !== 'superseded') outs.add(o.path)
+    const k = live + outs.size
+    if (k) add(forReview, 'files-not-checked', null, `${L.label} seals ${_plural(k, 'file', 'files')}, but no folder was checked against it`, [])
+  }
   for (const s of S) {
     for (const o of s.outs) {
       if (o.state === 'changed') {
@@ -1931,10 +2077,14 @@ export function auditMany(entries, opts = {}) {
       } else if (o.state === 'missing') {
         outMissing++
         problems.push({ code: 'output-missing', ledgerId: s.L.ledgerId, ledger: s.L.li, n: s.n, path: o.path, message: `${pre(s.L)}${o.path} is missing: the agent step in record ${s.n} wrote it, and no removal is recorded.`, records: [recRef(s.L, s.n)] })
-      } else if (o.state === 'not checked') outNotChecked++
+      } else if (o.state === 'not checked') {
+        outNotChecked++
+        if (s.L.files) add(forReview, 'outputs-not-checked', null, `${pre(s.L)}${o.path}: written by the agent step in record ${s.n}, present but it could not be read`, [recRef(s.L, s.n)])
+      }
     }
     const untraced = s.ins.filter((x) => x.state === 'untraced')
-    if (untraced.length) add(forReview, 'untraced-input', null, `${stepName(s)}: ${untraced.slice(0, 5).map((x) => `${x.path} (${x.sha256.slice(0, 12)}…)`).join(', ')}${untraced.length > 5 ? ` and ${untraced.length - 5} more` : ''} ${untraced.length === 1 ? 'matches' : 'match'} no sealed measurement and no recorded step output`, [recRef(s.L, s.n)])
+    if (untraced.length) add(forReview, 'untraced-input', null, `${stepName(s)}: ${untraced.slice(0, 5).map((x) => `${x.path} (${x.sha256.slice(0, 12)}…${x.why ? `; ${x.why}` : ''})`).join(', ')}${untraced.length > 5 ? ` and ${untraced.length - 5} more` : ''} ${untraced.length === 1 ? 'matches' : 'match'} no sealed measurement and no recorded step output`, [recRef(s.L, s.n)])
+    if (!s.inputs.length && s.reviewState !== 'approved') add(forReview, 'no-inputs', null, `${pre(s.L)}Step ${s.n} (${_clip(s.f.action, 60)}) names no inputs: its outputs trace to nothing measured`, [recRef(s.L, s.n)])
     const resealed = s.ins.filter((x) => x.changedAfter)
     if (resealed.length) {
       add(forReview, 'input-changed-after-use', null, `${stepName(s)}: ${resealed.slice(0, 5).map((x) => { const c = x.changedAfter; return c.afterUse ? `${x.path}: the file changed after this step used it (${c.path} sealed again in record ${c.n} of ${Ls[c.ledger].label}, ${_when(c.observedAt)})` : `${x.path}: the step used an earlier version (${c.path} had been sealed again in record ${c.n} of ${Ls[c.ledger].label}, ${_when(c.observedAt)}, before the step)` }).join('; ')}`,
@@ -1947,7 +2097,7 @@ export function auditMany(entries, opts = {}) {
   for (const s of S) {
     if (s.reviewState === 'rejected' || s.reviewState === 'question') {
       const ds = s.decisions.filter((d) => d.latest && d.decision === s.reviewState)
-      add(forReview, s.reviewState === 'rejected' ? 'review-rejected' : 'review-question', null, `${stepName(s)}: ${ds.map((d) => `${d.decision} by ${d.reviewer}, ${_when(d.at)}${d.note ? ` ("${_clipText(d.note, 120)}")` : ''}`).join('; ')}`,
+      add(forReview, s.reviewState === 'rejected' ? 'review-rejected' : 'review-question', null, `${stepName(s)}: ${ds.map((d) => `${d.decision} by ${d.reviewer} (key ${d.keyId || 'unknown'}), ${_when(d.at)}${d.note ? ` ("${_clipText(d.note, 120)}")` : ''}`).join('; ')}`,
         [recRef(s.L, s.n), ...ds.map((d) => ({ ledgerId: d.ledgerId, ledger: d.ledger, n: d.n }))])
     }
   }
@@ -1966,6 +2116,7 @@ export function auditMany(entries, opts = {}) {
 
   // expectations: heads, key ids, pins
   const expectations = { heads: [], keyIds: [], pins: [] }
+  const pinnedLs = new Set()
   const listOf = (x) => (x == null || x === '' ? [] : Array.isArray(x) ? x : typeof x === 'string' ? x.split(/[\n,]/).map((t) => t.trim()).filter(Boolean) : _isObj(x) && !_own(x, 'n') ? Object.entries(x).map(([id, hd]) => ({ ledgerId: id, ...parseHead(hd) })) : [x])
   for (const raw of listOf(expectHeads)) {
     let exp = null, ok = false, message, target = null
@@ -1977,20 +2128,28 @@ export function auditMany(entries, opts = {}) {
       }
     } catch (e) { message = `The pinned head ${_clip(String(raw), 90)} could not be read: ${e.message}` }
     if (exp) {
+      // which ledgers the head binds to: the named ledger id (every copy), the only ledger, or the folder's own ledger
+      let Ts = null
       if (exp.ledgerId) {
-        target = byId.get(exp.ledgerId)
-        if (!target) message = `The pinned head names ledger ${exp.ledgerId}, which was not audited.`
-        else ({ ok, message } = _headCheck(target.v, exp))
-        if (target && many) message = `${target.label}: ${message}`
-      } else if (Ls.length === 1) { target = Ls[0]; ({ ok, message } = _headCheck(target.v, exp)) }
+        Ts = copiesOf(exp.ledgerId)
+        if (!Ts.length) message = `The pinned head names ledger ${exp.ledgerId}, which was not audited: the ledger was deleted, started over, or is kept outside this folder.`
+      } else if (Ls.length === 1) Ts = [Ls[0]]
       else {
-        target = Ls.find((L) => _headCheck(L.v, exp).ok) || null
-        ok = !!target
-        message = ok ? `${target.label}: ${_headCheck(target.v, exp).message}` : `No audited ledger has record ${exp.n} with the link ${exp.h}: a ledger was rewritten since the head was pinned, or the head belongs to a ledger not audited.`
+        const own = Ls.find((L) => L.folderOwn)
+        if (own) Ts = own.ledgerId ? copiesOf(own.ledgerId) : [own]
+        else message = `The pinned head ${formatHead(exp)} names no ledger id, and ${formatCount(Ls.length)} ledgers were audited with none of them the folder's own: name the ledger id (<ledger id>:${exp.n}:${exp.h}, as iqc head prints it).`
+      }
+      if (Ts && Ts.length) {
+        const rs = Ts.map((T) => ({ T, ..._copyCheck(T, exp, Ts.length > 1, 'pinned head') }))
+        target = Ts[0]
+        for (const T of Ts) pinnedLs.add(T)
+        ok = rs.every((x) => x.ok)
+        message = rs.map((x) => `${many ? `${x.T.label}: ` : ''}${x.message}`).join(' ')
+        for (const x of rs) if (!x.ok) problems.push({ code: 'expect-head', ledgerId: x.T.ledgerId, message: `${many ? `${x.T.label}: ` : ''}${x.message}`, records: [recRef(x.T, exp.n)] })
       }
     }
     expectations.heads.push({ expected: exp ? `${exp.ledgerId ? exp.ledgerId + ' ' : ''}${formatHead(exp)}` : String(raw), ledgerId: target ? target.ledgerId : exp ? exp.ledgerId : null, ok, message })
-    if (!ok) problems.push({ code: 'expect-head', ledgerId: target ? target.ledgerId : null, message, records: exp && target ? [recRef(target, exp.n)] : [] })
+    if (!ok && !(exp && target)) problems.push({ code: 'expect-head', ledgerId: null, message, records: [] })
   }
   const keyList = listOf(expectKeyIds).map((k) => String(k).trim().toLowerCase())
   for (const want of keyList) {
@@ -2000,8 +2159,22 @@ export function auditMany(entries, opts = {}) {
     expectations.keyIds.push({ expected: want, ok, message })
     if (!ok) problems.push({ code: 'expect-key', message, records: [] })
   }
-  if (keyList.length) for (const L of Ls) if (!keyList.includes(L.v.keyId)) add(notes, 'unexpected-key', null, `${L.label}: key id ${L.v.keyId || 'unknown'}`)
-  let pinFails = 0
+  const keysFound = () => _joinList([...new Map(Ls.map((L) => [L.v.keyId || 'unknown', `${L.v.keyId || 'unknown'} (${L.station || L.label})`])).values()])
+  let unexpectedKeys = 0
+  if (keyList.length) {
+    for (const L of Ls) {
+      if (keyList.includes(L.v.keyId)) continue
+      if (!many) { add(notes, 'unexpected-key', null, `${L.label}: key id ${L.v.keyId || 'unknown'}`); continue }
+      unexpectedKeys++
+      problems.push({ code: 'unexpected-key', ledgerId: L.ledgerId, ledger: L.li, message: `${L.label} is signed with key ${L.v.keyId || 'unknown'}, which is not among the expected keys. The keys found: ${keysFound()}. Give each key the lab trusts with --expect-key (the instrument's, the agent's and each reviewer's).`, records: [] })
+    }
+  }
+  // station keys: each must sign an audited ledger (as an expected key)
+  for (const want of stationKeys || []) {
+    if (Ls.some((L) => L.v.keyId === want)) continue
+    problems.push({ code: 'station-key-not-found', message: `No audited ledger is signed with the station key ${want}: the station's ledger was not included, or the key is not that station's. The keys found: ${keysFound()}.`, records: [] })
+  }
+  let pinFails = 0, pinsMissing = 0
   for (const pn of parsePinLines(pinLines == null ? [] : pinLines)) {
     if (pn.error) {
       pinFails++
@@ -2010,27 +2183,49 @@ export function auditMany(entries, opts = {}) {
       problems.push({ code: 'pin-unreadable', message, records: [] })
       continue
     }
-    const T = byId.get(pn.ledgerId)
-    if (!T) {
-      expectations.pins.push({ line: pn.line, ledgerId: pn.ledgerId, n: pn.n, h: pn.h, at: pn.at, ok: null, message: `The pin names ledger ${pn.ledgerId}, which was not audited.` })
-      add(notes, 'pin-other-ledger', null, `pin line ${pn.line}: ledger ${pn.ledgerId}, record ${pn.n}, pinned ${_when(pn.at)}`)
+    const Ts = copiesOf(pn.ledgerId)
+    if (!Ts.length) {
+      pinsMissing++
+      const message = `The pin file names ledger ${pn.ledgerId} (record ${pn.n}, pinned ${_when(pn.at)}), and no audited ledger has that id: the ledger was deleted, started over, or is kept outside this folder. Include a ledger kept elsewhere with --ledger <file> (in the app, drop it with the folder).`
+      expectations.pins.push({ line: pn.line, ledgerId: pn.ledgerId, n: pn.n, h: pn.h, at: pn.at, ok: false, message })
+      problems.push({ code: 'pin-ledger-missing', ledgerId: pn.ledgerId, message, records: [] })
       continue
     }
-    const r = _headCheck(T.v, { n: pn.n, h: pn.h })
-    const message = `${many ? `${T.label}: ` : ''}pin line ${pn.line} (${_when(pn.at)}): ${r.message}`
-    expectations.pins.push({ line: pn.line, ledgerId: pn.ledgerId, ledger: T.li, n: pn.n, h: pn.h, at: pn.at, ok: r.ok, message })
-    if (!r.ok) { pinFails++; problems.push({ code: 'pin', ledgerId: pn.ledgerId, ledger: T.li, message, records: [recRef(T, pn.n)] }) }
+    const rs = Ts.map((T) => ({ T, ..._copyCheck(T, { n: pn.n, h: pn.h }, Ts.length > 1, 'pinned head') }))
+    const ok = rs.every((x) => x.ok)
+    const message = rs.map((x) => `${many ? `${x.T.label}: ` : ''}pin line ${pn.line} (${_when(pn.at)}): ${x.message}`).join(' ')
+    expectations.pins.push({ line: pn.line, ledgerId: pn.ledgerId, ledger: Ts[0].li, n: pn.n, h: pn.h, at: pn.at, ok, message })
+    for (const T of Ts) pinnedLs.add(T)
+    if (!ok) pinFails++
+    for (const x of rs) if (!x.ok) problems.push({ code: 'pin', ledgerId: pn.ledgerId, ledger: x.T.li, message: `${many ? `${x.T.label}: ` : ''}pin line ${pn.line} (${_when(pn.at)}): ${x.message}`, records: [recRef(x.T, pn.n)] })
   }
-  if (dupes.length) for (const d of dupes) add(notes, 'duplicate-ledger', null, d)
-  if (outNotChecked) add(notes, 'outputs-not-checked', null, `${_plural(outNotChecked, 'agent output', 'agent outputs')}`)
+  // HON-1: pins and pinned heads that hold for some ledger do not cover the folder's own ledger when none names it (a
+  // ledger started over beside a planted copy of the pinned one). When none holds, each one failed above already.
+  let ledgersNotPinned = 0
+  if (pinnedLs.size) for (const L of Ls) {
+    if (!L.folderOwn || pinnedLs.has(L)) continue
+    ledgersNotPinned++
+    problems.push({ code: 'ledger-not-pinned', ledgerId: L.ledgerId, ledger: L.li, message: `${L.label} is this folder's own ledger (ledger ${L.ledgerId || 'unknown'}), and no pin line or pinned head names it, while they name ${_joinList([...new Set([...pinnedLs].map((T) => T.label))])}: the folder's ledger was started over or replaced after it was pinned (a copy of a pinned ledger elsewhere in the folder does not stand in for it), or it was never pinned. If it is new, add its head as iqc head prints it.`, records: [] })
+  }
+  if (dupes.length) for (const d of dupes) add(forReview, 'duplicate-ledger', null, d, [])
+
+  // what counted, said when it was not narrowed by the caller: measured inputs, approvals, and the ledgers no pinned
+  // head covers (records cut from their end cannot show)
+  const measuredKeys = new Map()
+  for (const s of S) for (const x of s.ins) if (x.state === 'measured') for (const m of x.measured) { const k = Ls[m.ledger].v.keyId || 'unknown'; if (!measuredKeys.has(k)) measuredKeys.set(k, Ls[m.ledger].station || Ls[m.ledger].label) }
+  if (!stationKeys && measuredKeys.size) for (const [k, st] of measuredKeys) add(notes, 'station-keys-not-listed', null, `${k} (${st})`)
+  if (!reviewerKeys && approvedBy.size) for (const [k, who] of approvedBy) add(notes, 'reviewer-keys-not-listed', null, `${k || 'unknown'} (${who})`)
+  for (const { s, d } of unlistedApprovals) add(notes, 'review-unlisted-key', null, `${stepName(s)}: approved by ${d.reviewer} (key ${d.keyId || 'unknown'}), not a listed reviewer key`, [{ ledgerId: d.ledgerId, ledger: d.ledger, n: d.n }])
+  for (const L of Ls) if (!pinnedLs.has(L)) add(notes, 'no-pinned-head', null, `${pre(L)}${L.v.head ? `the head now is ${formatHead(L.v.head)}` : 'the ledger has no readable head'}`)
 
   const NOTE_TEXT = {
     'awaiting-review': (k) => `${_plural(k, 'agent step is', 'agent steps are')} awaiting review (no reviewer has signed off on ${k === 1 ? 'it' : 'them'}).`,
     'review-unknown-ledger': (k) => `${_plural(k, 'review names a record', 'reviews name records')} in a ledger that was not audited.`,
     'unexpected-key': (k) => `${_plural(k, 'ledger is', 'ledgers are')} signed with a key that is not among the expected ones.`,
-    'pin-other-ledger': (k) => `${_plural(k, 'pin names', 'pins name')} a ledger that was not audited (another ledger was pinned from this station, or its ledger was not included).`,
-    'duplicate-ledger': (k) => `${_plural(k, 'ledger was', 'ledgers were')} given more than once (the same ledger id).`,
-    'outputs-not-checked': () => `${_plural(outNotChecked, 'agent output was', 'agent outputs were')} not checked: their files were not given, or could not be read.`,
+    'station-keys-not-listed': () => `Inputs count as measured when any ledger here sealed them (keys: ${_joinList([...measuredKeys].map(([k, st]) => `${k} (${st})`))}). List station keys with --station-key to rule out a ledger an agent made itself.`,
+    'reviewer-keys-not-listed': () => `Approvals count from any key that signed a review here (keys: ${_joinList([...approvedBy].map(([k, who]) => `${k || 'unknown'} (${who})`))}). List reviewer keys with --reviewer-key to count only theirs.`,
+    'review-unlisted-key': (k) => `${_plural(k, 'approval is', 'approvals are')} signed with a key that is not a listed reviewer key, so ${k === 1 ? 'it does' : 'they do'} not count.`,
+    'no-pinned-head': () => _NO_PIN_TEXT,
   }
   const REVIEW_TEXT = {
     'untraced-input': (k) => `${_plural(k, 'agent step', 'agent steps')} used inputs nothing measured: they match no sealed measurement and no recorded step output in the ledgers audited.`,
@@ -2038,10 +2233,14 @@ export function auditMany(entries, opts = {}) {
     'step-cycle': (k) => `${_plural(k, 'agent step is', 'agent steps are')} part of a cycle of steps: ${k === 1 ? 'its' : 'their'} inputs are, through other recorded steps, ${k === 1 ? 'its' : 'their'} own outputs, so they do not trace back to measurements.`,
     'review-rejected': (k) => `${_plural(k, 'agent step was', 'agent steps were')} rejected by a reviewer.`,
     'review-question': (k) => `${_plural(k, 'agent step was', 'agent steps were')} questioned by a reviewer.`,
+    'files-not-checked': (k) => (k === 1 ? 'A ledger seals files, but no folder was checked against it.' : `${formatCount(k)} ledgers seal files, but no folder was checked against them.`),
+    'outputs-not-checked': (k) => `${_plural(k, 'agent output is', 'agent outputs are')} present but could not be read, so ${k === 1 ? 'it was' : 'they were'} not checked.`,
+    'no-inputs': (k) => `${_plural(k, 'agent step names', 'agent steps name')} no inputs: ${k === 1 ? 'its' : 'their'} outputs trace to nothing measured (a reviewer's approval clears this).`,
+    'duplicate-ledger': (k) => `${_plural(k, 'ledger has', 'ledgers have')} the same ledger id as another one audited: a copy of the same ledger (each pin and pinned head is checked against every copy).`,
   }
   for (const g of notes) if (NOTE_TEXT[g.code]) g.message = NOTE_TEXT[g.code](g.count)
   for (const g of forReview) if (REVIEW_TEXT[g.code]) g.message = REVIEW_TEXT[g.code](g.count)
-  const ORDER = ['sealed-more-than-once', 'removed', 'untraced-input', 'step-cycle', 'input-changed-after-use', 'review-rejected', 'review-question']
+  const ORDER = ['files-not-checked', 'not-checked', 'outputs-not-checked', 'duplicate-ledger', 'sealed-more-than-once', 'removed', 'untraced-input', 'no-inputs', 'step-cycle', 'input-changed-after-use', 'review-rejected', 'review-question']
   forReview.sort((a, b) => ORDER.indexOf(a.code) - ORDER.indexOf(b.code))
 
   // counts and verdict
@@ -2054,7 +2253,7 @@ export function auditMany(entries, opts = {}) {
     outputs: S.reduce((a, s) => a + s.outs.length, 0), outputsChanged: outChanged, outputsMissing: outMissing, outputsNotChecked: outNotChecked,
     reviews: reviews.length, stepsApproved: S.filter((s) => s.reviewState === 'approved').length, stepsQuestion: S.filter((s) => s.reviewState === 'question').length, stepsRejected: S.filter((s) => s.reviewState === 'rejected').length, stepsAwaiting: awaiting.length,
     problems: problems.length, ledgerProblems: sum('ledgerProblems'), review: forReview.length, reviewItems: forReview.reduce((a, g) => a + g.count, 0), notes: notes.length, filesRead: sum('filesRead'), bytesRead: sum('bytesRead'),
-    pinsChecked: expectations.pins.filter((p) => p.ok !== null).length, pinFails, reviewMismatch,
+    pinsChecked: expectations.pins.length, pinFails, pinsMissing, ledgersNotPinned, unexpectedKeys, reviewMismatch,
   }
   const verdict = problems.length || (strict && (forReview.length || notes.length)) ? 'fail' : forReview.length ? 'review' : 'pass'
   const report = {
@@ -2077,13 +2276,32 @@ export function auditMany(entries, opts = {}) {
     rerun: [],
   }
   report.summary = _summaryMany(report, Ls)
-  const dir = folder ? _shellArg(folder) : '<lab folder>'
   report.rerun = [
     'In a browser: open immutableqc.com/app/ and drop the lab folder (every ledger in it is found). Every file is read in the browser; nothing is uploaded.',
-    `On the command line: node iqc.mjs audit ${dir}${report.allowChanges.patterns.map((g) => ` --allow-changes ${_shellArg(g)}`).join('')}`,
+    _commandLine(folder, '<lab folder>', `${(stationKeys || []).map((k) => ` --station-key ${k}`).join('')}${(reviewerKeys || []).map((k) => ` --reviewer-key ${k}`).join('')}`, report.allowChanges.patterns),
     ...Ls.filter((L) => L.ledgerId && L.v.head && L.v.head.n > 0).map((L) => `Pin ${L.label}'s head somewhere else: ${formatPinLine(L.ledgerId, L.v.head, auditedAt)}`),
   ]
   return report
+}
+
+// A list of key ids (16 hex) for stationKeys and reviewerKeys: null when none is given.
+function _keyList(x, what) {
+  const list = x == null || x === '' ? [] : Array.isArray(x) ? x : String(x).split(/[\s,]+/)
+  const out = []
+  for (const k of list) {
+    const t = String(k).trim().toLowerCase()
+    if (t === '') continue
+    if (!_HEX16.test(t)) throw new Error(`A ${what} key is a key id, 16 hex characters (iqc head and iqc status print it), not ${_clip(String(k))}.`)
+    if (!out.includes(t)) out.push(t)
+  }
+  return out.length ? out : null
+}
+
+// _headCheck against one of several copies of a ledger id: a copy shorter than the head was cut, or is an older copy.
+function _copyCheck(T, exp, several, what) {
+  const r = _headCheck(T.v, exp, what)
+  if (!r.ok && several && T.v.header && exp.n > T.v.recordCount) return { ok: false, message: `The ${what} is record ${exp.n}, but this copy of the ledger has only ${_plural(T.v.recordCount, 'record', 'records')}: it was cut, or it is an older copy.` }
+  return r
 }
 
 function _manyNoteMessage(code, k, one) {
@@ -2091,7 +2309,7 @@ function _manyNoteMessage(code, k, one) {
     unwatched: () => `${_plural(k, 'change was', 'changes were')} found by a later scan: ${k === 1 ? 'it' : 'they'} happened while nothing was watching, so ${k === 1 ? 'its' : 'their'} time is unknown.`,
     'not-sealed': () => `${_plural(k, 'file is', 'files are')} present but never sealed.`,
     'back-after-removal': () => `${_plural(k, 'file is', 'files are')} present again after ${k === 1 ? 'its' : 'their'} removal was recorded, and not sealed since.`,
-    'not-checked': () => `${_plural(k, 'sealed file', 'sealed files')} could not be read, so ${k === 1 ? 'it was' : 'they were'} not checked.`,
+    'excluded-after-seal': () => `${_plural(k, 'sealed file is', 'sealed files are')} now left out of the audit (a ledger's own file, inside another ledger's folder, or ignored), so ${k === 1 ? 'it was' : 'they were'} not checked.`,
     'unclean-stop': () => `${_plural(k, 'session', 'sessions')} did not end cleanly (no stop record before the next start: for example a crash, a forced quit or a power loss).`,
     gaps: () => `Nothing was watching during ${_plural(k, 'period', 'periods')} between sessions; changes made then are sealed with an -unwatched event and an unknown time.`,
   }
@@ -2176,11 +2394,11 @@ function _summaryMany(r, Ls) {
   const c = r.counts
   if (r.verdict === 'pass') {
     const parts = [Ls.length === 1 ? 'the ledger is intact' : `all ${formatCount(Ls.length)} ledgers are intact`]
-    if (c.sealed) {
-      if (c.notChecked) parts.push(`${formatCount(c.match)} of ${_plural(c.match + c.notChecked, 'sealed file', 'sealed files')} ${c.match === 1 ? 'matches its seal' : 'match their seals'} (${formatCount(c.notChecked)} not checked)`)
-      else parts.push(c.match === 1 ? '1 file matches its seal' : c.match ? `all ${formatCount(c.match)} files match their seals` : 'every sealed file is recorded as removed')
+    if (c.sealed) parts.push(_passFiles(c) || 'every sealed file is recorded as removed')
+    if (c.steps) {
+      const open = r.steps.filter((s) => !s.lineage.tracesToMeasured).length
+      parts.push(open ? `${_plural(c.steps, 'agent step is', 'agent steps are')} recorded (${formatCount(open)} that ${open === 1 ? 'does' : 'do'} not trace to measurements ${open === 1 ? 'is' : 'are'} approved by a reviewer)` : `${_plural(c.steps, 'agent step is', 'agent steps are')} recorded with every input traced`)
     }
-    if (c.steps) parts.push(`${_plural(c.steps, 'agent step is', 'agent steps are')} recorded with every input traced`)
     return `Pass: ${_joinList(parts)}${c.notes ? ` (${_plural(c.notes, 'note', 'notes')})` : ''}.`
   }
   if (r.verdict === 'review') return _reviewSentence(r.forReview)
@@ -2194,7 +2412,12 @@ function _summaryMany(r, Ls) {
   const hf = r.expectations.heads.filter((x) => !x.ok).length, kf = r.expectations.keyIds.filter((x) => !x.ok).length
   if (hf) parts.push(hf === 1 ? 'the pinned head does not match' : `${hf} pinned heads do not match`)
   if (kf) parts.push(kf === 1 ? 'an expected key id is not found' : `${kf} expected key ids are not found`)
+  if (c.unexpectedKeys) parts.push(`${_plural(c.unexpectedKeys, 'ledger is', 'ledgers are')} signed with a key not expected`)
+  const sk = r.problems.filter((p) => p.code === 'station-key-not-found').length
+  if (sk) parts.push(`${_plural(sk, 'station key signs', 'station keys sign')} no audited ledger`)
+  if (c.pinsMissing) parts.push(`${_plural(c.pinsMissing, 'pinned ledger is', 'pinned ledgers are')} missing`)
   if (c.pinFails) parts.push(`${_plural(c.pinFails, 'pin does', 'pins do')} not match`)
+  if (c.ledgersNotPinned) parts.push(`the folder's own ledger is not pinned`)
   if (c.reviewMismatch) parts.push(`${_plural(c.reviewMismatch, 'review names a record', 'reviews name records')} that changed after ${c.reviewMismatch === 1 ? 'it was' : 'they were'} reviewed`)
   if (r.strict && (c.notes || c.review)) parts.push(_strictPart(c))
   return `Fail: ${_joinList(parts)}.`
@@ -2285,7 +2508,7 @@ footer{margin-top:32px;color:var(--muted);font-size:.86em}
 @media print{body{font-size:11px}main{max-width:none;padding:0}.verdict,.counts li,tr{break-inside:avoid}thead{display:table-header-group}h2{break-after:avoid}.wrap{overflow:visible}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 `.trim()
 
-const _STATE_CLASS = { match: 'match', changed: 'changed', missing: 'missing', removed: 'removed', 'back after removal': 'back', 'not sealed': 'notsealed', 'not checked': 'notchecked' }
+const _STATE_CLASS = { match: 'match', changed: 'changed', missing: 'missing', removed: 'removed', 'back after removal': 'back', 'not sealed': 'notsealed', 'not checked': 'notchecked', excluded: 'notchecked' }
 const _MAX_PROBLEMS = 1000, _MAX_ITEMS = 200
 
 export function renderReportHTML(report) {

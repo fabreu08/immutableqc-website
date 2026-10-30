@@ -19,7 +19,8 @@
    "problems": [],
    "notes": [
     "unwatched",
-    "gaps"
+    "gaps",
+    "no-pinned-head"
    ],
    "counts": {
     "sealed": 7,
@@ -84,7 +85,8 @@
    "notes": [
     "unwatched",
     "not-sealed",
-    "gaps"
+    "gaps",
+    "no-pinned-head"
    ],
    "counts": {
     "sealed": 7,
@@ -156,7 +158,8 @@
     }
    ],
    "notes": [
-    "not-sealed"
+    "not-sealed",
+    "no-pinned-head"
    ],
    "counts": {
     "sealed": 5,

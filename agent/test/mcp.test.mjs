@@ -6,7 +6,7 @@
 import { describe, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
-import { readFileSync, writeFileSync, cpSync, mkdirSync, symlinkSync } from 'node:fs'
+import { readFileSync, writeFileSync, cpSync, mkdirSync, symlinkSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { ENTRIES, REPO, workspace, envFor, run, put } from './_helpers.mjs'
 import { verifyLedger } from '../../core/immutableqc.mjs'
@@ -315,6 +315,57 @@ describe('what an agent reads', { concurrency: false }, () => {
       assert.deepEqual(ci2.structuredContent.searched, { folders: [W.root], ledgers: 1 })
       assert.match(ci2.content[0].text, /Searched 1 ledger under /)
       assert.equal((await c2.end()).code, 0)
+    } finally { for (const p of live) p.kill('SIGKILL'); W.cleanup() }
+  })
+
+  test('review fixes: --station-key at start-up, a step with no inputs, outputs kept out of ledger folders, trace from the lineage, audit_summary with the pin file', async () => {
+    const W = lab()
+    try {
+      const real = JSON.parse(readFileSync(join(W.lab, 'bio-line-2', 'ImmutableQC', 'ledger.jsonl'), 'utf8').split('\n')[0]).keyId
+      writeFileSync(join(W.root, 'x.ledger.jsonl'), 'x\n')
+      const pins = join(W.dir, 'agent.pins')
+      const c = client(entry, ['--root', W.root, '--search', W.lab, '--station-key', real, '--pin-file', pins], { home: W.home, cwd: W.dir })
+      await c.send('initialize', { protocolVersion: '2025-11-25', capabilities: {} })
+      c.notify('notifications/initialized')
+      // MISSED-7: outputs in a ledger's folder, a *.ledger.jsonl, or another station's folder are refused
+      for (const out of ['x.ledger.jsonl', 'ImmutableQC/README.txt', '../bio-line-2/plate-07.csv']) {
+        const r = (await call(c, 'record_step', { action: 'a', inputs: ['in.csv'], outputs: [out] })).result
+        assert.equal(r.isError, true, out)
+      }
+      rmSync(join(W.root, 'x.ledger.jsonl')) // it is not a ledger: the audit would read it as a broken one
+      // MISSED-10: no inputs is flagged in the result; the next step that reads its output does not trace
+      writeFileSync(join(W.root, 'standard.csv'), 'invented\n')
+      writeFileSync(join(W.root, 'result.csv'), 'result\n')
+      const a = (await call(c, 'record_step', { action: 'Wrote the standard curve', outputs: ['standard.csv'] })).result.structuredContent
+      assert.equal(a.noInputs, true)
+      assert.match(a.warning, /names no inputs/)
+      await call(c, 'record_step', { action: 'Computed', inputs: ['in.csv', 'standard.csv'], outputs: ['result.csv'] })
+      const t = (await call(c, 'trace', { path: 'result.csv' })).result.structuredContent
+      assert.equal(t.tracesToMeasured, false)
+      assert.equal(t.noInputsOnTheWay, true)
+      // CLI-6: with the real station key listed, a copy of a file only another ledger sealed is untraced
+      const ci = (await call(c, 'check_inputs', { paths: ['in.csv'] })).result.structuredContent
+      assert.equal(ci.files[0].state, 'measured')
+      assert.equal(ci.files[0].measured.keyId, real)
+      // MCP-1: audit_summary reads the pin file the server writes, and the review item for the step with no inputs shows
+      const au = (await call(c, 'audit_summary', {})).result.structuredContent
+      assert.equal(au.verdict, 'review')
+      assert.ok(au.forReview.some((m) => /names no inputs/.test(m)), au.forReview.join('|'))
+      assert.ok(au.counts.pinsChecked > 0)
+      assert.equal((await c.end()).code, 0)
+    } finally { for (const p of live) p.kill('SIGKILL'); W.cleanup() }
+  })
+
+  test('help mcp, trace and audit name --station-key and --reviewer-key; the instructions say what measured means', async () => {
+    const W = lab()
+    try {
+      for (const topic of ['audit', 'trace', 'record', 'mcp']) assert.match((await run(entry, ['help', topic], { home: W.home })).stdout, /--station-key/, topic)
+      for (const topic of ['audit', 'trace', 'mcp']) assert.match((await run(entry, ['help', topic], { home: W.home })).stdout, /--reviewer-key/, topic)
+      const c = client(entry, ['--root', W.root, '--search', W.lab], { home: W.home, cwd: W.dir })
+      const init = await c.send('initialize', { protocolVersion: '2025-11-25', capabilities: {} })
+      assert.match(init.result.instructions, /holds no agent steps sealed those bytes/)
+      assert.ok(init.result.instructions.length <= 4096)
+      await c.end()
     } finally { for (const p of live) p.kill('SIGKILL'); W.cleanup() }
   })
 

@@ -32,7 +32,7 @@ signatures; Merkle batches; sealing inside the vendor's software; post-quantum s
    `certutil -hashfile iqc.mjs SHA256`). If the two differ, do not run it.
 2. A person sets up each lab station, a computer that can read an instrument's folder: `node iqc.mjs watch <folder>`.
    Only files a lab station sealed read as measured. If you are an AI agent: never run iqc seal or iqc watch on files
-   yourself.
+   yourself. Note each station's key id: the status command prints it, and `--station-key` lists them (see Limits).
 3. Connect the MCP server from any MCP client that starts local servers over standard input and output. The server
    entry, as JSON:
 
@@ -43,7 +43,8 @@ signatures; Merkle batches; sealing inside the vendor's software; post-quantum s
    `--root` is the folder the agent works in (every path must be inside it); `--search` is where the instruments'
    ledgers are: give the lab folder, or a file sealed outside the root reads as untraced. Starting the server creates
    `<root>/ImmutableQC/` and, for a new ledger, a signing key in `~/.immutableqc/keys/`. A root takes one writer at a
-   time. Protocol versions: 2026-07-28, 2025-11-25, 2025-06-18, 2025-03-26, 2024-11-05.
+   time. Protocol versions: 2026-07-28, 2025-11-25, 2025-06-18, 2025-03-26, 2024-11-05. To count only your stations' ledgers
+   as measured, add `"--station-key", "<keyId>"` to the args once for each station key.
 
 | Tool | What it does | Writes |
 |---|---|---|
@@ -86,15 +87,25 @@ print("recorded", ref)
 ```
 
 **Limits.** A pass does not show that a file was right when it was written, or anything about a change made inside the
-settle window (10 s by default) before it was sealed. Whoever holds a ledger's key could rewrite it; a head pinned
-somewhere else (`iqc audit --expect-head`, or `--pin-file`) exposes that. A ledger cut short (its last records deleted,
-with their files) needs no key, and it shows only against a head pinned earlier (`iqc head`, then
-`iqc audit --expect-head`, or `--pin-file`); audit_summary checks no pinned head. Measured means some ledger sealed
-those bytes, whatever its key: anyone who runs iqc seal, an agent included, makes files read as measured, and the
-station name is a label the sealer picks. The check is to compare each measured key id with the lab's station key ids
-(`iqc status` on each station prints them); a built-in check is upcoming. A step records only the files it names.
-A trace follows the steps as the agent recorded them: a step can name inputs it did not use, or outputs it did not compute from them. A person's review checks that. A key identifies a computer or a browser, not a person; per-person signatures are upcoming. Values
-inside files are not read; reading them is upcoming.
+settle window (10 s by default) before it was sealed. Whoever holds a ledger's key could rewrite it. A ledger cut short
+(its last records deleted, with their files) needs no key. Both show only against a head pinned somewhere else
+(`iqc head`, then `iqc audit --expect-head`, or `--pin-file`), and every audit without a pinned head says so in a note.
+A pin file that names a ledger no audited ledger has fails the audit: the ledger was deleted, started over, or is kept
+outside the folder (add it with `--ledger`). `audit_summary` checks a pin file only when the server was started with
+`--pin-file`.
+
+**What measured means.** A ledger that holds agent steps never measures: an agent's own ledger does not count its own
+inputs as measured. Without `--station-key`, any other ledger counts, whatever its key or its station name: anyone who
+runs iqc seal makes files read as measured, and the audit adds a note naming the keys it counted. With
+`--station-key <keyId>` (repeatable; on audit and trace, and in the MCP server entry), only a ledger signed by a listed
+key measures, and a listed key that signs no audited ledger fails the audit. Reviewers work the same way: a reviewer is
+a signing key and the name is a label. Without `--reviewer-key <keyId>`, an approval counts from any key, and a note
+names them; with it, only listed keys approve. A rejection or a question counts from any key. A step that names no
+inputs goes to review, because its outputs trace to nothing measured.
+
+A step records only the files it names. A trace follows the steps as the agent recorded them: a step can name inputs it
+did not use, or outputs it did not compute from them. A person's review checks that. A key identifies a computer or a
+browser, not a person; per-person signatures are upcoming. Values inside files are not read; reading them is upcoming.
 
 ## License and contact
 
@@ -135,7 +146,8 @@ Node.js 22 or later; nothing to install. The agent refuses to run on an older No
 node download/iqc.mjs seal  <folder>     # seal every file once, then exit
 node download/iqc.mjs watch <folder>     # seal now, then keep sealing new, changed and removed files until Ctrl+C
 node download/iqc.mjs audit <folder>     # check the ledger and every file: exit 0 pass, 3 review, 1 fail, 2 usage or read error
-        --report audit.html  --json audit.json  --expect-head <n>:<h>  --expect-key <keyId>  --strict
+        --report audit.html  --json audit.json  --expect-head <ledger id>:<n>:<h>  --expect-key <keyId>  --pin-file <file>
+        --station-key <keyId>  --reviewer-key <keyId>  --strict
 node download/iqc.mjs head  <folder>     # print the head, to pin somewhere else
 node download/iqc.mjs status <folder>
 node download/iqc.mjs help

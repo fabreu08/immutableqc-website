@@ -19,7 +19,7 @@ test('audit: every file matches; recorded changes and removals put it in review;
     'notes 50%25 done.txt': 'match', 'run-0914/blank.csv': 'removed', 'run-0914/e.txt': 'removed',
     'run-0914/injection-01.csv': 'match', 'run-0914/raw/injection-01.bin': 'match',
   })
-  assert.deepEqual(noteCodes(a), ['unwatched', 'gaps'])
+  assert.deepEqual(noteCodes(a), ['unwatched', 'gaps', 'no-pinned-head'])
   assert.deepEqual(a.forReview.map((g) => [g.code, g.count]), [['sealed-more-than-once', 2], ['removed', 2]])
   assert.deepEqual(a.forReview[0].items, [
     'run-0914/injection-01.csv: 2 versions (records 2, 6); changed in record 6, 2026-10-01 08:00:06 UTC',
@@ -80,13 +80,17 @@ test('audit: back after removal, not sealed, not checked (no file map, or a file
     'run-0914/injection-01.csv': 'match', 'run-0914/new.csv': 'not sealed', 'run-0914/raw/injection-01.bin': 'not checked',
   })
   assert.equal(a.files.find((f) => f.path === 'run-0914/blank.csv').matchesN, 5)
-  assert.deepEqual(noteCodes(a), ['unwatched', 'not-sealed', 'back-after-removal', 'not-checked', 'gaps'])
+  // R1: a sealed file present but not readable is a review item (was a note)
+  assert.deepEqual(noteCodes(a), ['unwatched', 'not-sealed', 'back-after-removal', 'gaps', 'no-pinned-head'])
+  assert.deepEqual(a.forReview.map((g) => g.code), ['sealed-more-than-once', 'removed', 'not-checked'])
   assert.deepEqual(a.notes.find((n) => n.code === 'not-sealed').items, ['run-0914/new.csv'])
+  // R1: no file map: the sealed files were not checked, a review item, never a pass (was a pass)
   a = IQC.audit(V, null, { allowChanges: ['run-0914'] })
-  assert.equal(a.verdict, 'pass')
+  assert.equal(a.verdict, 'review')
   assert.equal(a.filesChecked, false)
-  assert.ok(a.files.every((f) => f.state === 'not checked'))
-  assert.equal(a.summary, 'Pass: the ledger is intact (13 records checked); the files were not checked (2 notes).')
+  assert.deepEqual(a.forReview.map((g) => g.code), ['files-not-checked'])
+  assert.ok(a.files.every((f) => f.state === (f.latest.kind === 'file' ? 'not checked' : 'removed')))
+  assert.equal(a.summary, 'Review: 1 ledger seals files that no folder was checked against. Each is recorded below.')
   assert.match(a.method.recomputed.join(' '), /files were not checked/)
 })
 
@@ -143,7 +147,7 @@ test('audit: expectHead passes on a grown ledger, fails on a wrong h, a cut ledg
   assert.match(IQC.audit(broken, null, { expectHead: IQC.formatHead(pin) }).expectations.head.message, /after the first problem/)
   // expectKeyId
   a = IQC.audit(V, null, { expectKeyId: V.keyId.toUpperCase(), allowChanges: '*' })
-  assert.equal(a.verdict, 'pass')
+  assert.equal(a.verdict, 'review') // R1: no file map is files-not-checked
   assert.equal(a.expectations.keyId.ok, true)
   a = IQC.audit(V, null, { expectKeyId: '0123456789abcdef' })
   assert.equal(a.verdict, 'fail')
@@ -157,14 +161,17 @@ test('audit: strict turns review and notes into failures', () => {
   let a = IQC.audit(V, fullFiles(), { strict: true })
   assert.equal(a.verdict, 'fail')
   assert.equal(a.strict, true)
-  assert.equal(a.summary, 'Fail: 2 items for review and 2 notes count as failures in strict mode.')
+  assert.equal(a.summary, 'Fail: 2 items for review and 3 notes count as failures in strict mode.')
   a = IQC.audit(V, fullFiles(), { strict: true, allowChanges: ['run-0914'] })
-  assert.equal(a.summary, 'Fail: 2 notes count as failures in strict mode.')
+  assert.equal(a.summary, 'Fail: 3 notes count as failures in strict mode.')
   const C = IQC.audit(V, fullFiles(), { strict: false })
   assert.equal(C.verdict, 'review')
   // strict with no notes still passes
   return build([sessionItem('watch-started', 1), fileItem('a.csv', 'a', 'existing', 2), sessionItem('watch-stopped', 3)]).then(async (B) => {
-    a = IQC.audit(await IQC.verifyLedger(B.text), new Map([['a.csv', F('a')]]), { strict: true })
+    const vb = await IQC.verifyLedger(B.text)
+    // R7: without a pinned head the note no-pinned-head counts in strict mode
+    assert.equal(IQC.audit(vb, new Map([['a.csv', F('a')]]), { strict: true }).summary, 'Fail: 1 note counts as a failure in strict mode.')
+    a = IQC.audit(vb, new Map([['a.csv', F('a')]]), { strict: true, expectHead: IQC.formatHead(vb.head) })
     assert.equal(a.verdict, 'pass')
     assert.equal(a.summary, 'Pass: 1 file matches its seal, and the ledger is intact.')
   })
@@ -180,7 +187,7 @@ test('audit: session notes for a watch that did not stop cleanly, and for gaps',
   const a = IQC.audit(v, new Map(), { allowChanges: 'a.csv' })
   assert.equal(a.verdict, 'pass')
   assert.deepEqual(a.allowChanges, { patterns: ['a.csv'], matched: ['a.csv: removed-unwatched in record 6, 2026-10-02 09:00:01 UTC'] })
-  assert.deepEqual(noteCodes(a), ['unwatched', 'unclean-stop', 'gaps'])
+  assert.deepEqual(noteCodes(a), ['unwatched', 'unclean-stop', 'gaps', 'no-pinned-head'])
   const u = a.notes.find((n) => n.code === 'unclean-stop')
   assert.equal(u.count, 1)
   assert.match(u.items[0], /the watch started in record 1 \(2026-10-01 08:00:01 UTC\) has no stop record before record 3/)
@@ -198,7 +205,7 @@ test('audit: an empty ledger and an unreadable one', async () => {
   const B = await build([])
   let a = IQC.audit(await IQC.verifyLedger(B.text), new Map())
   assert.equal(a.verdict, 'pass')
-  assert.equal(a.summary, 'Pass: the ledger is intact, and it seals no files yet.')
+  assert.equal(a.summary, 'Pass: the ledger is intact, and it seals no files yet (1 note).')
   a = IQC.audit(await IQC.verifyLedger('not a ledger\n'), new Map([['a.csv', F('a')]]), { expectHead: `1:${'a'.repeat(64)}`, expectKeyId: 'a'.repeat(16) })
   assert.equal(a.verdict, 'fail')
   assert.equal(a.ledger.keyId, null)
@@ -216,7 +223,7 @@ test('audit: three verdicts on one ledger: a recorded change is review, allowCha
   assert.equal(a.verdict, 'review')
   assert.equal(a.summary, 'Review: 1 file was changed after it was first sealed. Each change is recorded.')
   assert.deepEqual(a.forReview.map((g) => [g.code, g.items, g.records.map((x) => x.n)]), [['sealed-more-than-once', ['logs/run.log: 2 versions (records 3, 4); changed in record 4, 2026-10-01 08:00:04 UTC'], [4]]])
-  assert.deepEqual(a.notes, [])
+  assert.deepEqual(noteCodes(a), ['no-pinned-head'])
   let html = IQC.renderReportHTML(a)
   assert.ok(html.includes('class="verdict review"') && html.includes('<span class="word">Review</span><span class="sentence">1 file was changed after it was first sealed. Each change is recorded.</span>'))
   assert.ok(html.includes('<h2>For review</h2>') && html.indexOf('<h2>Problems</h2>') < html.indexOf('<h2>For review</h2>') && html.indexOf('<h2>For review</h2>') < html.indexOf('<h2>Notes</h2>'))
@@ -228,7 +235,7 @@ test('audit: three verdicts on one ledger: a recorded change is review, allowCha
     assert.equal(a.verdict, 'pass', JSON.stringify(g))
     assert.deepEqual(a.allowChanges.matched, ['logs/run.log: 2 versions (records 3, 4); changed in record 4, 2026-10-01 08:00:04 UTC'])
   }
-  assert.ok(IQC.audit(v, files, { allowChanges: ['*.log'] }).rerun[1].endsWith(" --allow-changes '*.log'"))
+  assert.ok(IQC.audit(v, files, { allowChanges: ['*.log'] }).rerun[1].endsWith(' --allow-changes "*.log"'))
   html = IQC.renderReportHTML(IQC.audit(v, files, { allowChanges: ['*.log'] }))
   assert.ok(html.includes('1 recorded change matches the files expected to change (*.log):'))
   assert.equal(IQC.audit(v, files, { allowChanges: ['run/*'] }).verdict, 'review', 'a pattern that does not match leaves it in review')
@@ -239,7 +246,7 @@ test('audit: three verdicts on one ledger: a recorded change is review, allowCha
   // strict: review becomes fail
   a = IQC.audit(v, files, { strict: true })
   assert.equal(a.verdict, 'fail')
-  assert.equal(a.summary, 'Fail: 1 item for review counts as a failure in strict mode.')
-  assert.equal(IQC.audit(v, files, { strict: true, allowChanges: '*.log' }).verdict, 'pass')
+  assert.equal(a.summary, 'Fail: 1 item for review and 1 note count as failures in strict mode.')
+  assert.equal(IQC.audit(v, files, { strict: true, allowChanges: '*.log', expectHead: IQC.formatHead(v.head) }).verdict, 'pass')
   assert.throws(() => IQC.audit(v, files, { allowChanges: [''] }), /must be a non-empty string/)
 })

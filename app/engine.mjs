@@ -209,37 +209,43 @@ export function ledgerHeaderProblem(bytes) {
   return null
 }
 
-// The files to read: encoded paths, without the ledger's own folder and the default ignores (unless the ledger seals a
-// path that matches one), each path once.
+// The files to read: encoded paths, without what is never data (core's isNeverDataPath: any ImmutableQC folder, any
+// *.ledger.jsonl) and the default ignores (unless the ledger seals a path that matches one). A path written by two files
+// (two names that are the same once written in Unicode NFC, as café in NFC and in NFD) is read from neither: the path is
+// listed with no file, so core counts it "not checked" and the audit goes to review. Never one of the two at random.
+const TWIN = 'another file has the same name once written in Unicode NFC, so neither could be checked'
+// acc: {list, at: Map path -> index in list}. A second file for a path turns the first into an unreadable entry.
+function place(acc, x) {
+  const i = acc.at.get(x.path)
+  if (i === undefined) { acc.at.set(x.path, acc.list.length); acc.list.push(x); return }
+  if (!acc.list[i].twin) acc.list[i] = { path: x.path, raw: acc.list[i].raw, file: null, size: 0, error: TWIN, twin: true }
+}
 export function prepareFiles(files, sealed = null) {
   const ig = IQC.ignoreMatcher([])
-  const list = [], skipped = []
-  const seen = new Set()
+  const acc = { list: [], at: new Map() }, skipped = []
   for (const it of files) {
     let path
     try { path = IQC.encodePath(it.raw) } catch { skipped.push({ raw: it.raw, why: 'its name cannot be written in a ledger' }); continue }
-    if (IQC.isLedgerFolderPath(path)) continue
+    if (IQC.isNeverDataPath(path)) continue
     if (ig(path) && !(sealed && sealed.has(path))) continue
-    if (seen.has(path)) { skipped.push({ raw: it.raw, why: 'another file has the same name once written in Unicode NFC' }); continue }
-    seen.add(path)
-    if (!it.file) list.push({ path, raw: it.raw, file: null, size: 0, error: it.error || 'the browser could not open it' })
-    else list.push({ path, raw: it.raw, file: it.file, size: it.size !== undefined ? it.size : it.file.size, modified: it.modified })
+    if (!it.file) place(acc, { path, raw: it.raw, file: null, size: 0, error: it.error || 'the browser could not open it' })
+    else place(acc, { path, raw: it.raw, file: it.file, size: it.size !== undefined ? it.size : it.file.size, modified: it.modified })
   }
-  return { list, skipped }
+  return { list: acc.list, skipped }
 }
 // the same, a slice at a time, for long lists
 export async function prepareFilesSliced(files, sealed, signal) {
   const CHUNK = 4000
   if (files.length <= CHUNK) return prepareFiles(files, sealed)
-  const list = [], skipped = [], seen = new Set()
+  const acc = { list: [], at: new Map() }, skipped = []
   for (let a = 0; a < files.length; a += CHUNK) {
     const part = prepareFiles(files.slice(a, a + CHUNK), sealed)
-    for (const x of part.list) { if (seen.has(x.path)) skipped.push({ raw: x.raw, why: 'another file has the same name once written in Unicode NFC' }); else { seen.add(x.path); list.push(x) } }
+    for (const x of part.list) place(acc, x)
     skipped.push(...part.skipped)
     await yieldNow()
     if (signal && signal.aborted) throw new Canceled()
   }
-  return { list, skipped }
+  return { list: acc.list, skipped }
 }
 
 // ----------------------------------------------------------------------------------------------- the worker pool
@@ -438,8 +444,9 @@ export async function verify(pool, bytes, { onProgress, signal, progress }) {
 // located: from locate() (kind 'folder' or 'ledger-only'), or {kind: 'folder', root, ledger, files} with a ledger the
 // person chose. Returns {report, verified, entries (for a re-audit with a reviewer ledger), located, unreadable, skipped,
 // bytes, ms}. many: audit it with auditMany even when the ledger holds only file records (several pinned heads or key
-// ids, a pin file), with expectHeads, expectKeyIds, pinLines; allowChanges goes to either.
-export async function runAudit(located, { expectHead, expectKeyId, expectHeads, expectKeyIds, allowChanges, pinLines, many = false, onProgress, signal, pool, whole, slice, chosen = false } = {}) {
+// ids, a pin file, station or reviewer keys), with expectHeads, expectKeyIds, pinLines, stationKeys, reviewerKeys;
+// allowChanges goes to either.
+export async function runAudit(located, { expectHead, expectKeyId, expectHeads, expectKeyIds, stationKeys, reviewerKeys, allowChanges, pinLines, many = false, onProgress, signal, pool, whole, slice, chosen = false } = {}) {
   const t0 = Date.now()
   const progress = { stage: 'ledger', started: t0, root: located.root }
   const bytes = await readLedger(located.ledger)
@@ -460,12 +467,13 @@ export async function runAudit(located, { expectHead, expectKeyId, expectHeads, 
   progress.stage = 'audit'
   if (onProgress) onProgress(progress)
   await yieldNow()
-  const entries = [{ verified, root: located.kind === 'folder' ? '' : null, files, label: located.root || undefined, ledgerPath: located.ledger.raw }]
+  // the ledger of a dropped folder (or the one chosen for it) is the folder's own, audited against that folder
+  const entries = [{ verified, root: located.kind === 'folder' ? '' : null, folderOwn: located.kind === 'folder', files, label: located.root || undefined, ledgerPath: located.ledger.raw }]
   // a ledger with agent steps or reviews is traced as auditMany does (a step's outputs are not "not sealed" files);
   // a ledger of file records gets the one-ledger audit, the same report as iqc audit
   const k = verified.kinds || {}
-  const report = k.step || k.review || many
-    ? IQC.auditMany(entries, { expectHeads: expectHeads || expectHead || undefined, expectKeyIds: expectKeyIds || expectKeyId || undefined, allowChanges, pinLines, where: 'browser', tool: TOOL, folder: located.root || undefined })
+  const report = k.step || k.review || many || stationKeys || reviewerKeys
+    ? IQC.auditMany(entries, { expectHeads: expectHeads || expectHead || undefined, expectKeyIds: expectKeyIds || expectKeyId || undefined, stationKeys, reviewerKeys, allowChanges, pinLines, where: 'browser', tool: TOOL, folder: located.root || undefined })
     : IQC.audit(verified, files, {
       expectHead: expectHead || undefined,
       expectKeyId: expectKeyId || undefined,

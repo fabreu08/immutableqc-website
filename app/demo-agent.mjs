@@ -120,9 +120,10 @@ export function listing(lab, { cite = false, edited = false } = {}) {
 // <name>.ledger.jsonl, from a reviewer's name
 export const reviewFile = (name) => `${String(name || 'reviewer').normalize('NFKD').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase().slice(0, 48) || 'reviewer'}.ledger.jsonl`
 
-// The whole lab audited with auditMany, as a dropped lab folder is.
+// The whole lab audited with auditMany, as a dropped lab folder is, with the instrument's key listed as the station key
+// and, once a reviewer has signed, the reviewer's key as the reviewer key (the demo knows them; a real lab lists its own).
 export async function audit(lab, { pool, signal, cite = false, edited = false } = {}) {
-  return runAuditMany(locate(listing(lab, { cite, edited })), { pool, signal })
+  return runAuditMany(locate(listing(lab, { cite, edited })), { pool, signal, stationKeys: [lab.keys.instrument.keyId], reviewerKeys: lab.reviewKey ? [lab.reviewKey.keyId] : undefined })
 }
 
 // The demo reviewer approves every step the last audit shows, with a key of its own (in memory).

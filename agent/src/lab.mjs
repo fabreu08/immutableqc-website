@@ -121,20 +121,24 @@ async function probeLedger(refs) {
 }
 
 // refs: [{path, sha256, bytes}] (path in its stored form). Returns {inputs: [core's input objects, in order, each with
-// tree: its node in the trace tree], report}. ledgers: from labLedgers.
-export async function traceRefs(ledgers, refs, { maxDepth } = {}) {
-  const entries = ledgers.map((L) => ({ verified: L.verified, root: L.root ?? null, files: null, label: L.label, ledgerPath: L.rel }))
+// tree: its node in the trace tree], report, lineage: core's complete summary for all the refs together (measured,
+// untraced, over, cycle, empty, tracesToMeasured, sentence: never cut by a tree's size), notes}. ledgers: from
+// labLedgers. stationKeys and reviewerKeys are core's options (which ledgers count as measuring).
+export async function traceRefs(ledgers, refs, { maxDepth, stationKeys, reviewerKeys } = {}) {
   const probe = await probeLedger(refs)
-  entries.push({ verified: probe, root: null, files: null, label: PROBE_STATION })
-  const report = auditMany(entries, { maxDepth, where: 'command line' })
-  const li = entries.length - 1
+  // the probe is first, so its tree is built before the shared tree budget is used up by the lab's own steps
+  const entries = [{ verified: probe, root: null, files: null, label: PROBE_STATION }]
+  for (const L of ledgers) entries.push({ verified: L.verified, root: L.root ?? null, files: null, label: L.label, ledgerPath: L.rel })
+  const report = auditMany(entries, { maxDepth, where: 'command line', stationKeys: stationKeys && stationKeys.length ? stationKeys : undefined, reviewerKeys: reviewerKeys && reviewerKeys.length ? reviewerKeys : undefined })
+  const li = 0
   const step = report.steps.find((s) => s.ledger === li)
   const lo = report.lineage.outputs.find((o) => o.ledger === li)
   const nodes = lo && lo.tree ? lo.tree.inputs : []
   // inputs are deduplicated by core (an exact duplicate is left out): match them back by reference
   const key = (r) => `${r.sha256}:${r.bytes}:${r.path}`
   const byKey = new Map(step.inputs.map((x, k) => [key(x), { ...x, tree: nodes[k] || null }]))
-  return { inputs: refs.map((r) => byKey.get(key({ ...r, bytes: String(r.bytes) })) || null), report, probeLedger: li }
+  const notes = report.notes.filter((n) => n.code === 'station-keys-not-listed').map((n) => n.message)
+  return { inputs: refs.map((r) => byKey.get(key({ ...r, bytes: String(r.bytes) })) || null), report, probeLedger: li, lineage: step.lineage, notes }
 }
 
 // ------------------------------------------------------------------------------------------------ plain words

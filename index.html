@@ -182,11 +182,11 @@
       <div class="scope glass">
         <div class="scope-col scope-yes">
           <h3><svg aria-hidden="true" focusable="false"><use href="#i-check"/></svg>A pass shows</h3>
-          <p>Each file is byte-for-byte the one the agent sealed, and the ledger has not been edited, reordered or cut since it was signed.</p>
+          <p>Each file is byte-for-byte the one the agent sealed, and the ledger has not been edited or reordered since it was signed. Checked against a pinned head, it has not lost records since that head was pinned.</p>
         </div>
         <div class="scope-col scope-no">
           <h3><svg aria-hidden="true" focusable="false"><use href="#i-unchecked"/></svg>It does not show</h3>
-          <p>That a file was right when it was written, or a change in the few seconds before the agent reads a new file. Whoever holds the ledger’s key could rewrite it from the start; a head pinned elsewhere exposes that.</p>
+          <p>That a file was right when it was written, or a change in the few seconds before the agent reads a new file. Whoever holds the ledger’s key could rewrite it from the start, and anyone can remove its newest records without a key; a head pinned elsewhere exposes both.</p>
         </div>
         <p class="scope-line"><svg aria-hidden="true" focusable="false"><use href="#i-note"/></svg><span>A change on the instrument PC while the agent runs is sealed as a new version, with its time; the audit lists every version.</span></p>
       </div>
@@ -257,6 +257,8 @@
             <li>The same audit on the command line, with an exit code.</li>
             <li>A self-contained audit report, in HTML and JSON.</li>
             <li>Sealing in the browser, and a demo with sample data.</li>
+            <li>An AI agent’s steps are recorded, and each input is traced back: measured (sealed by a lab station), derived (written by a recorded step) or untraced, which goes to review.</li>
+            <li>A reviewer signs off each step, on the command line or in the app.</li>
           </ul>
         </div>
         <div class="glass status-panel">
@@ -265,7 +267,6 @@
             <li class="chip chip-upcoming"><span class="vh">Upcoming: </span>Merkle batches</li>
             <li class="chip chip-upcoming"><span class="vh">Upcoming: </span>Per-person signatures</li>
             <li class="chip chip-upcoming"><span class="vh">Upcoming: </span>Values extracted from inside files</li>
-            <li class="chip chip-upcoming"><span class="vh">Upcoming: </span>Lineage</li>
             <li class="chip chip-upcoming"><span class="vh">Upcoming: </span>Sealing inside the vendor’s software</li>
             <li class="chip chip-upcoming"><span class="vh">Upcoming: </span>A Windows installer and service</li>
             <li class="chip chip-upcoming"><span class="vh">Upcoming: </span>An npm package</li>
@@ -281,7 +282,7 @@
       <header class="section-h">
         <p class="eyebrow">Install</p>
         <h2 id="install-h">Get the agent.</h2>
-        <p>One file, no dependencies. Needs Node.js 20 or later on Windows, macOS or Linux.</p>
+        <p>One file, no dependencies. Needs Node.js 22 or later on Windows, macOS or Linux.</p>
       </header>
       <p class="vh" id="copy-status" aria-live="polite"></p>
       <div class="install-grid">
@@ -290,7 +291,7 @@
           <a class="btn btn-primary" href="download/iqc.mjs" download><svg aria-hidden="true" focusable="false"><use href="#i-down"/></svg>Download iqc.mjs</a>
           <div class="cmd sha">
             <div class="cmd-h"><span class="label" id="sha-l">SHA-256 of iqc.mjs</span><button class="copy" type="button" data-copy="sha-dl" aria-describedby="sha-l" hidden><svg aria-hidden="true" focusable="false"><use href="#i-copy"/></svg><span>Copy</span></button></div>
-            <p class="sha-body"><code class="sha-hex" id="sha-dl" data-sha256-of="download/iqc.mjs">dc17fd4c6ffa06f107acbfd554747931c8a274f084053647623596375a3c2df0</code></p>
+            <p class="sha-body"><code class="sha-hex" id="sha-dl" data-sha256-of="download/iqc.mjs">bf946887b5c62c83ec630dbd9a0641890b622572cbfc789d702a0ac04f41895a</code></p>
             <div class="sha-check">
               <p>Check your download:</p>
               <ul class="check-cmds">
@@ -325,7 +326,7 @@
 node iqc.mjs seal "D:\Results"
 <span class="cm"># print the head, to pin it somewhere else</span>
 node iqc.mjs head "D:\Results"
-<span class="cm"># exit 0 pass, 1 fail, 2 usage or read error</span>
+<span class="cm"># exit 0 pass, 3 review, 1 fail, 2 usage or read error</span>
 node iqc.mjs audit "D:\Results" --expect-head &lt;n&gt;:&lt;h&gt; --json audit.json</code></pre>
         </div>
       </div>

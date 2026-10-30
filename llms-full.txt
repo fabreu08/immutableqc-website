@@ -17,7 +17,7 @@ Works today:
 Upcoming: an npm package; a Windows installer and service; values read from inside files; per-person keys and signatures; Merkle batches; sealing inside the vendor's software; post-quantum signatures.
 
 Try it in one command (Linux; it runs only if the SHA-256 matches):
-curl -fsSO https://immutableqc.com/download/iqc.mjs && echo "dc17fd4c6ffa06f107acbfd554747931c8a274f084053647623596375a3c2df0  iqc.mjs" | sha256sum -c - && node iqc.mjs help
+curl -fsSO https://immutableqc.com/download/iqc.mjs && echo "bf946887b5c62c83ec630dbd9a0641890b622572cbfc789d702a0ac04f41895a  iqc.mjs" | sha256sum -c - && node iqc.mjs help
 macOS: shasum -a 256 -c. Windows: certutil -hashfile iqc.mjs SHA256, then compare. If they differ, do not run it.
 
 Connect it from any MCP client that starts local servers over standard input and output:
@@ -26,7 +26,7 @@ Connect it from any MCP client that starts local servers over standard input and
 - --search (repeatable): where the instruments' ledgers are. Give the lab folder, or a file sealed outside the root reads as untraced.
 
 The four tools (each result says which folders it searched):
-- check_inputs {paths}: per file, measured (a ledger sealed these exact bytes; its key id), derived (a recorded step wrote them) or untraced, and whether a sealed file changed after it was sealed. Only files a lab station sealed read as measured. Never run iqc seal or iqc watch on files yourself. Reads only.
+- check_inputs {paths}: per file, measured (a station's ledger sealed these exact bytes; its key id), derived (a recorded step wrote them) or untraced, and whether a sealed file changed after it was sealed. Only files a lab station sealed read as measured. Never run iqc seal or iqc watch on files yourself. Reads only.
 - record_step {action, inputs, outputs, input_refs?}: appends one signed record of a step (files by SHA-256 and size); the tool cannot remove it; a person reviews it. Recorded even when an input is untraced, with a warning.
 - trace {path}: a file's tree back to sealed files, and tracesToMeasured.
 - audit_summary {strict?}: pass, review or fail for every ledger under the search folders. Every tool but record_step reads only.
@@ -35,8 +35,8 @@ The loop: check_inputs before you use lab files; tell the person about an untrac
 
 Limits:
 - A pass does not show that a file was right when it was written, or a change made inside the settle window (10 s by default) before it was sealed.
-- Whoever holds a ledger's key could rewrite it, and a ledger cut short (its last records deleted) needs no key: both show only against a head pinned earlier (iqc head, then iqc audit --expect-head, or --pin-file); audit_summary checks none.
-- Measured means some ledger sealed those bytes, whatever its key: anyone, an agent included, can run iqc seal under any station name. Compare measured.keyId with the lab's station key ids (iqc status prints them); a built-in check is upcoming.
+- Whoever holds a ledger's key could rewrite it, and a ledger cut short (its last records deleted) needs no key: both show only against a head pinned earlier (iqc head, then iqc audit --expect-head, or --pin-file). Without one, an audit says so.
+- Measured: only a ledger with no agent steps measures; --station-key <keyId> (repeatable) limits it to listed keys, else any key counts. A reviewer is a key, not a name; --reviewer-key limits approvals. A step with no inputs goes to review.
 - A step records only the files it names. A trace follows the steps as the agent recorded them: a step can name inputs it did not use, or outputs it did not compute from them. A person's review checks that.
 - A key identifies a computer or a browser, not a person; per-person signatures are upcoming.
 - Values inside files are not read; reading them is upcoming.
@@ -61,11 +61,14 @@ Usage:  node iqc.mjs <command> [folder] [options]
                     1 fail, 2 usage or read error.
                     --report <file.html>   write the audit report (one HTML file, prints well)
                     --json <file.json>     write the machine-readable report (- for the output)
-                    --expect-head <n>:<h>  fail unless record n's link is h (a head pinned earlier)
-                    --expect-key <keyId>   fail unless the ledger is signed with this key id
+                    --expect-head <ledger id>:<n>:<h>  fail unless record n's link is h (a head
+                                           pinned earlier; iqc head prints it); repeatable
+                    --expect-key <keyId>   fail unless a ledger has this signing key; repeatable
+                    --station-key <keyId>  a key allowed to measure; repeatable (see iqc help audit)
+                    --reviewer-key <keyId> a key whose approvals count; repeatable
                     --allow-changes <glob> files whose recorded changes are expected; repeatable
                     --pin-file <file>      check the heads written there by watch or seal
-                    --ledger <file>        one more ledger to audit; repeatable
+                    --ledger <file>        a ledger kept elsewhere, audited against the folder
                     --strict               count items for review and notes as failures
   head   [folder]   Print the current head, to pin somewhere else (an email, an ELN entry,
                     a printout).
@@ -144,16 +147,31 @@ step's inputs back to the files instruments sealed. Prints the verdict; exit 0 p
 
   --report <file.html>    the audit report: one self-contained HTML file
   --json <file.json>      the machine-readable report (- writes it to the standard output)
-  --expect-head <n>:<h>   fail unless record n's link is h (a head pinned earlier with iqc head)
-  --expect-key <keyId>    fail unless the ledger is signed with this key id
+  --expect-head <ledger id>:<n>:<h>
+                          fail unless record n's link is h in that ledger (a head pinned
+                          earlier with iqc head, which prints this form). Without the ledger id
+                          it binds to the folder's own ledger. Repeatable.
+  --expect-key <keyId>    fail unless a ledger is signed with this key id; with several ledgers,
+                          fail on a ledger signed with another key. Repeatable.
+  --station-key <keyId>   the key of an instrument station (repeatable). With it, a file counts
+                          as measured only when a ledger signed by a listed key sealed it; a
+                          listed key that signs no audited ledger fails. Without it, any ledger
+                          that holds no agent steps measures, and a note says which keys counted.
+  --reviewer-key <keyId>  the key of a reviewer (repeatable). With it, only listed keys approve;
+                          a rejection or question counts from any key.
   --allow-changes <glob>  recorded changes to files that match are expected (not for review);
                           repeatable
   --pin-file <file>       the heads written by watch or seal --pin-file: fail when a ledger no
-                          longer holds one
-  --ledger <file>         one more ledger to audit (repeatable); for a folder whose ledger is
-                          kept elsewhere, the first --ledger is that ledger
-  --strict                count items for review and notes as failures
+                          longer holds one, or when a pinned ledger is not among those audited
+  --ledger <file>         a ledger kept elsewhere (repeatable). One that seals files or holds
+                          agent steps is audited against the folder, whatever its name; when the
+                          folder has its own ledger, it has no folder, and the audit says so
+  --strict                count items for review and notes as failures (a note that no head was
+                          pinned fails too)
   --ignore --quiet --no-color
+
+Without --expect-head or --pin-file, records removed from the end of a ledger cannot show; the
+audit says so in a note.
 
 Example: node iqc.mjs audit "D:\Lab" --report audit.html --pin-file "H:\pins\results.pins"
 
@@ -176,8 +194,15 @@ wrote them) or untraced. Exit 0 recorded, 1 refused or could not write, 2 usage 
   --in-ref <ref>     an input that is not a file under the root: <sha256>:<bytes>:<label>
   --out <file>       a file it wrote; repeatable, at least one
   --search <folder>  where to look for ledgers to trace the inputs (default: the root); repeatable
+  --station-key <keyId>  count a file as measured only when a ledger signed by this key sealed it
+                     (repeatable; see iqc help audit)
   --json <file>      the record and the traces as JSON (- for the output)
   --ledger --key --station --pin-file --quiet --no-color
+
+Name every file the step read: a step with no --in traces to nothing measured, and an audit
+lists it for review. An output may not be in an ImmutableQC folder, a *.ledger.jsonl file or the
+folder of another ledger, and the root's ledger may not belong to a station (one that holds file
+records): use a root of the agent's own.
 
 Example, run in D:\Lab\agent-workspace, where inputs\run-07.csv is a copy of a file the station
 D:\Lab\hplc-3 sealed (the same bytes trace as measured):
@@ -193,6 +218,8 @@ and prints the tree. Exit 0 when the file was measured, or every branch ends in 
 3 when something on the way is untraced (or the steps form a cycle); 2 for a usage or read error.
 
   --search <folder>  where to look for ledgers (default: the current folder); repeatable
+  --station-key <keyId>   count a file as measured only when a ledger signed by this key sealed it
+  --reviewer-key <keyId>  count an approval only from this key (both repeatable; see iqc help audit)
   --json <file>      the trace as JSON (- for the output)
 
 Example: node iqc.mjs trace summary.csv --search "D:\Lab"
@@ -239,6 +266,8 @@ or one iqc record. It stops when standard input closes, with an mcp-stopped reco
                      folder reads as untraced
   --actor <name>     the actor of each step unless the agent names one (default "agent")
   --tool <name>      the tool of each step unless the agent names one (default "-")
+  --station-key <keyId>   count a file as measured only when a ledger signed by this key sealed it
+  --reviewer-key <keyId>  count an approval only from this key (both repeatable; see iqc help audit)
   --ledger --key --station --pin-file --ignore --quiet
 
 Client setup (JSON; the file and its place depend on the client):
@@ -251,7 +280,8 @@ Client setup (JSON; the file and its place depend on the client):
 - Protocol versions: 2026-07-28, with no handshake (each request carries its version and the client's capabilities in _meta; server/discover), and the handshake versions 2025-11-25, 2025-06-18, 2025-03-26, 2024-11-05 (initialize, then notifications/initialized; ping).
 - Results: a plain text summary, and the same data as JSON text; from 2025-06-18 also structuredContent, matching each tool's outputSchema. Annotations from 2025-03-26: every tool but record_step is read-only.
 - Errors: a bad argument or a refused path is a tool error (isError: true) with a sentence saying why; an unknown method, an unknown tool and a malformed message are JSON-RPC errors.
-- check_inputs and trace read the ledgers lab stations write with iqc watch or iqc seal, under the search folders. Measured means some ledger there sealed the bytes, whatever its key: compare measured.keyId with the lab's station key ids.
+- Measured means a ledger that holds no agent steps sealed the bytes, or, when the server was started with --station-key, a ledger signed by a listed key: compare measured.keyId with the lab's station key ids. check_inputs and trace read the ledgers lab stations write with iqc watch or iqc seal, under the search folders.
+- A pin file that names a ledger no audited ledger has fails the audit. audit_summary checks a pin file only when the server was started with --pin-file.
 - Starting the server creates <root>/ImmutableQC/ (the agent's own ledger) and, for a new ledger, a signing key in ~/.immutableqc/keys/. One writer per root at a time: one server or one iqc record.
 - The server's instructions, sent at the start of a session, give the loop below and name the root and the search folders it was started with.
 - In a client's configuration file the entry usually sits under a name; the file and its place depend on the client:
@@ -321,7 +351,7 @@ Writes, and nothing else:
 - JSON Lines, UTF-8. Line 1 is the header: format immutableqc-ledger, version 1, the ledger id, the station, the algorithm ECDSA-P256-SHA256, the public key and its key id, and the header's signature.
 - Every later line is one record: n, kind (file, file-removed, session, step or review), its fields f, r (the record's SHA-256 fingerprint), prev (the link of the record before), h (this record's link) and sig (an ECDSA P-256 signature).
 - A file record holds the file's path, SHA-256, size, the time it was read and the event that sealed it (for example existing, added or changed); a file-removed record, a file recorded removed. A step record holds the actor, the tool, the action and its inputs and outputs by SHA-256 and size. A review record names the records it covers by ledger id, number and link.
-- An audit replays every link and signature, re-reads every file and traces every step's inputs: measured (a ledger sealed those bytes), derived (a recorded step wrote them) or untraced.
+- An audit replays every link and signature, re-reads every file and traces every step's inputs: measured (a ledger that holds no agent steps, or one signed by a listed station key, sealed those bytes), derived (a recorded step wrote them) or untraced; a step that names no inputs goes to review.
 
 ## When it is not the right tool
 

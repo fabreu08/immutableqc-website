@@ -15,18 +15,22 @@ run it. The server entry, as JSON:
   for a new ledger, a signing key in `~/.immutableqc/keys/`.
 - A root takes one writer at a time: one server or one `iqc record`.
 - `--actor <name>` and `--tool <name>` set the defaults for each step.
+- `--station-key <keyId>` (repeatable): count a file as measured only when a ledger signed by a listed key sealed it.
+  Without it, any ledger that holds no agent steps measures. `--reviewer-key <keyId>` (repeatable): count approvals
+  only from listed keys. `--pin-file <file>`: the pin file `audit_summary` checks.
 
 ## The four tools
 
 | Tool | Arguments | Returns | Writes |
 |---|---|---|---|
-| `check_inputs` | `paths` | Per file: measured (with the sealing station and key id), derived or untraced, and whether a sealed file changed | nothing |
+| `check_inputs` | `paths` | Per file: measured (a ledger that holds no agent steps, or one signed by a listed station key, sealed it; with the station and key id), derived or untraced, and whether a sealed file changed | nothing |
 | `record_step` | `action`, `inputs`, `outputs`, `input_refs?`, `actor?`, `tool?` | The step's reference, each file's SHA-256 and size, each input's trace, a warning for an untraced input | one signed record |
 | `trace` | `path` | The tree back to sealed files, and `tracesToMeasured` | nothing |
 | `audit_summary` | `strict?` | Pass, review or fail, with the problems and items for review | nothing |
 
-Every result also says which folders it searched and how many ledgers it found. `audit_summary` checks no pinned
-head, so a ledger cut short (its last records deleted) can still pass it. A trace follows the steps as the agent recorded them: a step can name inputs it did not use, or outputs it did not compute from them. A person's review checks that.
+Every result also says which folders it searched and how many ledgers it found. `audit_summary` checks a pin file
+only when the server was started with `--pin-file`; without a pinned head, a ledger cut short (its last records
+deleted) can still pass it, and the result carries a note that says so. A trace follows the steps as the agent recorded them: a step can name inputs it did not use, or outputs it did not compute from them. A person's review checks that.
 
 ## Versions and errors
 

@@ -28,7 +28,8 @@ per-person signatures, extracting values from inside files (per-result records),
 software before it writes the file, a Windows installer or service, an npm package, post-quantum signatures.
 
 What a seal does and does not show (say this plainly wherever it matters): a pass shows each file is byte-for-byte the
-one the agent sealed, and that the ledger has not been edited, reordered or cut since it was signed. It does not show the
+one the agent sealed, and that the ledger has not been edited or reordered since it was signed (records cut from its end
+show only against a pinned head: `--pin-file` or `--expect-head`). It does not show the
 file was right when it was written (a wrong value written by the instrument software is sealed as written), and it does
 not cover a change made between the moment the software writes the file and the moment the agent reads it (the agent
 waits for a file to stop changing for a few seconds; that window is the one gap). Someone holding the ledger's private key
@@ -38,7 +39,7 @@ could rewrite the ledger from the start; a head pinned somewhere else earlier (s
 
 | Path | What | Published on the site |
 |---|---|---|
-| `core/immutableqc.mjs` | The one implementation of the format: hashing, signing, ledger parse and verify, audit, report HTML. Isomorphic ES module, no dependencies, WebCrypto via `globalThis.crypto`. Node 20+ and current Chrome, Firefox, Safari. | yes (`core/immutableqc.mjs`): anyone can read the code that checks their data |
+| `core/immutableqc.mjs` | The one implementation of the format: hashing, signing, ledger parse and verify, audit, report HTML. Isomorphic ES module, no dependencies, WebCrypto via `globalThis.crypto`. Node.js 22+ and current Chrome, Firefox, Safari. | yes (`core/immutableqc.mjs`): anyone can read the code that checks their data |
 | `core/test/` | `node --test` unit tests | no |
 | `agent/` | The CLI (`iqc`): `agent/bin/iqc.mjs`, `agent/src/*.mjs`, `agent/test/`, `agent/README.md`, `agent/package.json` (no dependencies). Imports `../../core/immutableqc.mjs`. | no (sources) |
 | `agent/tools/bundle.mjs` → `download/iqc.mjs` | One-file build of the agent (core inlined) that people download and run with `node iqc.mjs …`. Committed; a test checks it is up to date. | yes (`download/iqc.mjs`) |
@@ -113,8 +114,9 @@ open, and one that does not stop before the next `mcp-started` is an unclean sto
 
 #### 3.4.1 Agent steps and reviews (`step`, `review`)
 Every actor keeps its own ledger and key (an instrument station: `file`, `file-removed`, `session`; an agent or pipeline:
-`step`; a human reviewer: `review`), so an agent cannot write an instrument's `file` records, and a measured value is
-always told apart from a derived one. The section 3.2 rules apply to every field; lists are encoded so no field holds `|`.
+`step`; a human reviewer: `review`), so an agent cannot write an instrument's `file` records into the instrument's
+ledger. Which ledgers count as measurements is decided at audit time by key (3.10: station keys); without listed keys,
+any ledger that holds no step records counts, and the audit says so. The section 3.2 rules apply to every field; lists are encoded so no field holds `|`.
 - **File reference** (`ref`): `<sha256>:<bytes>:<path>`, where `path` is the encoded path (3.2) relative to the actor's
   root, with `,` also written `%2C`. A ref list is the refs joined by `,`, in the order given, without duplicates; an
   empty list is `-`; at most 1,000 refs. `encodeRef`/`parseRef` and `encodeRefList`/`parseRefList` in core.
@@ -157,8 +159,13 @@ Per sealed path, from its latest record:
 - **removed**: latest record is `file-removed` and the file is not there (fine, recorded).
 - **back after removal**: latest record is `file-removed` but the file is there (a note: not sealed since).
 
-Files present that the ledger never sealed: **not sealed** (a note). Without a file map, file states are "not checked" and
-the audit covers the ledger only.
+Files present that the ledger never sealed: **not sealed** (a note). A sealed file present but not read (unreadable, or
+two names that are the same after NFC normalization) is **not checked**, a review item (`not-checked`). Without a file
+map, the sealed files are "not checked" and the audit is a review item (`files-not-checked`: "the ledger seals N files,
+but no folder was checked against it"), never a pass. What is never data is one rule (`isNeverDataPath`, for seal and
+audit): any path segment `ImmutableQC` (any case) and any file named `*.ledger.jsonl`. A path sealed in the past that
+this rule, an ignore pattern, or another ledger's folder now leaves out is **excluded** (note `excluded-after-seal`),
+not missing. A pass sentence states only what was checked ("1 of 2 sealed files matches its seal (1 left out)").
 
 Expectations: `expectHead {n, h}` must match record `n`'s link (a ledger that has grown since still passes);
 `expectKeyId` must equal the header's.
@@ -174,8 +181,14 @@ Verdict, three levels (an edited file must never pass silently, and a recorded c
   first sealed. Each change is recorded."
 - **pass**: neither. Notes stay notes, never failures unless `strict`: any `-unwatched` event, files not sealed, files
   back after removal, a watch (or MCP server) session that did not end cleanly (no stop before the next start), gaps
-  between sessions.
-- `strict`: review and notes both become failures.
+  between sessions, and `no-pinned-head` on every audit without an expected head or pin: records removed from the end
+  of a ledger break no signature or link, so they show only against a pinned head (`--pin-file` or `--expect-head`).
+  No text says a ledger was not cut unless a pinned head was checked.
+- `strict`: review and notes both become failures (so a strict audit needs a pinned head).
+- The re-run command in the report puts a folder or pattern inline only when every character is in
+  `[A-Za-z0-9._/@%+=:,-]` (a pattern may also hold `*`, `?` and spaces, in double quotes); otherwise it writes
+  `<folder>` (or `<pattern>`) and says what to replace it with, so a pasted command never runs a name as code in bash,
+  zsh, cmd or PowerShell.
 - An audit's exit code on the command line: 0 pass, 3 review, 1 fail, 2 usage or read error. The palette: cyan pass,
   amber review, coral fail; notes neutral.
 
@@ -197,15 +210,25 @@ every file it touched.
 ### 3.10 Audit across ledgers (`auditMany`)
 Input: several verified ledgers, each with its **root** (the folder holding its `ImmutableQC` folder, or the folder
 given for a ledger kept elsewhere; none for a reviewer's `*.ledger.jsonl`) and the files present under that root; options
-`expectHeads`, `expectKeyIds`, `allowChanges`, `pinLines`, `strict` (and `maxDepth`, 32). Ledgers are local files, each
+`expectHeads`, `expectKeyIds`, `stationKeys`, `reviewerKeys`, `allowChanges`, `pinLines`, `strict` (and `maxDepth`, 32).
+Each entry may name its `nested` folders (other ledgers' roots inside it, left out) and whether it is the audited
+folder's own ledger (`folderOwn`). A ledger with no root that holds `file`, `file-removed` or step records with outputs
+is a review item (`files-not-checked`), never a pass. Ledgers are local files, each
 signed by its own key, joined only here, by content; identity is the SHA-256, paths are labels.
 1. Each ledger is audited as in 3.8, its files against its own root (files a step of that ledger names are not "not
    sealed").
-2. **Lineage.** Every `file` record version is indexed by SHA-256 (measured), every step output by SHA-256 (derived).
-   Each input of each step is `measured` (matches a sealed measurement: which station, path, record and time; and
-   whether that file was sealed again later, "the file changed after this step used it", or before the step, "the step
-   used an earlier version"), `derived` (matches the output of another recorded step, preferably the latest one recorded
-   at or before the step), or `untraced` (matches nothing in the ledgers audited). Each output, a path relative to its
+2. **Lineage.** `file` record versions are indexed by SHA-256 (measured) only from ledgers signed by a listed station key
+   (`stationKeys`, `--station-key`); with none listed, only from ledgers that hold no step records (an agent's own
+   ledger never measures its own inputs), and the note `station-keys-not-listed` names the keys counted. A listed
+   station key that signs no audited ledger fails. Every step output is indexed by SHA-256 (derived). Each input of each
+   step is `derived` (the output of the latest step before it: in the same ledger, an earlier record; in another ledger,
+   one with `at` no later than the step's; followed even when a station sealed the same bytes, which are still listed),
+   else `measured` (matches a counted measurement: which station, path, record and time; and whether that file was
+   sealed again later, "the file changed after this step used it", or before the step, "the step used an earlier
+   version"), else `untraced` (with the reason when the bytes are sealed only in a ledger that does not count). No time
+   order between a station's `observedAt` and a step's `at` is checked (clocks differ, and the settle delay is 10 s).
+   A step that names no inputs is a review item (`no-inputs`: its outputs trace to nothing measured) until a reviewer
+   approves it. Each output, a path relative to its
    step ledger's root, is compared with the file there: `match`, `changed`, `missing`, `not checked`, or `superseded`
    (a later step of the same ledger wrote that path again; the latest one is compared). Per output: its trace back to
    measurements as a tree (cycle-safe, at most `maxDepth` steps deep, at most 200 nodes per tree and 50,000 in all), and
@@ -214,23 +237,33 @@ signed by its own key, joined only here, by content; identity is the SHA-256, pa
    inputs. The summaries are computed once per group of steps (strongly connected components), linear in steps and refs.
 3. **Reviews.** Each subject resolves to a record of an audited ledger by ledger id, `n` and `h`. A subject whose `h` no
    longer matches (or whose record is gone or after its ledger's first problem) is a problem: the record changed after it
-   was reviewed. A subject in a ledger not audited is a note. Each step gets a review state from the latest decision of
-   each reviewer (by time; all decisions are shown): `rejected` if any reviewer's latest is rejected, else `question`,
-   else `approved`, else `awaiting review`.
+   was reviewed. A subject in a ledger not audited is a note. A reviewer is a signing key (the name is a label). Each
+   step gets a review state from the latest decision of each key (the highest record number in its ledger; across
+   ledgers of one key, the latest `at`; all decisions are shown): `rejected` if any key's latest is rejected, else
+   `question`, else `approved` when a key's latest is approved, else `awaiting review`. With `reviewerKeys`
+   (`--reviewer-key`), approvals count only from listed keys (others: note `review-unlisted-key`), while rejections and
+   questions count from any key; without, the note `reviewer-keys-not-listed` names the keys whose approvals counted.
 4. **Pins** (`pinLines`, from a pin file): `immutableqc-head <ledgerId> <n>:<h> <time>`, one per line. For a ledger
-   audited, record `n` must still have link `h` (else fail); a pin for a ledger id not audited is a note ("another
-   ledger was pinned from this station, or its ledger was not included"); a line that does not read fails.
-   `parsePinLines` and `formatPinLine` in core. `expectHeads` take `n:h` (any audited ledger) or `<ledgerId> n:h`;
-   `expectKeyIds`: each must be the key of an audited ledger (else fail); a ledger signed by another key is a note.
+   audited, record `n` must still have link `h` (else fail); a pin for a ledger id no audited ledger has fails
+   (`pin-ledger-missing`: the ledger was deleted, started over, or is kept outside the folder; include one kept
+   elsewhere with `--ledger`); a line that does not read fails. When pins or expected heads hold for some ledger and none
+   names the folder's own ledger, that fails too (`ledger-not-pinned`: a ledger started over beside a copy of the pinned
+   one). `parsePinLines` and `formatPinLine` in core. Several
+   ledgers with one ledger id: each pin and expected head is checked against every copy (a shorter copy fails: "cut,
+   or an older copy"); the copy itself is a review item (`duplicate-ledger`). `expectHeads` take `<ledgerId>:n:h` (as
+   `iqc head` prints it) or `n:h`, which binds to the only ledger, else to the folder's own ledger, else fails ("name
+   the ledger id"); never to any ledger. `expectKeyIds`: each must be the key of an audited ledger (else fail); with
+   several ledgers, a ledger signed by a key not listed fails (`unexpected-key`, listing the keys found).
 5. **Verdict** across everything:
    - **fail**: any ledger problem; a file or a step output changed against its latest seal; a sealed file or output
      missing with no removal record; an expectation (head, key id, pin) that does not match; a review whose subject no
      longer matches.
-   - **review**: no failure, but at least one of: a recorded file change or removal not in `allowChanges` (3.8); a step
-     with an `untraced` input; a step in a cycle of steps (its inputs are, through other steps, its own outputs); a step
-     whose input file was sealed again after (or before) the step used it; a step marked `question` or `rejected`.
-   - **pass**: neither. Notes: each ledger's, steps awaiting review, outputs not checked, reviews or pins of ledgers not
-     audited, unexpected keys, a ledger given twice.
+   - **review**: no failure, but at least one of: a recorded file change or removal not in `allowChanges` (3.8); sealed
+     files or step outputs not checked; a ledger copy; a step with an `untraced` input or with no inputs; a step in a
+     cycle of steps (its inputs are, through other steps, its own outputs); a step whose input file was sealed again
+     after (or before) the step used it; a step marked `question` or `rejected`.
+   - **pass**: neither. Notes: each ledger's, steps awaiting review, reviews of ledgers not audited, keys not listed
+     (station, reviewer), approvals from unlisted keys, and each ledger no pinned head covers (`no-pinned-head`).
    - `strict`: review and notes become failures. Every reason is listed with the records it rests on, and the verdict
      is one sentence: "Review: 2 agent steps used inputs nothing measured and 1 file was changed after it was first
      sealed. Each is recorded below."
@@ -246,14 +279,12 @@ folder holding its `ImmutableQC` folder; a `*.ledger.jsonl` has no file root. Ea
 roots of the ledgers inside it (`nested`), whose files the caller leaves out of its file map. `discoverLedgers(paths)` in
 core takes the relative file paths of the folder and returns `[{ledgerPath, root, nested}]`.
 
-The command-line and app sides of 3.10 and 3.11 (`iqc audit` over a lab folder with `--allow-changes`, `--pin-file`,
-`--ledger`; the app's agent activity, ledgers and review mode; the landing page's agent story) are being built
-(`docs/build-notes/spec-addendum-agents.md`, D to F). Today `iqc audit` audits one ledger with the three verdicts (exit 3
-for review), and the app shows a review in amber.
+`iqc audit` runs 3.10 and 3.11 over a lab folder (`--allow-changes`, `--pin-file`, `--ledger`, `--expect-head`,
+`--expect-key`, `--station-key`, `--reviewer-key`), and the app does the same for a dropped folder; both call core.
 
 ## 4. The agent (`iqc`)
 
-Node 20+, no dependencies. Run as `node download/iqc.mjs <command>` (the one-file download) or `node agent/bin/iqc.mjs`.
+Node.js 22 or later, no dependencies (the agent refuses an older Node.js). Run as `node download/iqc.mjs <command>` (the one-file download) or `node agent/bin/iqc.mjs`.
 
 ```
 iqc watch [folder]   Seal everything now, then keep sealing new, changed and removed files until Ctrl+C.
@@ -326,7 +357,7 @@ change being caught; three steps (install the agent on the instrument PC, every 
 folder to audit in one click); why it matters (most bad data is not malicious: scripts, sync conflicts, restored backups;
 results now feed models that choose the next experiment; nothing readable leaves the lab, only fingerprints); who it is
 for (automated research labs first; regulated QC labs later); what works today and what is Upcoming (short); install
-(download `download/iqc.mjs`, its SHA-256 printed beside the link, needs Node.js 20 or later, one command); a footer with
+(download `download/iqc.mjs`, its SHA-256 printed beside the link, needs Node.js 22 or later, one command); a footer with
 Docs (the document set), contact via joseqc.com, the status line and the independence line.
 
 ## 7. Rules that carry over (from `site/HANDOFF.md`; they apply to every new page, the app and every shipped string)

@@ -59,17 +59,25 @@ export async function readFolder(root, verified, { ignore = [], own = new Set(),
 const inside = (dir, abs) => { const r = relative(dir, abs); return !!r && r !== '..' && !r.startsWith('..' + sep) && !isAbsolute(r) }
 const relLabel = (base, abs) => { const r = relative(base, abs); return r && !r.startsWith('..') && !isAbsolute(r) ? r.split(sep).join('/') : abs }
 
-// The ledgers an audit of `root` covers: [{abs, rootAbs | null, label, ledgerPath, own, lockPath, isFolderOwn}].
-// The folder's own ledger is <root>/ImmutableQC/ledger.jsonl, or, when there is none, the first --ledger that is not a
-// reviewer's *.ledger.jsonl (a ledger kept elsewhere, as watch and seal write it with --ledger).
-export async function ledgersOf(root, ledgerOpts = [], { pinFile = null } = {}) {
+// The ledgers an audit of `root` covers: [{abs, rootAbs | null, label, ledgerPath, own, nested, lockPath, isFolderOwn, read?}].
+// The folder's own ledger is <root>/ImmutableQC/ledger.jsonl. When there is none, a ledger kept elsewhere (given with
+// --ledger, or found as a *.ledger.jsonl) that seals files or holds agent steps is paired with the folder, whatever its
+// file name or the order of the --ledger options: it is audited against the folder. A ledger with nothing but reviews
+// and sessions has no file root. Every other ledger given by path has the root it sits in (ImmutableQC/ledger.jsonl) or
+// none, and core says "files not checked" about a ledger that seals files and has no folder.
+export async function ledgersOf(root, ledgerOpts = [], { pinFile = null, out = null } = {}) {
   const given = ledgerOpts.map((p) => { let a = resolve(p); try { if (statSync(a).isDirectory()) a = join(a, 'ledger.jsonl') } catch { /* checked below */ } return a })
   for (const a of given) if (!existsSync(a)) throw new UserError(`No ledger at ${a} (given with --ledger).`, EXIT_USAGE)
-  let ownLoc = locate(root, null)
-  if (!existsSync(ownLoc.ledgerPath) && given.length && !given[0].endsWith('.ledger.jsonl')) ownLoc = locate(root, given.shift())
+  const ownLoc = locate(root, null)
   const list = []
-  const seen = new Set()
-  const add = (e) => { if (!seen.has(e.abs)) { seen.add(e.abs); list.push(e) } }
+  const seen = new Map()
+  const add = (e, isGiven = false) => {
+    const old = seen.get(e.abs)
+    if (old) { if (isGiven) old.given = true; return }
+    e.given = isGiven
+    seen.set(e.abs, e)
+    list.push(e)
+  }
   if (existsSync(ownLoc.ledgerPath)) add({ abs: ownLoc.ledgerPath, rootAbs: root, own: new Set(ownLoc.own), lockPath: ownLoc.lockPath, isFolderOwn: true, ledgerPath: ownLoc.shown })
   for (const d of await discoverUnder(root)) {
     if (d.rootAbs === root) continue // the folder's own ledger, above
@@ -79,20 +87,46 @@ export async function ledgersOf(root, ledgerOpts = [], { pinFile = null } = {}) 
   for (const a of given) {
     const d = ledgerAt(a)
     const L = d.rootAbs ? locate(d.rootAbs, null) : null
-    add({ abs: a, rootAbs: d.rootAbs, own: L ? new Set(L.own) : null, lockPath: L ? L.lockPath : basename(a) === 'ledger.jsonl' ? join(dirname(a), 'agent.lock') : a + '.lock', ledgerPath: relLabel(root, a) })
+    add({ abs: a, rootAbs: d.rootAbs, own: L ? new Set(L.own) : null, lockPath: L ? L.lockPath : basename(a) === 'ledger.jsonl' ? join(dirname(a), 'agent.lock') : a + '.lock', ledgerPath: relLabel(root, a) }, true)
   }
-  // each folder's files leave out the other ledgers' folders and files inside it, and the pin file
+  // pair a ledger kept elsewhere with the folder (by what it holds, not by its name or position)
+  if (!list.some((e) => e.isFolderOwn)) {
+    const cand = list.filter((e) => !e.rootAbs)
+    for (const e of cand) e.read = await readEntry(e, out)
+    const kinds = (e) => e.read.verified.kinds || {}
+    const sealsFiles = (e) => !!(kinds(e).file || kinds(e)['file-removed'])
+    const hasSteps = (e) => !!kinds(e).step
+    const pick = cand.find((e) => e.given && sealsFiles(e)) || cand.find(sealsFiles) || cand.find((e) => e.given && hasSteps(e)) || cand.find(hasSteps)
+    if (pick) {
+      const L = locate(root, pick.abs)
+      Object.assign(pick, { rootAbs: root, own: new Set(L.own), lockPath: L.lockPath, isFolderOwn: true })
+    }
+  }
+  // each folder's files leave out the other ledgers' folders and files inside it (core marks sealed paths there
+  // "excluded", not missing), and the pin file
   for (const e of list) {
     if (!e.rootAbs) continue
+    e.own ||= new Set()
+    e.nested = []
+    const hide = (abs) => { const p = relPathOrNull(e.rootAbs, abs); if (p) { e.own.add(p); e.nested.push(p) } }
     for (const o of list) {
       if (o === e) continue
-      if (o.rootAbs && inside(e.rootAbs, o.rootAbs)) { const p = relPathOrNull(e.rootAbs, o.rootAbs); if (p) e.own.add(p) }
-      if (!o.rootAbs && inside(e.rootAbs, o.abs)) { const p = relPathOrNull(e.rootAbs, o.abs); if (p) e.own.add(p) }
+      if (o.rootAbs && inside(e.rootAbs, o.rootAbs)) hide(o.rootAbs)
+      if (!o.rootAbs && inside(e.rootAbs, o.abs)) hide(o.abs)
     }
-    if (pinFile && inside(e.rootAbs, pinFile)) { const p = relPathOrNull(e.rootAbs, pinFile); if (p) e.own.add(p) }
+    if (pinFile && inside(e.rootAbs, pinFile)) hide(pinFile)
   }
   for (const e of list) e.label = e.rootAbs ? (e.rootAbs === root ? basename(root) || root : relLabel(root, e.rootAbs)) : relLabel(root, e.abs)
   return list
+}
+
+// A ledger read and verified whole (the agent's lock says whether an agent is writing it now).
+async function readEntry(e, out, progress = 'Checking') {
+  const lock = peekLock(e.lockPath)
+  const live = lockState(lock) === 'live'
+  const r = await readLedgerSettled(e.abs, { agentRunning: () => live, onProgress: out ? (d, t) => out.progress(`${progress} ${e.label || e.ledgerPath}: ${formatCount(d)} of ${formatCount(t)} records`) : undefined })
+  if (out) out.clearProgress()
+  return { ...r, lock, live }
 }
 
 // Reads, verifies and (for a ledger with a folder) reads the files of each ledger, then audits them together with
@@ -100,11 +134,9 @@ export async function ledgersOf(root, ledgerOpts = [], { pinFile = null } = {}) 
 export async function auditLedgers(list, opts, { out, folder, pinLines } = {}) {
   const entries = []
   for (const e of list) {
-    const lock = peekLock(e.lockPath)
-    const live = lockState(lock) === 'live'
-    const r = await readLedgerSettled(e.abs, { agentRunning: () => live, onProgress: out ? (d, t) => out.progress(`Checking ${e.label}: ${formatCount(d)} of ${formatCount(t)} records`) : undefined })
-    if (out) out.clearProgress()
-    if (live && out) out.note(`An agent is writing ${e.label} now (${describeLock(lock.info)}): a file written during the audit may show as changed or not sealed. Audit again to be sure.`)
+    const r = e.read || await readEntry(e, out)
+    const lock = r.lock || peekLock(e.lockPath)
+    if (r.live && out) out.note(`An agent is writing ${e.label} now (${describeLock(lock.info)}): a file written during the audit may show as changed or not sealed. Audit again to be sure.`)
     let files = null
     if (e.rootAbs) {
       const f = await readFolder(e.rootAbs, r.verified, { ignore: opts.ignore, own: e.own, out, label: `Reading ${e.label}:` })
@@ -114,10 +146,13 @@ export async function auditLedgers(list, opts, { out, folder, pinLines } = {}) {
         for (const [p] of f.walk.ambiguous) out.note(`Not checked: more than one file is named ${e.label}/${displayPath(p)}, in different Unicode forms (NFC and NFD).`)
       }
     }
-    entries.push({ verified: r.verified, root: e.rootAbs ? e.label : null, files, label: e.label, ledgerPath: e.ledgerPath })
+    entries.push({ verified: r.verified, root: e.rootAbs ? e.label : null, files, label: e.label, ledgerPath: e.ledgerPath, nested: e.nested || [], folderOwn: !!e.isFolderOwn })
   }
   return auditMany(entries, {
-    expectHeads: opts['expect-head'] ? [opts['expect-head']] : undefined, expectKeyIds: opts['expect-key'] ? [opts['expect-key']] : undefined,
+    expectHeads: opts['expect-head'] && opts['expect-head'].length ? opts['expect-head'] : undefined,
+    expectKeyIds: opts['expect-key'] && opts['expect-key'].length ? opts['expect-key'] : undefined,
+    stationKeys: opts['station-key'] && opts['station-key'].length ? opts['station-key'] : undefined,
+    reviewerKeys: opts['reviewer-key'] && opts['reviewer-key'].length ? opts['reviewer-key'] : undefined,
     allowChanges: opts['allow-changes'] || [], pinLines, strict: !!opts.strict, where: 'command line', tool: AGENT, ignore: opts.ignore, folder,
   })
 }
@@ -140,13 +175,15 @@ export async function runAudit({ folder, opts, out, stdout = process.stdout }) {
   }
   const shownFolder = folder == null ? '.' : folder
   let report, single = null
-  if (list.length === 1 && list[0].isFolderOwn && pinText === undefined) {
+  // the single-ledger audit takes one expected head without a ledger id and one key, and has no station or reviewer keys
+  const eh = opts['expect-head'] || [], ek = opts['expect-key'] || []
+  const simple = eh.length <= 1 && !(eh[0] && eh[0].ledgerId) && ek.length <= 1 && !(opts['station-key'] || []).length && !(opts['reviewer-key'] || []).length
+  if (list.length === 1 && list[0].isFolderOwn && pinText === undefined && simple) {
     // one ledger of the folder's own: the single-ledger audit, unless it holds agent steps or reviews
     const e = list[0]
-    const lock = peekLock(e.lockPath)
-    const live = lockState(lock) === 'live'
-    const r = await readLedgerSettled(e.abs, { agentRunning: () => live, onProgress: (d, t) => out.progress(`Checking the ledger: ${formatCount(d)} of ${formatCount(t)} records`) })
-    out.clearProgress()
+    const r = e.read || await readEntry({ ...e, label: 'the ledger' }, out)
+    const lock = r.lock || peekLock(e.lockPath), live = r.live !== undefined ? r.live : lockState(lock) === 'live'
+    e.read = r
     const v = r.verified
     if (!(v.kinds && (v.kinds.step || v.kinds.review))) {
       if (live) out.note(`An agent is sealing this folder now (${describeLock(lock.info)}): a file written during the audit may show as changed or not sealed. Audit again to be sure.`)
@@ -154,7 +191,7 @@ export async function runAudit({ folder, opts, out, stdout = process.stdout }) {
       for (const p of w.symlinks) out.note(`Skipped ${displayPath(p)}: a symbolic link (links are never followed or sealed).`)
       for (const [p] of w.ambiguous) out.note(`Not checked: more than one file is named ${displayPath(p)}, in different Unicode forms (NFC and NFD).`)
       report = audit(v, files, {
-        expectHead: opts['expect-head'], expectKeyId: opts['expect-key'], allowChanges: opts['allow-changes'] || [], strict: !!opts.strict,
+        expectHead: eh[0] ? { n: eh[0].n, h: eh[0].h } : undefined, expectKeyId: ek[0], allowChanges: opts['allow-changes'] || [], strict: !!opts.strict,
         where: 'command line', tool: AGENT, ignore: opts.ignore, folder: shownFolder,
       })
       single = e
@@ -221,6 +258,7 @@ function printReport(report, { out, loc, written }) {
   if (c.removed) parts.push(`${c.removed} removed (recorded)`)
   if (c.backAfterRemoval) parts.push(`${c.backAfterRemoval} back after removal`)
   if (c.notChecked) parts.push(`${c.notChecked} not checked`)
+  if (c.excluded) parts.push(`${c.excluded} left out of the audit`)
   out.print(`${out.paint('dim', 'Files  ')}  ${plural(c.sealed, 'file', 'files')} sealed: ${parts.join(', ')}${c.notSealed ? `; ${plural(c.notSealed, 'file', 'files')} not sealed` : ''}; read ${plural(c.filesRead, 'file', 'files')} (${formatBytes(c.bytesRead)})`)
   for (const [what, file] of written) out.print(`${out.paint('dim', what === 'report' ? 'Report ' : 'JSON   ')}  ${file}`)
 }
@@ -264,10 +302,11 @@ function printMany(report, { out, written }) {
   if (c.missing) parts.push(`${c.missing} missing`)
   if (c.removed) parts.push(`${c.removed} removed (recorded)`)
   if (c.notChecked) parts.push(`${c.notChecked} not checked`)
+  if (c.excluded) parts.push(`${c.excluded} left out of the audit`)
   out.print(`${out.paint('dim', 'Files  ')}  ${plural(c.sealed, 'file', 'files')} sealed: ${parts.join(', ')}${c.notSealed ? `; ${plural(c.notSealed, 'file', 'files')} not sealed` : ''}; read ${plural(c.filesRead, 'file', 'files')} (${formatBytes(c.bytesRead)})`)
   if (c.steps) {
     out.print(`${out.paint('dim', 'Steps  ')}  ${plural(c.steps, 'agent step', 'agent steps')}: inputs ${c.measuredInputs} measured, ${c.derivedInputs} derived, ${c.untracedInputs} untraced; ${c.stepsApproved} approved, ${c.stepsQuestion} questioned, ${c.stepsRejected} rejected, ${c.stepsAwaiting} awaiting review`)
   }
-  if (c.pinsChecked) out.print(`${out.paint('dim', 'Pins   ')}  ${plural(c.pinsChecked, 'pin line', 'pin lines')} checked${c.pinFails ? `, ${c.pinFails} not matching` : ', all matching'}`)
+  if (c.pinsChecked) { const bad = (c.pinFails || 0) + (c.pinsMissing || 0); out.print(`${out.paint('dim', 'Pins   ')}  ${plural(c.pinsChecked, 'pin line', 'pin lines')} checked${bad ? `, ${bad} not matching` : ', all matching'}`) }
   for (const [what, file] of written) out.print(`${out.paint('dim', what === 'report' ? 'Report ' : 'JSON   ')}  ${file}`)
 }

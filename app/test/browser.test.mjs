@@ -159,7 +159,8 @@ test('audit: the sample folder is a review (a file sealed again, a removal), wit
   // the ledger panel: copy buttons, the agent (not sealed), the pinned-head advice, the command line
   const side = await page.textContent('#audit [data-view="result"] .col-side')
   assert.ok(side.includes('immutableqc-cli/0.1.0') && side.includes('(not sealed)') && /None given\. Pin one with iqc head/.test(side.replace(/\s+/g, ' ')))
-  assert.ok((await page.textContent('#audit [data-view="result"] .rerun pre')).includes(`node iqc.mjs audit "sample" --expect-head ${want.headString} --json audit.json`))
+  assert.ok((await page.textContent('#audit [data-view="result"] .rerun pre')).includes(`node iqc.mjs audit sample --expect-head ${want.headString} --expect-key ${want.keyId} --json audit.json`))
+  assert.match(await page.textContent('#audit [data-view="result"] .rerun'), /Exit 0 pass, 3 review, 1 fail, 2 usage or read error/)
   await axeCheck(page, 'audit review')
   await noOverflow(page, 'audit review')
   // keyboard: the Notes filter and the search work from the keyboard
@@ -187,7 +188,7 @@ test('audit: the tampered folder fails, with the expected state for every file',
   const body = (await page.textContent('#audit [data-view="result"]')).replace(/\s+/g, ' ')
   assert.ok(body.includes('A fail is a finding, not a verdict on anyone: compare the changed files with your backups, and keep the report with the run.'))
   assert.ok(body.includes('Problems 3 · each one fails the audit'))
-  assert.ok(/3 notes \(not failures\): 1 change found by a later scan, 1 file never sealed, 1 gap between sessions\./.test(body), body.slice(0, 2000))
+  assert.ok(/4 notes \(not failures\): 1 change found by a later scan, 1 file never sealed, 1 gap between sessions, 1 ledger with no pinned head\./.test(body), body.slice(0, 2000))
   assert.ok(body.includes('76 bytes instead of 115.') && body.includes('60 bytes, the same size as sealed: only the content differs.'))
   assert.ok(body.includes('They match the version sealed in record 2, not the latest one'))
   const r = await jsonReport(page, 'audit')
@@ -788,6 +789,134 @@ test(`scale: a folder of ${IQC.formatCount(LARGE)} files is audited with the pag
   console.log(`# scale: ${LARGE} files, setInputFiles + audit ${((Date.now() - t0) / 1000).toFixed(1)} s (audit ${(tAudit / 1000).toFixed(1)} s), longest main-thread gap ${gap.toFixed(0)} ms, search ${tSearch} ms`)
   assert.ok(gap < 1000, `the page's thread was blocked for ${gap.toFixed(0)} ms`)
   assert.ok(tSearch < 3000, `a search took ${tSearch} ms`)
+  await page.done()
+})
+
+// ------------------------------------------------------------------------------- the review's findings (adversarial review)
+const verdictText = async (page) => (await page.textContent('#audit [data-view="result"]')).replace(/\s+/g, ' ')
+
+test('INT-1: a ledger renamed to *.ledger.jsonl with an edited file is a review, never a pass; the text does not call the folder intact', { skip: SKIP, timeout: 120000 }, async () => {
+  const dir = join(tmp, 'int1', 'data')
+  writeSample(dir)
+  const home = join(tmp, 'int1-home')
+  mkdirSync(home, { recursive: true })
+  const env = { ...process.env, HOME: home, USERPROFILE: home, NO_COLOR: '1' }
+  delete env.NODE_TEST_CONTEXT
+  const sealed = spawnSync(process.execPath, [join(ROOT, 'download', 'iqc.mjs'), 'seal', dir, '--settle', '0', '--station', 'bio-line-2'], { env, encoding: 'utf8', timeout: 60000 })
+  assert.equal(sealed.status, 0, sealed.stdout + sealed.stderr)
+  writeFileSync(join(dir, EDIT.path), Buffer.from(readFileSync(join(dir, EDIT.path), 'utf8').replace(`A01,${EDIT.before}`, `A01,${EDIT.after}`)))
+  renameSync(join(dir, 'ImmutableQC', 'ledger.jsonl'), join(dir, 'ImmutableQC', 'station.ledger.jsonl'))
+  const page = await open('/app/')
+  await auditFolder(page, dir)
+  assert.match(await page.textContent(`${RESULT('audit')} .tag`), /Review/)
+  const text = await verdictText(page)
+  assert.ok(/seals \d+ files?, but no folder was checked/.test(text), text.slice(0, 1500))
+  assert.ok(!/match their seals|intact and|Each file checked is byte for byte/.test(text), text.slice(0, 600))
+  const r = await jsonReport(page, 'audit')
+  assert.equal(r.verdict, 'review')
+  assert.ok(r.forReview.some((g) => g.code === 'files-not-checked'))
+  assert.equal(r.counts.match, 0)
+  await page.done()
+})
+
+test('INT-2: a sealed file edited behind an NFC/NFD twin name is not a match: both names are not checked and the audit is a review', { skip: SKIP, timeout: 120000 }, async () => {
+  const dir = join(tmp, 'int2', 'data'), home = join(tmp, 'int2-home')
+  mkdirSync(dir, { recursive: true })
+  mkdirSync(home, { recursive: true })
+  writeFileSync(join(dir, 'caf\u00e9.csv'), 'a,b\n1,2\n')
+  writeFileSync(join(dir, 'other.csv'), 'a,b\n3,4\n')
+  const env = { ...process.env, HOME: home, USERPROFILE: home, NO_COLOR: '1' }
+  delete env.NODE_TEST_CONTEXT
+  const sealed = spawnSync(process.execPath, [join(ROOT, 'download', 'iqc.mjs'), 'seal', dir, '--settle', '0', '--station', 'bench'], { env, encoding: 'utf8', timeout: 60000 })
+  assert.equal(sealed.status, 0, sealed.stdout + sealed.stderr)
+  writeFileSync(join(dir, 'cafe\u0301.csv'), 'a,b\n1,2\n') // the original bytes, under the NFD spelling
+  writeFileSync(join(dir, 'caf\u00e9.csv'), 'a,b\n9,9\n') // the sealed file, edited
+  const page = await open('/app/')
+  await auditFolder(page, dir)
+  assert.match(await page.textContent(`${RESULT('audit')} .tag`), /Review/)
+  const r = await jsonReport(page, 'audit')
+  assert.equal(r.verdict, 'review')
+  assert.equal(r.files.find((f) => f.path === 'caf\u00e9.csv').state, 'not checked')
+  assert.ok(r.forReview.some((g) => g.code === 'not-checked'))
+  assert.equal(r.counts.match, 1)
+  const text = await verdictText(page)
+  assert.ok(/could not be checked|not checked/.test(text) && !/All 2 files match/.test(text), text.slice(0, 800))
+  await page.done()
+})
+
+test('INT-6 / HON-3: a pass never says the ledger was not cut unless a pinned head matched; with one it says so', { skip: SKIP, timeout: 120000 }, async () => {
+  const page = await open('/app/')
+  await auditFolder(page, join(LAB, 'bio-line-2'))
+  assert.match(await page.textContent(`${RESULT('audit')} .tag`), /Pass/)
+  let why = (await page.textContent('#audit [data-view="result"] .v-why')).replace(/\s+/g, ' ')
+  assert.ok(why.includes('A cut from the end of a ledger shows only against a pinned head.'), why)
+  assert.ok(!/not edited, reordered or cut|was not cut|not been cut|has not been shortened/.test(why), why)
+  const r = await jsonReport(page, 'audit')
+  assert.ok(r.notes.some((n) => n.code === 'no-pinned-head'))
+  // with the head pinned, the claim stands
+  await page.click('#audit [data-view="result"] [data-act="reset"]')
+  await page.click('#audit-opts summary')
+  await page.fill('#audit-head', `${r.ledger.head.n}:${r.ledger.head.h}`)
+  await auditFolder(page, join(LAB, 'bio-line-2'))
+  assert.match(await page.textContent(`${RESULT('audit')} .tag`), /Pass/)
+  why = (await page.textContent('#audit [data-view="result"] .v-why')).replace(/\s+/g, ' ')
+  assert.ok(why.includes('The pinned head still matches, so it was not cut short.'), why)
+  assert.ok(!(await jsonReport(page, 'audit')).notes.some((n) => n.code === 'no-pinned-head'))
+  await page.done()
+})
+
+test('WS-1: a folder name that could run as code is never in the copied command: the placeholder <folder> is, with the line saying what to put there', { skip: SKIP, timeout: 120000 }, async () => {
+  const plain = join(tmp, 'ws1', 'sample'), hostile = join(tmp, 'ws1b', 'plate-reader $(touch PWNED-by-folder-name) `id` "x" \'y\'')
+  cpSync(join(FX, 'sample'), plain, { recursive: true })
+  cpSync(join(FX, 'sample'), hostile, { recursive: true })
+  const page = await open('/app/')
+  await auditFolder(page, plain)
+  const ok = (await page.textContent('#audit [data-view="result"] .rerun pre')).trim()
+  assert.ok(ok.startsWith('node iqc.mjs audit sample --expect-head '), ok)
+  assert.equal(await page.$('#audit [data-view="result"] [data-rerun-replace]'), null)
+  await page.click('#audit [data-view="result"] [data-act="reset"]')
+  await auditFolder(page, hostile)
+  const cmd = (await page.textContent('#audit [data-view="result"] .rerun pre')).trim()
+  assert.ok(cmd.startsWith('node iqc.mjs audit <folder> --expect-head '), cmd)
+  assert.ok(!/[$`"']|PWNED|plate-reader/.test(cmd), cmd)
+  const copied = await page.getAttribute('#audit [data-view="result"] .rerun [data-copy]', 'data-copy')
+  assert.equal(copied, cmd)
+  assert.equal((await page.textContent('#audit [data-view="result"] [data-rerun-replace]')).trim(), "Replace <folder> with the folder's path.")
+  await page.done()
+})
+
+test('UX-1: a second reviewer name in the same tab keeps the first reviewer\'s ledger, so a rejection survives; each ledger downloads', { skip: SKIP, timeout: 120000 }, async () => {
+  const dir = join(tmp, 'ux1', 'lab')
+  cpSync(LAB, dir, { recursive: true })
+  rmSync(join(dir, 'reviews'), { recursive: true })
+  const page = await open('/app/')
+  await auditFolder(page, dir)
+  await page.click('#audit [data-view="result"] [data-act="review-open"]')
+  await page.waitForSelector('#audit .review-mode')
+  const sign = async (name, step, decision) => {
+    await page.fill('#audit .review-mode input[type="text"]', name)
+    const boxes = await page.$$('#audit .review-mode .rv-pick input[type="checkbox"]')
+    for (const [i, b] of boxes.entries()) { if (i === step) await b.check(); else await b.uncheck() }
+    await page.check(`#audit .review-mode input[value="${decision}"]`)
+    await page.click('#audit .review-mode button[type="submit"]')
+    await page.waitForSelector('#audit .review-mode .rv-done')
+  }
+  await sign('J. Rivera', 0, 'rejected')
+  assert.equal((await jsonReport(page, 'audit')).steps[0].review.state, 'rejected')
+  await sign('M. Chen', 1, 'approved')
+  const r = await jsonReport(page, 'audit')
+  assert.equal(r.steps[0].review.state, 'rejected', 'the first reviewer\'s rejection is still in the audit')
+  assert.equal(r.steps[1].review.state, 'approved')
+  assert.equal(r.verdict, 'review', 'a rejection keeps the verdict at Review')
+  assert.equal(r.ledgers.filter((L) => L.role === 'reviewer').length, 2)
+  assert.deepEqual(r.reviews.map((x) => x.reviewer).sort(), ['J. Rivera', 'M. Chen'])
+  const names = []
+  for (const b of await page.$$('#audit .review-mode [data-act="review-download"]')) {
+    const [dl] = await Promise.all([page.waitForEvent('download'), b.click()])
+    names.push(dl.suggestedFilename())
+    assert.equal((await IQC.verifyLedger(readFileSync(await dl.path(), 'utf8'))).ok, true)
+  }
+  assert.deepEqual(names, ['j-rivera.ledger.jsonl', 'm-chen.ledger.jsonl'])
   await page.done()
 })
 

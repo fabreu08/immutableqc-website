@@ -1751,6 +1751,23 @@ let G7H = null // the 7h guard, kept for section 7i
   facts(`${SKILL}/references/cli.md`, plainOf(`${SKILL}/references/cli.md`), { tools: false, config: false })
   facts(`${SKILL}/references/mcp.md`, plainOf(`${SKILL}/references/mcp.md`))
   facts('agent/README.md', plainOf('agent/README.md'), { config: false })
+  // the landing page (written by hand, never by this build) says what the agent says: the Node.js major version in agent/package.json,
+  // the four exit codes, lineage as shipped (review findings CLI-7, UX-10, HON-4, HON-5), and no file claims a cut is seen without a pinned head (HON-3, INT-6)
+  {
+    const ixt = proseOf(readFileSync(join(OUT, 'index.html'), 'utf8')).join('\n')
+    const major = String((JSON.parse(readFileSync(join(OUT, 'agent/package.json'), 'utf8')).engines.node.match(/\d+/) || [])[0])
+    const landing = (t) => ({
+      [`index.html: says Node.js ${major} or later, as agent/package.json engines does, and no other Node.js version as enough`]: [...t.matchAll(/Node\.js (\d+) or later/g)].length > 0 && [...t.matchAll(/Node\.js (\d+) or later/g)].every((m) => m[1] === major),
+      'index.html: every exit-code line is 0 pass, 3 review, 1 fail, 2 usage or read error': (t.match(/\bexit 0 pass[^\n]*/g) || []).length > 0 && (t.match(/\bexit 0 pass[^\n]*/g) || []).every((l) => l.startsWith(EXIT_LINE)),
+      'index.html: lineage, tracing and reviewer sign-off work today, so Lineage is not under Upcoming': !/Upcoming:?\s*Lineage/i.test(t),
+    })
+    for (const [name, cond] of Object.entries(landing(ixt))) ok(name, cond)
+    ok('landing lint: the page passes, and each drift is caught', Object.values(landing('Needs Node.js 22 or later.\n# exit 0 pass, 3 review, 1 fail, 2 usage or read error')).every(Boolean) && [`Needs Node.js 20 or later.\n# ${EXIT_LINE}`, `Needs Node.js ${major} or later.\n# exit 0 pass, 1 fail, 2 usage or read error`, `Needs Node.js ${major} or later.\n# ${EXIT_LINE}\nUpcoming: Lineage`].every((t) => !Object.values(landing(t)).every(Boolean)))
+    // a pass never says a ledger was not cut or shortened: the chain cannot show that without a pinned head
+    const CUT = /\b(?:edited|reordered)(?:,| or)(?: reordered)?(?: or)? (?:cut|shortened|truncated)\b|\b(?:not|never) (?:been )?(?:cut|shortened|truncated)\b/i
+    for (const [f, t] of [['index.html', ixt], ...['agents.html', 'llms.txt', 'llms-full.txt', 'README.md', 'AGENTS.md', `${SKILL}/SKILL.md`, `${SKILL}/references/cli.md`, `${SKILL}/references/mcp.md`, 'agent/README.md'].map((g) => [g, plainOf(g)])]) ok(`${f}: never says a ledger was not cut or shortened (a cut from the end shows only against a pinned head)`, !CUT.test(t))
+    ok('cut lint: catches "edited, reordered or cut" and "has not been shortened", passes "cut short needs no key"', CUT.test('the ledger has not been edited, reordered or cut since it was signed') && CUT.test('The ledger has not been shortened.') && !CUT.test('A ledger cut short needs no key; it shows only against a pinned head.'))
+  }
   // the drift checks catch what they are for, and pass what the files say
   {
     const good = `Node.js 22 or later. iqc.mjs ${AGENT_VERSION}. ${CONFIG_JSON} ${TOOLN.join(', ')}. Protocol versions ${TXT.protocols}. Exit 0 pass, 3 review, 1 fail, 2 usage or read error.\nnode iqc.mjs audit /lab --expect-head 3:abc --pin-file pins.txt\nnode iqc.mjs record --root /lab/ws --search /lab --in a.csv --out b.csv`

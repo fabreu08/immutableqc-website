@@ -5,23 +5,23 @@ import { usageError } from './util.mjs'
 
 export const COMMANDS = ['watch', 'seal', 'audit', 'head', 'status', 'record', 'trace', 'review', 'mcp', 'help']
 const VALUE = ['ledger', 'key', 'station', 'interval', 'settle', 'ignore', 'report', 'json', 'expect-head', 'expect-key', 'allow-changes', 'pin-file',
-  'root', 'actor', 'action', 'tool', 'in', 'out', 'in-ref', 'search', 'reviewer', 'decision', 'note']
+  'root', 'actor', 'action', 'tool', 'in', 'out', 'in-ref', 'search', 'reviewer', 'decision', 'note', 'station-key', 'reviewer-key']
 const FLAG = ['quiet', 'no-color', 'strict', 'help', 'version']
 // options that may be given more than once (a list); --ledger is a list only for iqc audit
-const REPEAT = ['ignore', 'allow-changes', 'in', 'out', 'in-ref', 'search', 'ledger']
+const REPEAT = ['ignore', 'allow-changes', 'in', 'out', 'in-ref', 'search', 'ledger', 'expect-head', 'expect-key', 'station-key', 'reviewer-key']
 const PATHS = ['ledger', 'key', 'report', 'json', 'pin-file', 'root', 'in', 'out', 'search']
 // the options of each command (--quiet, --no-color, --help and --version go with every command)
 const OLD = ['ledger', 'key', 'station', 'interval', 'settle', 'ignore']
 const OPTIONS = {
   watch: [...OLD, 'pin-file'],
   seal: [...OLD, 'pin-file'],
-  audit: [...OLD, 'report', 'json', 'expect-head', 'expect-key', 'strict', 'allow-changes', 'pin-file'],
+  audit: [...OLD, 'report', 'json', 'expect-head', 'expect-key', 'strict', 'allow-changes', 'pin-file', 'station-key', 'reviewer-key'],
   head: OLD,
   status: OLD,
-  record: ['root', 'actor', 'action', 'tool', 'in', 'out', 'in-ref', 'search', 'ledger', 'key', 'station', 'json', 'pin-file'],
-  trace: ['search', 'json', 'ignore'],
+  record: ['root', 'actor', 'action', 'tool', 'in', 'out', 'in-ref', 'search', 'ledger', 'key', 'station', 'json', 'pin-file', 'station-key'],
+  trace: ['search', 'json', 'ignore', 'station-key', 'reviewer-key'],
   review: ['reviewer', 'decision', 'note', 'search', 'ledger', 'key', 'station', 'json', 'pin-file'],
-  mcp: ['root', 'actor', 'tool', 'search', 'ledger', 'key', 'station', 'pin-file', 'ignore', 'allow-changes'],
+  mcp: ['root', 'actor', 'tool', 'search', 'ledger', 'key', 'station', 'pin-file', 'ignore', 'allow-changes', 'station-key', 'reviewer-key'],
 }
 const ALWAYS = ['quiet', 'no-color', 'help', 'version']
 const owners = (name) => Object.keys(OPTIONS).filter((c) => OPTIONS[c].includes(name))
@@ -49,6 +49,24 @@ export function stationProblem(s) {
   if (!isSealedText(s)) return 'it holds "|" or a control character'
   if ([...s].length > 64) return 'it is longer than 64 characters'
   return null
+}
+
+// --expect-head: <record number>:<link>, or <ledger id>:<record number>:<link> (iqc head prints the second form) ->
+// {ledgerId | null, n, h}
+function expectHead(text) {
+  const m = /^\s*(?:([0-9a-fA-F]{32})[\s:]+)?(.+?)\s*$/.exec(String(text))
+  try {
+    const hd = parseHead(m[2])
+    return { ledgerId: m[1] ? m[1].toLowerCase() : null, n: hd.n, h: hd.h }
+  } catch {
+    throw usageError(`--expect-head ${JSON.stringify(text)} is not a head. A head is written <ledger id>:<record number>:<64 hex link>, as iqc head prints it (the ledger id may be left out when one ledger is audited).`)
+  }
+}
+
+function keyId(name, v, how) {
+  const k = String(v).trim()
+  if (!/^[0-9a-fA-F]{16}$/.test(k)) throw usageError(`--${name} ${JSON.stringify(v)} is not a key id. A key id is 16 hex characters, ${how}.`)
+  return k.toLowerCase()
 }
 
 // -> { command, folder, opts, help, version }
@@ -134,16 +152,9 @@ export function parseArgs(argv, { platform = process.platform } = {}) {
     const why = stationProblem(opts.station)
     if (why) throw usageError(`--station ${JSON.stringify(opts.station)} cannot be used: ${why}. A station name is 1 to 64 characters, with no "|" and no control character.`)
   }
-  if ('expect-head' in opts) {
-    try { opts['expect-head'] = parseHead(opts['expect-head']) } catch {
-      throw usageError(`--expect-head ${JSON.stringify(opts['expect-head'])} is not a head. A head is written <record number>:<64 hex link>, as iqc head prints it.`)
-    }
-  }
-  if ('expect-key' in opts) {
-    const k = String(opts['expect-key']).trim()
-    if (!/^[0-9a-fA-F]{16}$/.test(k)) throw usageError(`--expect-key ${JSON.stringify(opts['expect-key'])} is not a key id. A key id is 16 hex characters, as iqc head and iqc status print it.`)
-    opts['expect-key'] = k.toLowerCase()
-  }
+  if ('expect-head' in opts) opts['expect-head'] = opts['expect-head'].map(expectHead)
+  if ('expect-key' in opts) opts['expect-key'] = opts['expect-key'].map((k) => keyId('expect-key', k, 'as iqc head and iqc status print it'))
+  for (const k of ['station-key', 'reviewer-key']) if (k in opts) opts[k] = opts[k].map((v) => keyId(k, v, 'as iqc status prints it, or as an audit lists the keys it found'))
   for (const k of ['ignore', 'allow-changes']) for (const g of opts[k] || []) if (/[\u0000-\u001f]/.test(g)) throw usageError(`--${k} ${JSON.stringify(g)} holds a control character.`)
   if (command === 'record') {
     for (const k of ['actor', 'action']) if (!(k in opts)) throw usageError(`iqc record needs --${k}. For example: iqc record --actor analysis-agent --action "Normalized plate 07" --in plate-07.csv --out plate-07-normalized.csv`)

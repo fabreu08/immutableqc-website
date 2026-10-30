@@ -7,13 +7,14 @@
 // server/discover), and the handshake versions 2025-11-25, 2025-06-18, 2025-03-26 and 2024-11-05 (initialize, then
 // notifications/initialized; ping). Structured tool results (structuredContent, outputSchema) from 2025-06-18.
 import { AGENT, AGENT_VERSION, UserError, EXIT_OK, plural } from './util.mjs'
-import { dataFolder, locate, confinedFile } from './paths.mjs'
+import { resolve } from 'node:path'
+import { dataFolder, locate, confinedFile, refuseLinkedLedger } from './paths.mjs'
 import { acquireLock } from './lock.mjs'
 import { ensureDir, ensureReadme } from './ledger.mjs'
 import { openForWriting, pinFileFor } from './session.mjs'
 import { LedgerCache, labLedgers } from './lab.mjs'
-import { refOf, inRef, traceFiles, recordStep, traceOne, AGENT_README_TEXT, searchDirsOf } from './steps.mjs'
-import { ledgersOf, auditLedgers } from './audit.mjs'
+import { refOf, inRef, traceFiles, recordStep, traceOne, trustOf, AGENT_README_TEXT, searchDirsOf } from './steps.mjs'
+import { ledgersOf, auditLedgers, readPinFile } from './audit.mjs'
 import { planStep } from '../../core/immutableqc.mjs'
 
 export const MODERN_VERSIONS = Object.freeze(['2026-07-28'])
@@ -42,7 +43,7 @@ export function instructionsFor({ root, searchDirs }) {
     'A person signs off your steps (iqc review, or the review mode of the app at https://immutableqc.com/app/); there is no tool for you to approve your own.',
     `Paths are relative to the root folder (${root}) and must be inside it. Ledgers are looked for under: ${searchDirs.join(', ')}.`,
     'For a file outside the root, copy it into the root (the same bytes trace the same way), or name it in input_refs as <sha256>:<bytes>:<label>.',
-    'Measured means a ledger sealed those bytes: compare its keyId with your instruments\' keys. Each record is signed and linked to the one before it, in a ledger on this computer.',
+    'Measured means a ledger that holds no agent steps sealed those bytes (or, when the server was started with --station-key, a ledger signed by a listed key): compare its keyId with your instruments\' keys. Each record is signed and linked to the one before it, in a ledger on this computer.',
   ].join(' ')
   return s.length <= INSTRUCTIONS_MAX ? s : s.slice(0, INSTRUCTIONS_MAX - 1) + '…'
 }
@@ -78,7 +79,7 @@ export const TOOLS = Object.freeze([
       type: 'object',
       properties: {
         action: { type: 'string', minLength: 1, maxLength: 500, description: 'What the step did, in one line (for example: "Averaged the six injections and wrote the summary").' },
-        inputs: pathList('Files the step read, relative to the root folder.', 0),
+        inputs: pathList('Files the step read, relative to the root folder. Name every one: a step with no inputs traces to nothing measured and is listed for review.', 0),
         outputs: pathList('Files the step wrote, relative to the root folder (at least one).', 1),
         input_refs: { type: 'array', items: { type: 'string', minLength: 1 }, maxItems: MAX_PATHS, description: 'Inputs that are not files under the root, each written <sha256>:<bytes>:<label>.' },
         actor: { type: 'string', minLength: 1, maxLength: 64, description: 'Who took the step (default: the server\'s --actor).' },
@@ -91,7 +92,7 @@ export const TOOLS = Object.freeze([
       type: 'object',
       properties: {
         reference: { type: 'string' }, record: { type: 'number' }, link: { type: 'string' }, ledger: { type: 'object' }, actor: { type: 'string' }, tool: { type: 'string' },
-        action: { type: 'string' }, at: { type: 'string' }, inputs: { type: 'array', items: fileState }, outputs: { type: 'array', items: { type: 'object' } }, untracedInputs: { type: 'number' }, warning: { type: 'string' },
+        action: { type: 'string' }, at: { type: 'string' }, inputs: { type: 'array', items: fileState }, outputs: { type: 'array', items: { type: 'object' } }, untracedInputs: { type: 'number' }, noInputs: { type: 'boolean' }, warning: { type: 'string' },
       },
       required: ['reference', 'record', 'link', 'inputs', 'outputs', 'untracedInputs'],
     },
@@ -104,7 +105,7 @@ export const TOOLS = Object.freeze([
     inputSchema: { type: 'object', properties: { path: { type: 'string', minLength: 1, description: 'The file, relative to the root folder.' } }, required: ['path'], additionalProperties: false },
     outputSchema: {
       type: 'object',
-      properties: { path: { type: 'string' }, sha256: { type: 'string' }, bytes: { type: 'number' }, state: { type: 'string' }, tracesToMeasured: { type: 'boolean' }, measuredFiles: { type: 'number' }, untracedInputs: { type: 'number' }, sentence: { type: 'string' }, tree: {}, searched },
+      properties: { path: { type: 'string' }, sha256: { type: 'string' }, bytes: { type: 'number' }, state: { type: 'string' }, tracesToMeasured: { type: 'boolean' }, measuredFiles: { type: 'number' }, untracedInputs: { type: 'number' }, noInputsOnTheWay: { type: 'boolean' }, sentence: { type: 'string' }, notes: { type: 'array', items: { type: 'string' } }, tree: {}, searched },
       required: ['path', 'sha256', 'state', 'tracesToMeasured', 'sentence', 'searched'],
     },
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
@@ -168,6 +169,7 @@ const isId = (id) => typeof id === 'string' || (typeof id === 'number' && Number
 export class McpServer {
   constructor({ root, loc, searchDirs, open, opts, out, send }) {
     Object.assign(this, { root, loc, searchDirs, open, opts, out, send })
+    this.trust = trustOf(opts)
     this.cache = new LedgerCache()
     this.legacy = null // the version agreed by initialize
     this.initialized = false
@@ -294,14 +296,14 @@ export class McpServer {
     const refs = []
     for (const p of paths) refs.push(await refOf(this.file(p, 'file')))
     const ledgers = await this.ledgers()
-    const { files } = await traceFiles(ledgers, refs)
+    const { files, notes } = await traceFiles(ledgers, refs, this.trust)
     const sr = this.searched(ledgers.length)
     const n = (s) => files.filter((f) => f.state === s).length
     const changed = files.filter((f) => f.sealedHere && f.sealedHere.state === 'changed since it was sealed').length
     const lines = files.map((f) => `${f.path}: ${f.text}`)
     const head = `${files.length === 1 ? '1 file' : `${files.length} files`}: ${n('measured')} measured, ${n('derived')} derived, ${n('untraced')} untraced${changed ? `; ${changed} changed since sealed` : ''}.`
     const tell = n('untraced') || changed ? ['Tell the person about each untraced or changed file before relying on it.'] : []
-    return { text: [head, ...lines, ...tell, sr.line].join('\n'), data: { files, measured: n('measured'), derived: n('derived'), untraced: n('untraced'), changedSinceSealed: changed, searched: sr.s } }
+    return { text: [head, ...lines, ...tell, ...notes, sr.line].join('\n'), data: { files, measured: n('measured'), derived: n('derived'), untraced: n('untraced'), changedSinceSealed: changed, ...(notes.length ? { notes } : {}), searched: sr.s } }
   }
 
   async record_step({ action, inputs = [], outputs, input_refs = [], actor, tool }) {
@@ -316,7 +318,7 @@ export class McpServer {
     for (const t of input_refs) ins.push(inRef(t))
     const outs = []
     for (const p of outputs) outs.push(await refOf(this.file(p, 'output')))
-    const r = await recordStep({ root: this.root, loc: this.loc, ...this.open, cache: this.cache, searchDirs: this.searchDirs, out: this.out }, { actor: who, tool: prog, action, inputs: ins, outputs: outs })
+    const r = await recordStep({ root: this.root, loc: this.loc, ...this.open, cache: this.cache, searchDirs: this.searchDirs, out: this.out, trust: this.trust }, { actor: who, tool: prog, action, inputs: ins, outputs: outs })
     this.out.note(`Recorded step ${r.record}: ${r.actor}: ${r.action}`)
     const lines = [`Recorded step ${r.record} (reference ${r.reference}).`, ...r.inputs.map((f) => `input ${f.path}: ${f.text}`), ...r.outputs.map((f) => `output ${f.path}: ${f.sha256}`)]
     if (r.warning) lines.push(r.warning)
@@ -326,7 +328,7 @@ export class McpServer {
   async trace({ path }) {
     const f = this.file(path, 'file')
     const ledgers = await this.ledgers()
-    const r = await traceOne(ledgers, f)
+    const r = await traceOne(ledgers, f, this.trust)
     const { lines, ...data } = r
     const sr = this.searched(ledgers.length)
     return { text: [r.sentence, ...lines.slice(1), sr.line].join('\n'), data: { ...data, searched: sr.s } }
@@ -334,10 +336,13 @@ export class McpServer {
 
   async audit_summary({ strict = false }) {
     const all = [], seen = new Set()
-    for (const d of this.searchDirs) for (const e of await ledgersOf(d, [], { pinFile: null })) if (!seen.has(e.abs)) { seen.add(e.abs); all.push(e) }
-    if (!seen.has(this.loc.ledgerPath)) all.push(...(await ledgersOf(this.root, [this.loc.ledgerPath])).filter((e) => !seen.has(e.abs)))
+    const pinFile = this.opts['pin-file'] ? resolve(this.opts['pin-file']) : null
+    for (const d of this.searchDirs) for (const e of await ledgersOf(d, [], { pinFile })) if (!seen.has(e.abs)) { seen.add(e.abs); all.push(e) }
+    if (!seen.has(this.loc.ledgerPath)) all.push(...(await ledgersOf(this.root, [this.loc.ledgerPath], { pinFile })).filter((e) => !seen.has(e.abs)))
     if (!all.length) throw new UserError('There is no ledger in the folders this server searches.')
-    const report = await auditLedgers(all, { ...this.opts, strict, 'expect-head': null, 'expect-key': null }, { folder: this.searchDirs[0] })
+    let pinLines
+    try { pinLines = readPinFile(this.opts['pin-file']) } catch { /* no pin line written yet */ }
+    const report = await auditLedgers(all, { ...this.opts, strict, 'expect-head': null, 'expect-key': null }, { folder: this.searchDirs[0], pinLines })
     const msg = (x) => x.message
     const data = {
       verdict: report.verdict, summary: report.summary, counts: report.counts, problems: report.problems.map(msg), forReview: report.forReview.map(msg), notes: report.notes.map(msg),
@@ -354,13 +359,14 @@ export class McpServer {
 export async function runMcp({ opts, out, stdout, stdin = process.stdin, signals = process }) {
   const root = dataFolder(opts.root == null ? '.' : opts.root)
   const loc = locate(root, opts.ledger)
+  refuseLinkedLedger(loc)
   const pin = pinFileFor(opts, out, loc)
   const searchDirs = searchDirsOf(opts, root)
   ensureDir(loc.dir)
   const lock = acquireLock(loc.lockPath, { command: 'mcp', out })
   let open
   try {
-    open = await openForWriting(loc, opts, out, { pin })
+    open = await openForWriting(loc, opts, out, { pin, role: 'step' })
     if (loc.isDefault) ensureReadme(loc.readmePath, AGENT_README_TEXT)
     await open.appender.append([{ kind: 'session', f: { station: open.station, event: 'mcp-started', at: new Date().toISOString(), agent: AGENT } }], open.key.privateKey)
   } catch (e) {

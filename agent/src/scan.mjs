@@ -5,7 +5,7 @@ import { readdir, lstat, open } from 'node:fs/promises'
 import { readdirSync, lstatSync } from 'node:fs'
 import { join } from 'node:path'
 import { createHash } from 'node:crypto'
-import { encodePath, ignoreMatcher, isLedgerFolderPath } from '../../core/immutableqc.mjs'
+import { encodePath, ignoreMatcher, isNeverDataPath } from '../../core/immutableqc.mjs'
 
 // Errors that mean "not now": the file is open in another program (Windows locks), or briefly not readable. They are
 // retried on the next poll.
@@ -53,7 +53,7 @@ export async function walk(root, { skip = () => false, state = {} } = {}) {
       const raw = rel ? `${rel}/${ent.name}` : ent.name
       let p
       try { p = encodePath(raw) } catch { badNames.push(raw); continue }
-      if (isLedgerFolderPath(p) && !rel) continue
+      if (isNeverDataPath(p)) continue // core's one rule of what is never data: any ImmutableQC folder, any *.ledger.jsonl
       todo.push({ ent, raw, p, abs: join(abs, ent.name) })
     }
     for (let i = 0; i < todo.length; i += 64) {
@@ -100,14 +100,14 @@ export function outOfSight(w, p) {
 }
 
 // The skip rule for a walk: the ignore patterns (core's matcher: the default ignores plus --ignore), and the agent's
-// own files when the ledger is kept inside the data folder somewhere else than ImmutableQC/.
+// own files when the ledger is kept inside the data folder somewhere else than ImmutableQC/ (and core's never-data paths).
 export function skipper(ignore, own = new Set()) {
   const ig = ignoreMatcher(ignore)
   const seen = new Map()
   return (p) => {
     let v = seen.get(p)
     if (v === undefined) {
-      v = own.has(p) || ig(p)
+      v = own.has(p) || isNeverDataPath(p) || ig(p)
       if (seen.size > 1000000) seen.clear()
       seen.set(p, v)
     }

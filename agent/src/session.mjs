@@ -52,7 +52,22 @@ export function pinFileFor(opts, out, loc = null) {
 // Opens the ledger for writing: verifies an existing one whole (and refuses a broken one), or starts a new one with
 // a new key (or the --key file). Returns {appender, key, station, created}. A missing ledger whose folder was set up
 // before (README.txt is written only once a ledger exists) is not replaced silently: it may have been moved or deleted.
-export async function openForWriting(loc, opts, out, { pin = null } = {}) {
+//
+// role is what the command writes: 'seal' (file records: watch, seal), 'step' (agent steps: record, mcp) or 'review'.
+// One ledger holds one role: an agent never writes into an instrument's ledger (a measured value stays told apart from
+// a derived one), and a station never seals into an agent's.
+export function wrongRole(v, role) {
+  const k = v.kinds || {}
+  const station = (v.header && v.header.station) || 'a station'
+  const files = !!(k.file || k['file-removed'] || (v.sessions || []).length)
+  const steps = !!(k.step || (v.mcpSessions || []).length), reviews = !!k.review
+  if (role === 'step' && files) return `This ledger belongs to station ${station}: it holds file records, and an agent's steps do not go in a station's ledger. Run iqc record (or iqc mcp) with --root at the agent's own folder, or give the agent its own --ledger.`
+  if (role === 'review' && (files || steps)) return `This ledger holds ${files ? 'file records' : 'agent steps'} (station ${station}): a reviewer's sign-off goes in the reviewer's own ledger. Give --ledger a file of your own (the default is ./<reviewer>.ledger.jsonl).`
+  if (role === 'seal' && (steps || reviews)) return `This ledger holds ${steps ? 'agent steps' : 'reviews'} (station ${station}): files are sealed in a station's own ledger, not in an agent's or a reviewer's. Give iqc a --ledger of its own, or seal the folder around it.`
+  return null
+}
+
+export async function openForWriting(loc, opts, out, { pin = null, role = null } = {}) {
   const r = await readLedger(loc.ledgerPath, { missingOk: true })
   if (!r && loc.isDefault && existsSync(loc.readmePath)) {
     throw new UserError(`There is no ledger at ${loc.ledgerPath}, but its folder was set up before (its README.txt is there): the ledger may have been moved, renamed or deleted. Nothing was written. ` +
@@ -60,6 +75,8 @@ export async function openForWriting(loc, opts, out, { pin = null } = {}) {
   }
   if (r) {
     if (!r.verified.ok) throw new UserError(brokenMessage(r.verified, loc.ledgerPath))
+    const wrong = role ? wrongRole(r.verified, role) : null
+    if (wrong) throw new UserError(`${loc.ledgerPath}: ${wrong} Nothing was written.`)
     const key = await loadKey({ header: r.verified.header, keyOpt: opts.key, out })
     const station = opts.station || r.verified.header.station
     return { appender: new Appender(loc.ledgerPath, r.verified, r.stat, { out, pin }), key, station, created: false }
@@ -82,7 +99,7 @@ export async function runSession(kind, { folder, opts, out, signals = process })
   ensureDir(loc.dir)
   const lock = acquireLock(loc.lockPath, { command: kind, out })
   try {
-    const open = await openForWriting(loc, opts, out, { pin })
+    const open = await openForWriting(loc, opts, out, { pin, role: 'seal' })
     if (loc.isDefault) ensureReadme(loc.readmePath)
     const s = new Session(kind, { root, loc, opts, out, ...open, signals })
     return await s.run()

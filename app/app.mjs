@@ -61,6 +61,7 @@ const STATE = {
   'back after removal': ['tag-back', 'back', 'Back after removal'],
   'not sealed': ['tag-unsealed', 'unsealed', 'Not sealed'],
   'not checked': ['tag-unchecked', 'unchecked', 'Not checked'],
+  excluded: ['tag-unchecked', 'unchecked', 'Left out'],
   superseded: ['tag-unchecked', 'back', 'Written again later'],
 }
 const CI = '<span class="ci" aria-hidden="true"><svg class="ci-ok" focusable="false"><use href="#i-check"/></svg><svg class="ci-bad" focusable="false"><use href="#i-x"/></svg></span>'
@@ -249,15 +250,18 @@ function fieldError(input, msg) {
 }
 // heads and key ids: one or several, separated by commas (a head may start with its ledger id); globs likewise
 const listOf = (v) => v.split(/[,\n]/).map((t) => t.trim()).filter(Boolean)
+const keysOf = (v) => v.toLowerCase().split(/[\s,]+/).filter(Boolean)
 function readExpectations() {
-  const hi = $('#audit-head'), ki = $('#audit-key'), gi = $('#audit-allow')
-  const heads = listOf(hi.value), keys = listOf(ki.value.toLowerCase()), globs = listOf(gi.value)
+  const hi = $('#audit-head'), ki = $('#audit-key'), gi = $('#audit-allow'), si = $('#audit-station'), ri = $('#audit-reviewer')
+  const heads = listOf(hi.value), keys = listOf(ki.value.toLowerCase()), globs = listOf(gi.value), stations = keysOf(si.value), reviewers = keysOf(ri.value)
   let bad = null
-  for (const el of [hi, ki, gi]) fieldError(el, null)
+  for (const el of [hi, ki, gi, si, ri]) fieldError(el, null)
   for (const h of heads) {
     try { IQC.parseHead(h.replace(/^[0-9a-f]{32}[\s:]+/, '')) } catch { fieldError(hi, 'Write it as the record number, a colon and the 64-character link, for example 12:9a0ed7c9… (as iqc head prints it).'); bad = hi; break }
   }
   if (keys.some((k) => !/^[0-9a-f]{16}$/.test(k))) { fieldError(ki, 'A key id is 16 characters, 0 to 9 and a to f.'); bad = bad || ki }
+  if (stations.some((k) => !/^[0-9a-f]{16}$/.test(k))) { fieldError(si, 'A key id is 16 characters, 0 to 9 and a to f.'); bad = bad || si }
+  if (reviewers.some((k) => !/^[0-9a-f]{16}$/.test(k))) { fieldError(ri, 'A key id is 16 characters, 0 to 9 and a to f.'); bad = bad || ri }
   if (globs.length) { try { IQC.ignoreMatcher(globs) } catch (e) { fieldError(gi, `This pattern cannot be read: ${e.message}`); bad = bad || gi } }
   if (bad) {
     $('#audit-opts').open = true
@@ -271,6 +275,8 @@ function readExpectations() {
     expectKeyId: keys.length === 1 ? keys[0] : undefined,
     expectHeads: heads.length ? heads : undefined,
     expectKeyIds: keys.length ? keys : undefined,
+    stationKeys: stations.length ? [...new Set(stations)] : undefined,
+    reviewerKeys: reviewers.length ? [...new Set(reviewers)] : undefined,
     allowChanges: globs.length ? globs : undefined,
     pinLines: pins ? pins.text : undefined,
   }
@@ -327,10 +333,10 @@ async function auditLocated(located, exp, prog, ctl, { chosen = false } = {}) {
   const pool = new Pool(POOL())
   A.run.pool = pool
   try {
-    const many = located.kind === 'lab' || exp.pinLines || (exp.expectHeads && !exp.expectHead) || (exp.expectKeyIds && !exp.expectKeyId)
+    const many = located.kind === 'lab' || exp.pinLines || exp.stationKeys || exp.reviewerKeys || (exp.expectHeads && !exp.expectHead) || (exp.expectKeyIds && !exp.expectKeyId)
     const opts = { ...exp, pool, signal: ctl.signal, onProgress: (p) => prog.update(p) }
     const res = located.kind === 'lab' ? await (await import('./many.mjs')).runAuditMany(located, opts) : await runAudit(located, { ...opts, chosen, many })
-    res.opts = { expectHeads: exp.expectHeads, expectKeyIds: exp.expectKeyIds, allowChanges: exp.allowChanges, pinLines: exp.pinLines, where: 'browser', tool: TOOL, folder: located.root || undefined }
+    res.opts = { expectHeads: exp.expectHeads, expectKeyIds: exp.expectKeyIds, stationKeys: exp.stationKeys, reviewerKeys: exp.reviewerKeys, allowChanges: exp.allowChanges, pinLines: exp.pinLines, where: 'browser', tool: TOOL, folder: located.root || undefined }
     await yieldNow()
     const box = show('audit', 'result')
     await showResult(box, res, { mode: 'audit', level: 'h1', exp })
@@ -419,12 +425,20 @@ function headline(r) {
   if (r.verdict === 'pass') {
     if (!r.filesChecked) return `Ledger intact: ${plural(c.records, 'record', 'records')}, every signature and link verified. The files were not checked.`
     if (c.sealed === 0) return 'Ledger intact. It seals no files yet.'
-    if (c.match === 0 && c.notChecked === 0) return 'Ledger intact. Every sealed file is recorded as removed.'
-    if (c.notChecked) return `${fmtN(c.match)} of ${fmtN(c.match + c.notChecked)} sealed files match their seals; ${fmtN(c.notChecked)} could not be read. Ledger intact.`
+    // sealed files that were left out (now a ledger's own file, or ignored) are said, never counted as matching
+    if (c.notChecked || c.excluded) return cap(String(r.summary).replace(/^Pass: /, '').replace(/ \(\d+ notes?\)\.$/, '.'))
+    if (c.match === 0) return 'Ledger intact. Every sealed file is recorded as removed.'
     if (c.match === 1) return '1 file matches its seal. Ledger intact.'
     return `All ${fmtN(c.match)} files match their seals. Ledger intact.`
   }
   return cap(String(r.summary).replace(/^(?:Review|Fail): /, ''))
+}
+
+// What a pass says about records cut from the end of a ledger: only a pinned head can show it, so the page claims "not
+// cut" only when every ledger's pinned head was checked (core adds the note no-pinned-head to each ledger without one).
+function cutSentence(r) {
+  const open = (r.notes || []).some((n) => n.code === 'no-pinned-head')
+  return open ? 'A cut from the end of a ledger shows only against a pinned head.' : 'The pinned head still matches, so it was not cut short.'
 }
 
 // a review: recorded changes (a file sealed again, a recorded removal), not failures, each one listed
@@ -439,9 +453,13 @@ const NOTE_SHORT = {
   unwatched: (n) => `${plural(n, 'change', 'changes')} found by a later scan`,
   'not-sealed': (n) => `${plural(n, 'file', 'files')} never sealed`,
   'back-after-removal': (n) => `${plural(n, 'file', 'files')} back after removal`,
-  'not-checked': (n) => `${plural(n, 'file', 'files')} not readable`,
   'unclean-stop': (n) => `${plural(n, 'session', 'sessions')} without a clean stop`,
   gaps: (n) => `${plural(n, 'gap', 'gaps')} between sessions`,
+  'no-pinned-head': (n) => `${plural(n, 'ledger', 'ledgers')} with no pinned head`,
+  'excluded-after-seal': (n) => `${plural(n, 'sealed file', 'sealed files')} now left out`,
+  'station-keys-not-listed': () => 'station keys not listed',
+  'reviewer-keys-not-listed': () => 'reviewer keys not listed',
+  'review-unlisted-key': (n) => `${plural(n, 'approval', 'approvals')} from keys not listed`,
 }
 
 // one entry per file of the report, with what the list needs: group (0 problem, 1 note, 2 the rest), why, search text
@@ -661,7 +679,7 @@ function ledgerPanel(id, res, { seal = false } = {}) {
   if (L.ledgerId) rows.push(row('Ledger id', hashHTML(L.ledgerId)))
   if (agent) rows.push(row('Agent', `${esc(agent)} <span class="faint">(not sealed)</span>`))
   if (!seal) {
-    rows.push(row('Pinned head', ex.head ? `<span class="tag ${ex.head.ok ? 'tag-pass' : 'tag-fail'}">${ic(ex.head.ok ? 'check' : 'x')}${ex.head.ok ? 'Matches' : 'Does not match'}</span> <span class="kv-note">${esc(ex.head.message)}</span>` : '<span class="kv-note">None given. Pin one with <code>iqc head</code> to catch a rewrite by the key holder.</span>'))
+    rows.push(row('Pinned head', ex.head ? `<span class="tag ${ex.head.ok ? 'tag-pass' : 'tag-fail'}">${ic(ex.head.ok ? 'check' : 'x')}${ex.head.ok ? 'Matches' : 'Does not match'}</span> <span class="kv-note">${esc(ex.head.message)}</span>` : '<span class="kv-note">None given. Pin one with <code>iqc head</code> to catch records cut from the end, or a rewrite by the key holder.</span>'))
     if (ex.keyId) rows.push(row('Expected key id', `<span class="tag ${ex.keyId.ok ? 'tag-pass' : 'tag-fail'}">${ic(ex.keyId.ok ? 'check' : 'x')}${ex.keyId.ok ? 'Matches' : 'Does not match'}</span>`))
   } else if (res.key) {
     rows.push(row('Key', `<span class="kv-note">${res.key.demo ? 'Made for this demo, in memory; it is gone when the tab closes.' : res.key.stored ? 'Kept in this browser (IndexedDB), and it cannot be exported.' : 'Kept in this tab only: this browser could not store it.'}</span>`))
@@ -669,17 +687,21 @@ function ledgerPanel(id, res, { seal = false } = {}) {
   return `<section class="panel" aria-labelledby="${id}-led-h"><h2 id="${id}-led-h">Ledger</h2><dl class="kv">${rows.join('')}</dl></section>`
 }
 
-function rerunPanel(id, res, exp) {
-  const r = res.report, L = r.ledger
-  const folder = res.located && res.located.root ? `"${res.located.root}"` : '"<data folder>"'
-  let cmd = `node iqc.mjs audit ${folder}`
-  if (exp && exp.expectHead) cmd += ` --expect-head ${exp.expectHead}`
-  else if (L.intact && L.head && L.head.n > 0) cmd += ` --expect-head ${headText(L.head)}`
-  if (exp && exp.expectKeyId) cmd += ` --expect-key ${exp.expectKeyId}`
-  cmd += ' --json audit.json'
+// The command to re-run on a command line is core's own line (report.rerun): a folder or pattern name goes into it only
+// when every character is literal in bash, zsh, cmd and PowerShell; any other name is written as the placeholder <folder>,
+// with a line saying what to put there. The page never builds a command from a folder name itself.
+function rerunCommand(r) {
+  const line = (r.rerun || []).find((x) => /^On the command line/.test(x)) || ''
+  const m = /^On the command line(?: \(([^)]*)\))?: (node iqc\.mjs audit .*)$/.exec(line)
+  if (!m) return { cmd: 'node iqc.mjs audit <folder>', replace: "replace <folder> with the folder's path" }
+  return { cmd: m[2], replace: m[1] || '' }
+}
+function rerunPanel(id, res) {
+  const { cmd: base, replace } = rerunCommand(res.report)
+  const cmd = `${base} --json audit.json`
   return `<section class="panel rerun" aria-labelledby="${id}-rr-h"><h2 id="${id}-rr-h">Re-run on the command line</h2>
 <div class="cmd"><div class="cmd-h"><span class="label">With the agent</span><button class="copy" type="button" data-copy="${esc(cmd)}">${ic('copy')}Copy<span class="vh"> the command</span></button></div><pre tabindex="0" aria-label="Command"><code>${esc(cmd)}</code></pre></div>
-<p class="hint">Exit 0 pass, 1 fail, 2 usage or read error. The same checks, with the same code (<a href="../core/immutableqc.mjs">core/immutableqc.mjs</a>).</p>
+${replace ? `<p class="hint" data-rerun-replace>${esc(cap(replace))}.</p>` : ''}<p class="hint">Exit 0 pass, 3 review, 1 fail, 2 usage or read error. The same checks, with the same code (<a href="../core/immutableqc.mjs">core/immutableqc.mjs</a>).</p>
 <p class="side-links"><a href="../sealed.html">What a seal covers</a><a href="../index.html#install">Get the agent</a></p></section>`
 }
 
@@ -715,7 +737,7 @@ function renderResult(box, res, { mode, level = 'h1', demo = false, exp = null }
   const notices = []
   if (res.located && res.located.kind === 'ledger-only') notices.push(`<p class="callout callout-note">${ic('note')}<span>${res.located.why === 'ledger-folder' ? 'This is the ledger’s own ImmutableQC folder, so only the ledger was checked. Drop the data folder that holds it to re-read every file too.' : 'Only the ledger was checked. Drop the data folder that holds it to re-read every file too.'}</span></p>`)
   if (res.located && res.located.parent) notices.push(`<p class="callout">${ic('folder')}<span>${esc(`The ledger was found one folder down: ${res.located.root}/ImmutableQC/ledger.jsonl, so ${res.located.root} was audited.`)}</span></p>`)
-  if (res.unreadable && res.unreadable.length) notices.push(`<div class="callout callout-note">${ic('note')}<div><p>${esc(`${plural(res.unreadable.length, 'file', 'files')} could not be read, so ${res.unreadable.length === 1 ? 'it was' : 'they were'} not checked:`)}</p><ul class="note-items">${res.unreadable.slice(0, 5).map((u) => `<li>${esc(`${nameOf(u.path)}: ${readError(u.error)}`)}</li>`).join('')}${res.unreadable.length > 5 ? `<li>${esc(`and ${fmtN(res.unreadable.length - 5)} more (Notes, in the file list)`)}</li>` : ''}</ul></div></div>`)
+  if (res.unreadable && res.unreadable.length) notices.push(`<div class="callout callout-note">${ic('note')}<div><p>${esc(`${plural(res.unreadable.length, 'file', 'files')} could not be read, so ${res.unreadable.length === 1 ? 'it was' : 'they were'} not checked:`)}</p><ul class="note-items">${res.unreadable.slice(0, 5).map((u) => `<li>${esc(`${nameOf(u.path)}: ${readError(u.error)}`)}</li>`).join('')}${res.unreadable.length > 5 ? `<li>${esc(`and ${fmtN(res.unreadable.length - 5)} more (in the file list)`)}</li>` : ''}</ul></div></div>`)
   if (res.skipped && res.skipped.length) notices.push(`<div class="callout callout-note">${ic('note')}<div><p>${esc(`${plural(res.skipped.length, 'file was', 'files were')} left out:`)}</p><ul class="note-items">${res.skipped.slice(0, 5).map((u) => `<li>${esc(`${u.raw}: ${u.why}`)}</li>`).join('')}</ul></div></div>`)
   const head = L.head && L.head.n > 0 ? L.head : null
   box.innerHTML = `<div class="result" data-verdict="${r.verdict}">
@@ -725,7 +747,7 @@ function renderResult(box, res, { mode, level = 'h1', demo = false, exp = null }
 <span class="tag tag-l ${pass ? 'tag-pass' : review ? 'tag-note' : 'tag-fail'}">${ic(pass ? 'check' : review ? 'note' : 'x')}${pass ? 'Pass' : review ? 'Review' : 'Fail'}</span>
 <${H} id="${id}-vh">${esc(headline(r))}</${H}>
 ${metaLedger ? `<p class="verdict-meta">${esc(metaLedger)}</p>` : ''}<p class="verdict-meta">${esc(where)}</p>
-${pass && r.filesChecked ? '<p class="v-why">Each file is byte for byte the one that was sealed, and the ledger was not edited, reordered or cut since it was signed. It does not show a file was right when it was written. <a href="../sealed.html">What a seal covers</a></p>' : ''}
+${pass && r.filesChecked ? `<p class="v-why">Each file checked is byte for byte the one that was sealed, and the ledger was not edited or reordered since it was signed. ${esc(cutSentence(r))} It does not show a file was right when it was written. <a href="../sealed.html">What a seal covers</a></p>` : ''}
 </div>
 <div class="verdict-actions">
 ${demo && pass ? `<button class="btn btn-primary btn-s" type="button" data-act="demo-edit">${ic('edit')}Change one value</button>` : ''}
@@ -742,7 +764,7 @@ ${problemsPanel(id, res, byPath)}
 ${reviewPanel(id, r)}
 ${notesPanel(id, r)}
 ${timelinePanel(id, res)}
-${demo ? '' : rerunPanel(id, res, exp)}
+${demo ? '' : rerunPanel(id, res)}
 </div>
 <div class="col-side">
 ${ledgerPanel(id, res)}
@@ -1013,7 +1035,7 @@ async function showResult(box, res, opts) {
   if (res.report.kind === 'many') { const UI = await labUI(); UI.renderMany(box, res, opts) } else renderResult(box, res, opts)
 }
 // what lab.mjs draws with: the same helpers and panels as a one-ledger result
-export const H = { POOL, Pool, Canceled, section, showError, show, $, $$, esc, fmtN, fmtB, plural, ic, cap, when, dayTime, shortHash, nameOf, tag, S, TOOL, announce, focusEl, download, readError, reviewPanel, notesPanel, filesPanel, bindFiles, headline, fieldError, uid: () => ++uid }
+export const H = { POOL, Pool, Canceled, section, showError, show, $, $$, esc, fmtN, fmtB, plural, ic, cap, when, dayTime, shortHash, nameOf, tag, S, TOOL, announce, focusEl, download, readError, reviewPanel, notesPanel, filesPanel, bindFiles, headline, cutSentence, fieldError, uid: () => ++uid }
 
 // a test hook (only with ?test in the address): hash Blobs in the worker pool, with the slice limits given
 if (TEST) {

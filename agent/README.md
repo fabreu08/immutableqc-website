@@ -18,10 +18,13 @@ gap. Someone who holds the ledger's private key could rewrite the ledger from th
 earlier (`iqc head`, then `iqc audit --expect-head`, or a pin file kept on another drive: `--pin-file`) exposes that.
 
 An agent step (`iqc record`, or the `record_step` tool of `iqc mcp`) records which files a step read and wrote, by
-SHA-256, in the agent's own ledger. An audit of the lab folder then traces each input back: measured (an instrument's
-ledger sealed those exact bytes), derived (a recorded step wrote them) or untraced. What that does not show: that the
-step did what its action line says, or that it read nothing else. A step names the files it is given; anything it read
-and did not name is not in the record.
+SHA-256, in the agent's own ledger. An audit of the lab folder then traces each input back: measured (a ledger sealed
+those exact bytes), derived (a recorded step wrote them) or untraced. **Which ledgers count as measuring** is yours to
+say: with `--station-key <keyId>` (repeatable) only a ledger signed by a listed key does; without it any ledger that
+holds no agent steps does, so a folder someone sealed with a fresh key would also measure, and the audit says so in a
+note that names the keys it counted. What that does not show: that the step did what its action line says, or that it
+read nothing else. A step names the files it is given; anything it read and did not name is not in the record. A step
+that names no inputs traces to nothing measured, and the audit lists it for review until a reviewer approves it.
 
 Nothing is sent anywhere. `iqc` reads files and writes its own ledgers, README.txt, lock files and the pin file you give
 it; it never uses the network. It has no dependencies.
@@ -64,15 +67,18 @@ iqc watch [folder]   Seal everything now, then keep sealing new, changed and rem
 iqc seal  [folder]   Seal once and exit (for a scheduler or a pipeline).
 iqc audit [folder]   Check every ledger in the folder and every file. Exit 0 pass, 3 review, 1 fail, 2 usage
                      or read error.
-            --report <file.html>  --json <file.json>  --expect-head <n>:<h>  --expect-key <keyId>  --strict
-            --allow-changes <glob>...  --pin-file <file>  --ledger <file>...
+            --report <file.html>  --json <file.json>  --strict  --allow-changes <glob>...  --pin-file <file>
+            --expect-head <ledgerId>:<n>:<h>...  --expect-key <keyId>...  --ledger <file>...
+            --station-key <keyId>...  --reviewer-key <keyId>...
 iqc head  [folder]   Print the current head, to pin somewhere else (an email, an ELN entry, a printout).
 iqc status [folder]  Ledger, key, records, last session, and what changed since the last seal.
 iqc record --actor <name> --action <text> [--tool <name>] [--in <file>]... --out <file>... [--root <folder>]
                      Record one agent step in <root>/ImmutableQC/ledger.jsonl.
-iqc trace <file> [--search <folder>]...      Trace a file's bytes back to measured files.
+iqc trace <file> [--search <folder>]... [--station-key <keyId>]... [--reviewer-key <keyId>]...
+                     Trace a file's bytes back to measured files.
 iqc review <ledgerId>:<n>[:<link>]... --reviewer <name> --decision approved|question|rejected [--note <text>]
-iqc mcp [--root <folder>] [--actor <name>] [--tool <name>] [--search <folder>]...   An MCP server on stdio.
+iqc mcp [--root <folder>] [--actor <name>] [--tool <name>] [--search <folder>]... [--station-key <keyId>]...
+                     An MCP server on stdio.
 iqc help [command] | --version
 Common: --ledger <path>  --key <path>  --station <name>  --interval <s> (2)  --settle <s> (10)
         --ignore <glob> (repeatable; * and ?)  --pin-file <file>  --quiet  --no-color (NO_COLOR is honored too)
@@ -127,6 +133,10 @@ Seals the folder once and exits: a `scan` record first, then every file that is 
 seal. A file that is still being written, or is open in a program that locks it, is waited for while other files make
 progress, and at most a minute without progress; then it is left for the next run, with a warning.
 
+One ledger holds one kind of record: `watch` and `seal` refuse a ledger that holds agent steps or reviews, `iqc record`
+and `iqc mcp` refuse one that holds file records, and `iqc review` refuses both. That keeps a measured value apart from
+a derived one.
+
 ### audit
 
 Finds every ledger in the folder, by the same rule as the app: the folder's own `ImmutableQC/ledger.jsonl`, the
@@ -140,16 +150,41 @@ not match, then one line per ledger.
 A folder that holds one ledger of sealed files and nothing else gets the single-ledger report (the same JSON the app
 and earlier versions of `iqc` produce); a lab gets the lab report (`"kind": "many"`). `--report audit.html` writes a self-contained report that prints well on
 A4 and Letter; `--json audit.json` writes the machine-readable report (`--json -` writes it to the standard output and
-the human lines to the standard error). `--expect-head <n>:<h>` fails unless record n's link is h (a head pinned
-earlier; a ledger that has grown since still passes). `--expect-key <keyId>` fails unless the ledger is signed with
-that key. `--allow-changes <glob>` (repeatable) marks recorded changes to matching files as expected: they are listed,
-not put up for review. `--pin-file <file>` checks every pin line written by `watch` or `seal --pin-file`: each pinned
-record must still have its pinned link, or the audit fails. `--ledger <file>` (repeatable) adds a ledger kept outside the
-folder (a reviewer's ledger, another agent's); for a folder whose own ledger is kept elsewhere (written with
-`--ledger`), the first `--ledger` is that ledger. A file sealed more than once (changed after its first seal) or removed is a recorded change: the verdict is
+the human lines to the standard error).
+
+- `--expect-head <ledgerId>:<n>:<h>` (repeatable; `iqc head` prints this form) fails unless record n of that ledger has
+  link h; a ledger that has grown since still passes, a shorter one or a rewritten one fails. Without the ledger id the
+  head binds to the only ledger, or to the folder's own (`<folder>/ImmutableQC/ledger.jsonl`, or the `--ledger` paired
+  with the folder); it is never satisfied by some other ledger. `--pin-file <file>` checks every pin line written by
+  `watch` or `seal --pin-file` the same way, and a pin that names a ledger not among those audited fails (the ledger
+  was deleted, started over or is kept elsewhere: add it with `--ledger`). Records cut from the end of a ledger show only
+  against a pinned head, so an audit with neither says so in a note, and `--strict` fails on it.
+- `--expect-key <keyId>` (repeatable) fails unless a ledger is signed with that key; with several ledgers, a ledger
+  signed with a key not listed fails, and the message lists the keys found (the instruments', the agent's and each
+  reviewer's).
+- `--station-key <keyId>` (repeatable) names the keys of the instrument stations. With it, a file counts as measured
+  only when a ledger signed by a listed key sealed it, and a listed key that signs no audited ledger fails. Without it,
+  see above. Where one ledger holds both the sealing and a step's output of the same bytes, the audit follows the step.
+  Time order between a station's seal and a step is not checked (clocks differ); within one ledger a step comes after
+  the step that wrote its input.
+- `--reviewer-key <keyId>` (repeatable) names the keys of the reviewers. A reviewer is a signing key; the name is a
+  label. With it, only listed keys approve (other approvals are listed in a note); a rejection or question counts
+  from any key. Without it, a note names the keys whose approvals counted. For each key the latest decision on a step
+  counts; any rejection or question outweighs an approval.
+- `--ledger <file>` (repeatable) adds a ledger kept outside the folder. One that seals files or holds agent steps and
+  is not the folder's own is audited against the audited folder, whatever its name or its place among the options. A
+  ledger with only reviews and sessions has no folder. If the folder has its own ledger too, a second ledger that
+  seals files has no folder to check, and the audit says so (review, never a pass).
+- `--allow-changes <glob>` (repeatable) marks recorded changes to matching files as expected: they are listed,
+  not put up for review.
+- What is never data: any path with a segment named `ImmutableQC` (any case) and any `*.ledger.jsonl`. `watch` and
+  `seal` never seal them and the audit never reports them; a path sealed earlier that is now left out is a note, not a
+  failure. The folder of a nested ledger (an agent workspace under the lab folder) is audited by its own ledger.
+
+A file sealed more than once (changed after its first seal) or removed is a recorded change: the verdict is
 review (exit 3), with each change listed. `--strict` counts those and the notes (a change found while nothing was
 watching, a file not sealed, a watch that did not stop cleanly, gaps between sessions) as failures. An audit writes nothing to the folder or
-the ledger, and needs no key.
+the ledger, and needs no key. Every command reads a ledger whole into memory: one past about 2 GiB (about 3.4 million records) cannot be read (`ERR_FS_FILE_TOO_LARGE`, exit 2). Seal a long-running folder into a new ledger (a new `--ledger`, and keep the old one for audits) before it gets there; reading it streaming is not built yet.
 
 The same audit runs in a browser: open [immutableqc.com/app/](https://immutableqc.com/app/) and drop the data folder
 (or the lab folder).
@@ -158,8 +193,9 @@ Every file is read in the browser; nothing is uploaded.
 ### head
 
 Prints the current head, `n:h` (the last record's number and its link), alone on the standard output; what it is goes
-to the standard error. Pin it somewhere the ledger's key holder cannot change (an email, an ELN entry, a printout). A
-later `iqc audit --expect-head n:h` shows whether the ledger was rewritten or cut short since.
+to the standard error, with the audit command that checks it, `iqc audit <folder> --expect-head <ledgerId>:<n>:<h>
+--expect-key <keyId>`. Pin it somewhere the ledger's key holder cannot change (an email, an ELN entry, a printout). A
+later audit with that line shows whether the ledger was rewritten or cut short since.
 
 ### status
 
@@ -175,20 +211,26 @@ node iqc.mjs record --root /lab/agent-workspace --actor analyst-bot --tool model
 ```
 
 Hashes each input and output (each must be a file inside `--root`, which defaults to the current folder; a path that
-leaves the root, a symbolic link and a file reached through a linked folder are refused) and appends one signed `step`
+leaves the root, a symbolic link and a file reached through a linked folder are refused; an output may not be inside an
+`ImmutableQC` folder, a `*.ledger.jsonl` file or the folder of another ledger below the root, which the audit would
+report as missing; and `iqc record` refuses a root whose ledger or `ImmutableQC` folder is a symbolic link, or whose
+ledger belongs to a station, that is holds file records: use a root of the agent's own) and appends one signed `step`
 record to `<root>/ImmutableQC/ledger.jsonl` (created, with a new key, on first use). Paths are relative to the current
 folder, and stored relative to the root. `--in-ref <sha256>:<bytes>:<label>` names an input that is not a file under the
 root. It prints the record number and its reference (`<ledgerId>:<n>:<link>`, what `iqc review` takes), then each
 input's trace against the ledgers under `--search` (repeatable; default the root): measured, derived or untraced, with a
-warning for each untraced input. `--json <file>` (or `-`) writes all of it as JSON. Exit 0 recorded, 1 refused (a broken
+warning for each untraced input, and for a step that names no inputs. `--station-key` (repeatable) counts a file as
+measured only when a ledger signed by a listed key sealed it. `--json <file>` (or `-`) writes all of it as JSON. Exit 0 recorded, 1 refused (a broken
 ledger, a missing key, another writer), 2 usage or read error.
 
 ### trace
 
 `iqc trace <file> [--search <folder>]...` hashes the file and traces its bytes back through the recorded steps to the
 files instruments sealed, as a tree (searching the ledgers under the current folder by default). Exit 0 when the file was
-measured, or every branch of its tree ends in a measured file; 3 when something on the way is untraced (or the steps
-form a cycle); 2 for a usage or read error.
+measured, or every branch of its tree ends in a measured file; 3 when something on the way is untraced, a step on the
+way named no inputs, or the steps form a cycle; 2 for a usage or read error. The verdict comes from the audit's
+complete count, not from the tree printed (the tree is cut at 200 nodes). `--station-key` and `--reviewer-key`
+(repeatable) work as for `audit`.
 
 ### review
 
@@ -300,7 +342,7 @@ With `--json -` the JSON is the standard output and the human lines go to the st
 
 - The agent scans the folder every `--interval` seconds (polling works on network shares, where file events do not).
   It walks the folder with `lstat`: symbolic links are skipped and never followed, and so are the `ImmutableQC` folder
-  at the root of the data folder, the default ignores and `--ignore` matches. A scan is cheap on a local disk (about
+  at every depth (and any `*.ledger.jsonl`), the default ignores and `--ignore` matches. A scan is cheap on a local disk (about
   20 ms of processor time for 5,000 files); on a share, where each look is a round trip, it looks at up to 64 files at
   once.
 - A file is a candidate when its size or modification time differs from what was last sealed (the record's size and
@@ -465,7 +507,7 @@ allow Node.js to read it (System Settings, Privacy & Security, Files and Folders
 - **On the command line:** `node iqc.mjs audit "<data folder>"`, with `--report audit.html` for a report to print or
   keep. In a pipeline, use the exit code.
 - **Against a pinned head:** run `iqc head` now and keep its output somewhere else. Later:
-  `iqc audit "<data folder>" --expect-head <n>:<h> --expect-key <keyId>`.
+  `iqc audit "<data folder>" --expect-head <ledgerId>:<n>:<h> --expect-key <keyId>` (the line `iqc head` prints).
 
 Copy or back up the data folder together with its `ImmutableQC` folder: the audit needs both.
 
@@ -482,8 +524,8 @@ Copy or back up the data folder together with its `ImmutableQC` folder: the audi
 | `mcp` | stopped cleanly | refused at start (as `record`), or the stop record could not be written | usage error |
 
 `audit` exits **3** for review: nothing failed, but there is something to look at: a sealed file was changed after its
-first seal or was removed (each change is recorded), an agent step used inputs nothing measured, or a reviewer
-questioned or rejected a step. `trace` exits **3** when something on the way to the file is untraced.
+first seal or was removed (each change is recorded), an agent step used inputs nothing measured or named no inputs,
+a sealed file or a ledger's files were not checked, or a reviewer questioned or rejected a step. `trace` exits **3** when something on the way to the file is untraced.
 
 A second Ctrl+C stops a watch at once (exit 130), without its stop record.
 

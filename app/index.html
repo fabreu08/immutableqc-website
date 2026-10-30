@@ -83,7 +83,7 @@
         <p class="local"><svg aria-hidden="true"><use href="#i-lock"/></svg><span>Nothing is uploaded: your browser reads the files, and this page is not allowed to open a connection.</span></p>
       </div>
       <details class="fold opts" id="audit-opts">
-        <summary>Pinned heads, key ids and expected changes <span class="label">Optional</span></summary>
+        <summary>Pinned heads, key ids, station and reviewer keys, expected changes <span class="label">Optional</span></summary>
         <div class="fold-body">
           <div class="fields">
             <div class="field">
@@ -106,6 +106,16 @@
               <div class="btn-row"><button class="btn btn-ghost btn-s" type="button" data-act="choose-pins" aria-describedby="audit-pins-l audit-pins-name"><svg aria-hidden="true"><use href="#i-file"/></svg>Choose a pin file</button><button class="btn btn-ghost btn-s" type="button" data-act="clear-pins" hidden>Clear</button></div>
               <input class="vh" type="file" id="audit-pins" accept=".txt,.pins,text/plain" tabindex="-1" aria-label="Choose a pin file">
               <p class="hint" id="audit-pins-name">No pin file chosen.</p>
+            </div>
+            <div class="field">
+              <label for="audit-station">Station keys</label>
+              <input type="text" id="audit-station" placeholder="16 hex characters" autocomplete="off" spellcheck="false" aria-describedby="audit-station-hint">
+              <p class="hint" id="audit-station-hint">The key ids of your instruments or stations. Only files sealed by a listed key count as measured, so a ledger an agent made itself cannot vouch for its own inputs. Several: separate them with commas.</p>
+            </div>
+            <div class="field">
+              <label for="audit-reviewer">Reviewer keys</label>
+              <input type="text" id="audit-reviewer" placeholder="16 hex characters" autocomplete="off" spellcheck="false" aria-describedby="audit-reviewer-hint">
+              <p class="hint" id="audit-reviewer-hint">The key ids of your reviewers. Only an approval signed by a listed key counts; a rejection or a question counts from any key. Several: separate them with commas.</p>
             </div>
           </div>
         </div>

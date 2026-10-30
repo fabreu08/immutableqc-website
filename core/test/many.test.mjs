@@ -58,8 +58,8 @@ test('auditMany: measured and derived inputs, multi-hop lineage, outputs match: 
   assert.equal(r.format, 'immutableqc-audit')
   assert.equal(r.version, 1)
   assert.equal(r.verdict, 'pass')
-  assert.equal(r.summary, 'Pass: all 3 ledgers are intact, all 2 files match their seals and 3 agent steps are recorded with every input traced (1 note).')
-  assert.deepEqual(codes(r.notes), ['awaiting-review'])
+  assert.equal(r.summary, 'Pass: all 3 ledgers are intact, all 2 files match their seals and 3 agent steps are recorded with every input traced (3 notes).')
+  assert.deepEqual(codes(r.notes), ['awaiting-review', 'station-keys-not-listed', 'no-pinned-head'])
   assert.equal(r.notes[0].count, 3)
   assert.deepEqual(r.ledgers.map((L) => [L.label, L.role, L.verdict, L.records]), [['bio-line-2', 'measured', 'pass', 3], ['hplc-3', 'measured', 'pass', 3], ['agent', 'agent', 'pass', 5]])
   const [s1, s2, s3] = r.steps
@@ -92,7 +92,7 @@ test('auditMany: measured and derived inputs, multi-hop lineage, outputs match: 
   // strict: the note fails
   const st = IQC.auditMany(labEntries(), { strict: true })
   assert.equal(st.verdict, 'fail')
-  assert.equal(st.summary, 'Fail: 1 note counts as a failure in strict mode.')
+  assert.equal(st.summary, 'Fail: 3 notes count as failures in strict mode.')
 })
 
 test('auditMany: an untraced input, and an input whose file was sealed again after the step used it, put it in review', async () => {
@@ -119,7 +119,7 @@ test('auditMany: an untraced input, and an input whose file was sealed again aft
   assert.equal(r.summary, 'Review: 1 agent step used a file that was sealed again later. Each is recorded below.')
   // the same change, recorded before the step ran: the step used an earlier version
   const bio3 = await ledger('bio-line-2c', instItems('bio-line-2', [['plate.csv', P], ['plate.csv', 'newer', 'changed']]), 'bio-line-2')
-  r = IQC.auditMany([entry(bio3, { 'plate.csv': 'newer' }), entry(hplc, null), entry(agent, agentFiles)])
+  r = IQC.auditMany([entry(bio3, { 'plate.csv': 'newer' }), entry(hplc, { 'run/ref-injection.csv': R }), entry(agent, agentFiles)])
   assert.deepEqual(codes(r.forReview), ['sealed-more-than-once', 'input-changed-after-use'])
   assert.equal(r.steps[0].inputs[0].changedAfter.afterUse, false)
   assert.match(r.forReview[1].items[0], /the step used an earlier version/)
@@ -136,11 +136,12 @@ test('auditMany: an output changed or missing fails; an output written again by 
   ])
   assert.deepEqual(r.problems[0].records, [{ ledgerId: agent.id, ledger: 2, n: 3 }])
   assert.equal(r.summary, 'Fail: 1 agent output changed since its step wrote it and 1 agent output is missing.')
-  // files not given: not checked (a note)
+  // files not given: not checked, a review item (R1; was a note)
   r = IQC.auditMany([entry(bio, { 'plate.csv': P }), entry(hplc, { 'run/ref-injection.csv': R }), entry(agent, null)])
-  assert.equal(r.verdict, 'pass')
+  assert.equal(r.verdict, 'review')
   assert.deepEqual(r.steps.map((s) => s.outputs[0].state), ['not checked', 'not checked', 'not checked'])
-  assert.deepEqual(codes(r.notes), ['awaiting-review', 'outputs-not-checked'])
+  assert.deepEqual(codes(r.forReview), ['files-not-checked'])
+  assert.deepEqual(r.forReview[0].items, ['agent seals 3 files, but no folder was checked against it'])
   // a later step rewrites out/fit.csv: the first version is superseded, the second compared; a file equal to the
   // first version is "changed" and says which step wrote it
   const two = await ledger('agent2', [step('Fit', [['in/plate.csv', P]], [['out/fit.csv', 'v1']], 1), step('Refit', [['in/plate.csv', P]], [['out/fit.csv', 'v2']], 2)], 'analysis-server')
@@ -155,8 +156,15 @@ test('auditMany: an output changed or missing fails; an output written again by 
 })
 
 test('auditMany: a cycle of steps goes to review and is cut in the tree; the tree is depth-bounded, the summary is not', async () => {
+  // in one ledger a producer must come first in record order, so a later step never traces an earlier one (MCP-3)
   const cyc = await ledger('cycle', [step('A from B', [['b.csv', 'B']], [['a.csv', 'A']], 1), step('B from A', [['a.csv', 'A']], [['b.csv', 'B']], 2)], 'analysis-server')
   let r = IQC.auditMany([entry(cyc, { 'a.csv': 'A', 'b.csv': 'B' })])
+  assert.deepEqual(r.steps.map((s) => s.inputs[0].state), ['untraced', 'derived'])
+  assert.equal(r.steps[0].inputs[0].why, 'written only by a step recorded after this one (record 2 of cycle)')
+  // across ledgers, steps recorded at the same time can still form a cycle
+  const cycA = await ledger('cycle-a', [step('A from B', [['b.csv', 'B']], [['a.csv', 'A']], 1)], 'analysis-server')
+  const cycB = await ledger('cycle-b', [step('B from A', [['a.csv', 'A']], [['b.csv', 'B']], 1)], 'analysis-server')
+  r = IQC.auditMany([entry(cycA, { 'a.csv': 'A' }), entry(cycB, { 'b.csv': 'B' })])
   assert.deepEqual(r.steps.map((s) => s.inputs[0].state), ['derived', 'derived'])
   assert.equal(r.verdict, 'review')
   assert.deepEqual(codes(r.forReview), ['step-cycle'])
@@ -195,7 +203,7 @@ test('auditMany: reviews approved, questioned, rejected; latest decision per rev
   assert.deepEqual(r.steps[1].review.decisions.map((d) => [d.reviewer, d.decision, d.latest]), [['J. Rivera', 'approved', false], ['J. Rivera', 'question', true]])
   assert.equal(r.verdict, 'review')
   assert.deepEqual(codes(r.forReview), ['review-rejected', 'review-question'])
-  assert.match(r.forReview[0].items[0], /record 4 \(analysis-agent: "Write the report"\): rejected by K\. Osei, 2026-10-01 08:33:22 UTC \("Wrong curve model\."\)/)
+  assert.match(r.forReview[0].items[0], /record 4 \(analysis-agent: "Write the report"\): rejected by K\. Osei \(key [0-9a-f]{16}\), 2026-10-01 08:33:22 UTC \("Wrong curve model\."\)/)
   assert.deepEqual(r.forReview[1].records, [{ ledgerId: agent.id, ledger: 2, n: 3 }, { ledgerId: rv.id, ledger: 3, n: 2 }])
   assert.equal(r.summary, 'Review: 1 agent step was rejected by a reviewer and 1 agent step was questioned by a reviewer. Each is recorded below.')
   assert.deepEqual(r.reviews.map((x) => [x.reviewer, x.decision, x.subjects.map((y) => y.state + ':' + y.kind)]), [
@@ -208,7 +216,7 @@ test('auditMany: reviews approved, questioned, rejected; latest decision per rev
   assert.equal(r.verdict, 'fail')
   assert.deepEqual(r.problems.map((p) => p.code), ['review-subject-changed'])
   assert.match(r.problems[0].message, /^reviewer-bad: the review in record 1 \(approved by J\. Rivera\) names record 2 of agent, which no longer matches: its link is not the one reviewed, so the record changed after it was reviewed\.$/)
-  assert.deepEqual(codes(r.notes), ['awaiting-review', 'review-unknown-ledger'])
+  assert.deepEqual(codes(r.notes), ['awaiting-review', 'review-unknown-ledger', 'station-keys-not-listed', 'no-pinned-head'])
   assert.equal(r.steps[0].review.state, 'awaiting review', 'a review that does not match counts for nothing')
   assert.equal(r.summary, 'Fail: 1 review names a record that changed after it was reviewed.')
   // a review of a file record
@@ -229,28 +237,34 @@ test('auditMany: pins pass, fail, name another ledger, or do not read; expectHea
   assert.ok(r.expectations.pins.every((p) => p.ok === true))
   r = IQC.auditMany(labEntries(), { pinLines: `${pin(bio, 2, sha('other'))}\n${pin({ id: idOf('gone'), records: [{ h: sha('g') }] }, 1)}\nnot a pin line\n` })
   assert.equal(r.verdict, 'fail')
-  assert.deepEqual(r.problems.map((p) => p.code), ['pin', 'pin-unreadable'])
+  // R3: a pin whose ledger id is not audited fails (was a note)
+  assert.deepEqual(r.problems.map((p) => p.code), ['pin', 'pin-ledger-missing', 'pin-unreadable'])
   assert.match(r.problems.find((p) => p.code === 'pin').message, /^bio-line-2: pin line 1 \(2026-10-01 08:50:00 UTC\): Record 2's link is [0-9a-f]{64}, not the pinned [0-9a-f]{64}: the ledger was rewritten/)
-  assert.deepEqual(codes(r.notes), ['awaiting-review', 'pin-other-ledger'])
-  assert.match(r.notes[1].message, /another ledger was pinned from this station/)
-  assert.equal(r.summary, 'Fail: 2 pins do not match.')
+  assert.match(r.problems[1].message, /^The pin file names ledger [0-9a-f]{32} \(record 1, pinned 2026-10-01 08:50:00 UTC\), and no audited ledger has that id: the ledger was deleted, started over, or is kept outside this folder\. Include a ledger kept elsewhere with --ledger <file>/)
+  assert.deepEqual(codes(r.notes), ['awaiting-review', 'station-keys-not-listed', 'no-pinned-head'])
+  assert.equal(r.summary, 'Fail: 1 pinned ledger is missing and 2 pins do not match.')
   // a pin past the end: the ledger was cut
   r = IQC.auditMany(labEntries(), { pinLines: [IQC.formatPinLine(bio.id, { n: 9, h: sha('x') }, T(1))] })
   assert.match(r.problems[0].message, /only 3 records: records were removed from its end/)
-  // expectHeads: with a ledger id, without one (any ledger), a map; expectKeyIds
-  r = IQC.auditMany(labEntries(), { expectHeads: [`${agent.id} 5:${agent.records[4].h}`, `2:${hplc.records[1].h}`], expectKeyIds: [bio.v.keyId, hplc.v.keyId, agent.v.keyId.toUpperCase()] })
+  // expectHeads: with a ledger id, without one (the folder's own ledger), a map; expectKeyIds
+  const own = labEntries(); own[1] = { ...own[1], folderOwn: true }
+  r = IQC.auditMany(own, { expectHeads: [`${agent.id} 5:${agent.records[4].h}`, `2:${hplc.records[1].h}`], expectKeyIds: [bio.v.keyId, hplc.v.keyId, agent.v.keyId.toUpperCase()] })
   assert.equal(r.verdict, 'pass')
   assert.deepEqual(r.expectations.heads.map((x) => x.ok), [true, true])
   assert.match(r.expectations.heads[1].message, /^hplc-3: Record 2's link matches the pinned head \(the ledger has grown since, to 3 records\)\.$/)
   r = IQC.auditMany(labEntries(), { expectHeads: { [bio.id]: `1:${sha('nope')}` }, expectKeyIds: '0123456789abcdef' })
   assert.equal(r.verdict, 'fail')
-  assert.deepEqual(r.problems.map((p) => p.code), ['expect-head', 'expect-key'])
-  assert.deepEqual(codes(r.notes), ['awaiting-review', 'unexpected-key'])
-  assert.equal(r.summary, 'Fail: the pinned head does not match and an expected key id is not found.')
+  // R3: with several ledgers, each one signed by a key not expected fails (was a note)
+  assert.deepEqual(r.problems.map((p) => p.code), ['expect-head', 'expect-key', 'unexpected-key', 'unexpected-key', 'unexpected-key'])
+  assert.match(r.problems[2].message, /^bio-line-2 is signed with key [0-9a-f]{16}, which is not among the expected keys\. The keys found: [0-9a-f]{16} \(bio-line-2\), [0-9a-f]{16} \(hplc-3\) and [0-9a-f]{16} \(analysis-server\)\./)
+  assert.deepEqual(codes(r.notes), ['awaiting-review', 'station-keys-not-listed', 'no-pinned-head'])
+  assert.equal(r.summary, 'Fail: the pinned head does not match, an expected key id is not found and 3 ledgers are signed with a key not expected.')
   r = IQC.auditMany(labEntries(), { expectHeads: `${idOf('nobody')}:1:${sha('x')}` })
   assert.match(r.problems[0].message, /names ledger [0-9a-f]{32}, which was not audited/)
-  r = IQC.auditMany(labEntries(), { expectHeads: `3:${sha('x')}` })
-  assert.match(r.problems[0].message, /^No audited ledger has record 3 with the link/)
+  // R3: a head with no ledger id, several ledgers and none the folder's own: name the ledger id (never "any ledger")
+  r = IQC.auditMany(labEntries(), { expectHeads: `2:${hplc.records[1].h}` })
+  assert.equal(r.verdict, 'fail')
+  assert.match(r.problems[0].message, /names no ledger id, and 3 ledgers were audited with none of them the folder's own: name the ledger id/)
   r = IQC.auditMany(labEntries(), { expectHeads: 'nonsense' })
   assert.match(r.problems[0].message, /could not be read/)
 })
@@ -282,8 +296,9 @@ test('auditMany: file changes across ledgers (review, allowChanges, unrecorded c
   const empty = await ledger('empty', [])
   r = IQC.auditMany([entry(mixed, { 'x.csv': 'x', 'y.csv': 'y' }), entry(empty, null), entry(agent, null, 'agent-copy'), entry(agent, null)])
   assert.deepEqual(r.ledgers.map((L) => L.role), ['mixed', 'empty', 'agent', 'agent'])
-  assert.ok(codes(r.notes).includes('duplicate-ledger'))
-  assert.equal(r.steps[0].inputs[0].state, 'measured', 'a mixed ledger measures its own files')
+  assert.ok(codes(r.forReview).includes('duplicate-ledger'), 'R3: a copy is a review item (was a note)')
+  assert.equal(r.steps[0].inputs[0].state, 'untraced', "R4: a ledger with steps never measures its own inputs")
+  assert.match(r.steps[0].inputs[0].why, /^sealed only in mixed, a ledger that holds agent steps/)
   assert.throws(() => IQC.auditMany([]), /at least one ledger/)
   assert.throws(() => IQC.auditMany([{ verified: {} }]), /needs \{verified\}/)
   assert.throws(() => IQC.auditMany(labEntries(), { allowChanges: [''] }), /files expected to change must be a non-empty string/)
@@ -292,8 +307,8 @@ test('auditMany: file changes across ledgers (review, allowChanges, unrecorded c
 test('auditMany: two instrument ledgers, an agent ledger and a reviewer ledger end to end, and the report HTML', async () => {
   const s = (k) => subj(agent, stepRec(agent, k))
   const rv = await ledger('reviewer', [review('J. Rivera', [s(0), s(1), s(2)], 'approved', 2000, 'Checked.')], 'Browser')
-  const pins = [IQC.formatPinLine(bio.id, bio.v.head, T(600)), IQC.formatPinLine(hplc.id, hplc.v.head, T(600))].join('\n')
-  const r = IQC.auditMany([...labEntries(), entry(rv, null)], { pinLines: pins, expectKeyIds: [bio.v.keyId, hplc.v.keyId, agent.v.keyId, rv.v.keyId], auditedAt: T(9000), where: 'browser', tool: 'immutableqc-app/0.1.0' })
+  const pins = [bio, hplc, agent, rv].map((L) => IQC.formatPinLine(L.id, L.v.head, T(600))).join('\n')
+  const r = IQC.auditMany([...labEntries(), entry(rv, null)], { pinLines: pins, expectKeyIds: [bio.v.keyId, hplc.v.keyId, agent.v.keyId, rv.v.keyId], stationKeys: [bio.v.keyId, hplc.v.keyId], reviewerKeys: [rv.v.keyId], auditedAt: T(9000), where: 'browser', tool: 'immutableqc-app/0.1.0' })
   assert.equal(r.verdict, 'pass')
   assert.deepEqual(r.notes, [])
   assert.equal(r.summary, 'Pass: all 4 ledgers are intact, all 2 files match their seals and 3 agent steps are recorded with every input traced.')
@@ -358,7 +373,7 @@ test('lineage over 100,000 records is not quadratic', async () => {
   const r = IQC.auditMany([entry(bio, { 'plate.csv': P }), { verified: v, root: null, files: null, label: 'perf' }])
   const ms = performance.now() - t0
   assert.equal(r.counts.steps, COUNT)
-  assert.equal(r.verdict, 'pass')
+  assert.deepEqual(codes(r.forReview), ['files-not-checked'])
   const last = r.lineage.outputs[COUNT - 1]
   assert.deepEqual([last.tracesToMeasured, last.measured], [true, 1])
   let nodes = 0

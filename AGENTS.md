@@ -64,6 +64,8 @@ server first (any MCP client that starts local servers over standard input and o
 ```
 ## Lab data
 Before you use files under <lab folder>, call check_inputs on them. Only files a lab station sealed read as measured.
+Ask the person for the lab's station key ids and start the server with --station-key <keyId> for each; without them,
+any ledger that holds no agent steps measures, whatever its key.
 Never run iqc seal or iqc watch on files yourself. After you write files, call record_step once per step, naming every
 file you read and wrote. Tell a person about any untraced input, or any file that changed after it was sealed, before
 you rely on it. Never sign off your own steps. A trace follows the steps as the agent recorded them: a step can name

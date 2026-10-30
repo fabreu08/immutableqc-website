@@ -46,7 +46,8 @@ What `node iqc.mjs help` and `node iqc.mjs help <command>` print, for iqc.mjs {{
 - Protocol versions: 2026-07-28, with no handshake (each request carries its version and the client's capabilities in _meta; server/discover), and the handshake versions {{legacyProtocols}} (initialize, then notifications/initialized; ping).
 - Results: a plain text summary, and the same data as JSON text; from 2025-06-18 also structuredContent, matching each tool's outputSchema. Annotations from 2025-03-26: every tool but record_step is read-only.
 - Errors: a bad argument or a refused path is a tool error (isError: true) with a sentence saying why; an unknown method, an unknown tool and a malformed message are JSON-RPC errors.
-- check_inputs and trace read the ledgers lab stations write with iqc watch or iqc seal, under the search folders. Measured means some ledger there sealed the bytes, whatever its key: compare measured.keyId with the lab's station key ids.
+- Measured means a ledger that holds no agent steps sealed the bytes, or, when the server was started with --station-key, a ledger signed by a listed key: compare measured.keyId with the lab's station key ids. check_inputs and trace read the ledgers lab stations write with iqc watch or iqc seal, under the search folders.
+- A pin file that names a ledger no audited ledger has fails the audit. audit_summary checks a pin file only when the server was started with --pin-file.
 - Starting the server creates <root>/ImmutableQC/ (the agent's own ledger) and, for a new ledger, a signing key in ~/.immutableqc/keys/. One writer per root at a time: one server or one iqc record.
 - The server's instructions, sent at the start of a session, give the loop below and name the root and the search folders it was started with.
 - In a client's configuration file the entry usually sits under a name; the file and its place depend on the client:
@@ -95,7 +96,7 @@ Writes, and nothing else:
 - JSON Lines, UTF-8. Line 1 is the header: format immutableqc-ledger, version 1, the ledger id, the station, the algorithm ECDSA-P256-SHA256, the public key and its key id, and the header's signature.
 - Every later line is one record: n, kind (file, file-removed, session, step or review), its fields f, r (the record's SHA-256 fingerprint), prev (the link of the record before), h (this record's link) and sig (an ECDSA P-256 signature).
 - A file record holds the file's path, SHA-256, size, the time it was read and the event that sealed it (for example existing, added or changed); a file-removed record, a file recorded removed. A step record holds the actor, the tool, the action and its inputs and outputs by SHA-256 and size. A review record names the records it covers by ledger id, number and link.
-- An audit replays every link and signature, re-reads every file and traces every step's inputs: measured (a ledger sealed those bytes), derived (a recorded step wrote them) or untraced.
+- An audit replays every link and signature, re-reads every file and traces every step's inputs: measured (a ledger that holds no agent steps, or one signed by a listed station key, sealed those bytes), derived (a recorded step wrote them) or untraced; a step that names no inputs goes to review.
 
 ## When it is not the right tool
 

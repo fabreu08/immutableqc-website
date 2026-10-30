@@ -31,8 +31,9 @@ root, a missing option).
 node iqc.mjs trace analysis/plate-07-normalized.csv --search /lab --json -
 ```
 
-Exit 0 when the file was measured or every branch ends in a measured file, 3 when something on the way is untraced,
-2 usage or read error.
+Exit 0 when the file was measured or every branch ends in a measured file, 3 when something on the way is untraced or
+a step names no inputs, 2 usage or read error. `--station-key <keyId>` (repeatable) counts a file as measured only when
+a ledger signed by a listed key sealed it; `--reviewer-key <keyId>` (repeatable) counts approvals only from listed keys.
 
 ## Audit a lab folder
 
@@ -41,11 +42,16 @@ node iqc.mjs audit /lab --report audit.html --json audit.json
 ```
 
 Finds every ledger under the folder, checks each one, re-reads every sealed file and traces every step's inputs.
-Exit 0 pass, 3 review, 1 fail, 2 usage or read error. Other options: `--expect-head <n>:<h>` (a head pinned earlier),
-`--expect-key <keyId>`, `--pin-file <file>`, `--allow-changes <glob>`, `--ledger <file>`, `--strict`.
-`--expect-key` fails only when no audited ledger has that key; it does not check that each measured input was sealed by
-it. To check, compare each measured key id with the lab's station key ids; a built-in check is upcoming. A ledger cut
-short (its last records deleted) shows only against a head pinned earlier (`--expect-head` or `--pin-file`).
+Exit 0 pass, 3 review, 1 fail, 2 usage or read error. Other options: `--expect-head <ledger id>:<n>:<h>` (a head
+pinned earlier, as the head command prints it), `--expect-key <keyId>`, `--pin-file <file>`, `--station-key <keyId>`,
+`--reviewer-key <keyId>`, `--allow-changes <glob>`, `--ledger <file>`, `--strict`.
+Without `--station-key`, any ledger that holds no agent steps measures, whatever its key, and a note names the keys it
+counted. With it (repeatable), only a ledger signed by a listed key measures, and a listed key that signs no audited
+ledger fails. Without `--reviewer-key`, an approval counts from any key; with it, only listed keys approve, and a
+rejection or question counts from any key. `--expect-key` fails when no audited ledger has that key, and, with several
+ledgers, when a ledger is signed by a key not listed. A step that names no inputs goes to review. A ledger cut short
+(its last records deleted) shows only against a head pinned earlier (`--expect-head` or `--pin-file`); an audit with
+neither says so in a note. A pin file that names a ledger no audited ledger has fails.
 
 ## Sign off (for a person, never for the agent that took the step)
 

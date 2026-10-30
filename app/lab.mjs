@@ -36,11 +36,11 @@ function rowsOf(res) {
     const f = { ...f0, path: L.root ? `${L.root}/${f0.path}` : f0.path }
     const problem = f.state === 'changed' || f.state === 'missing'
     const note = !problem && (f.state === 'not sealed' || f.state === 'back after removal' || f.state === 'not checked' || f.versions > 1)
-    const review = (f0.records || []).some((n) => forReview.has(`${L.ledgerId}:${n}`))
+    const review = f.state === 'not checked' || (f0.records || []).some((n) => forReview.has(`${L.ledgerId}:${n}`))
     out.push({ f, i, group: problem ? 0 : review ? 1 : note ? 2 : 3, problem, note, review, unread: unread.get(f.path), hay: `${nameOf(f.path)} ${f.path} ${f.sealed ? f.sealed.sha256 : ''} ${f.present ? f.present.sha256 : ''}`.toLowerCase() })
   })
   r.steps.forEach((s, k) => {
-    const needs = s.review.state !== 'approved' || s.inputs.some((x) => x.state === 'untraced' || x.changedAfter)
+    const needs = s.review.state !== 'approved' || s.inputs.some((x) => x.state === 'untraced' || x.changedAfter) || s.outputs.some((o) => o.state === 'not checked')
     for (const o of s.outputs) {
       const problem = o.state === 'changed' || o.state === 'missing'
       const path = under(r, s.ledger, o.path), sha = o.present ? o.present.sha256 : o.sha256
@@ -53,7 +53,7 @@ function rowsOf(res) {
 }
 
 // ---------------------------------------------------------------------------------------------------- panels
-const CODE = { 'output-changed': 'Agent output', 'output-missing': 'Agent output', 'review-subject-changed': 'Review', 'expect-head': 'Pinned head', pin: 'Pin', 'pin-unreadable': 'Pin file', 'expect-key': 'Key id' }
+const CODE = { 'output-changed': 'Agent output', 'output-missing': 'Agent output', 'review-subject-changed': 'Review', 'expect-head': 'Pinned head', pin: 'Pin', 'pin-unreadable': 'Pin file', 'pin-ledger-missing': 'Pin', 'ledger-not-pinned': 'Pin', 'expect-key': 'Key id', 'unexpected-key': 'Key id', 'station-key-not-found': 'Station key' }
 function problemsPanel(id, r) {
   if (!r.problems.length) return `<section class="panel" aria-labelledby="${id}-prob-h"><h2 id="${id}-prob-h">Problems</h2><p class="none">${ic('check')}<span>None: every signature, link, file and agent output checks out.</span></p></section>`
   const li = r.problems.slice(0, 50).map((p) => {
@@ -78,7 +78,8 @@ function activityPanel(id, r) {
   const items = ss.slice(0, 200).map((s) => {
     const ins = s.inputs.map((x) => {
       const m = x.measured && x.measured[0]
-      const d = x.state === 'measured' ? `sealed by ${m.station || ledgerOf(r, m.ledger).label} as ${nameOf(m.path)}, record ${m.n}` : x.state === 'derived' ? `written by step ${x.step.n}` : 'matches nothing sealed'
+      const by = m ? `sealed by ${m.station || ledgerOf(r, m.ledger).label} as ${nameOf(m.path)}, record ${m.n}` : ''
+      const d = x.state === 'measured' ? by : x.state === 'derived' ? `written by step ${x.step.n}${by ? ` · also ${by}` : ''}` : x.why || 'matches nothing sealed'
       const later = x.changedAfter ? ` · sealed again later, in record ${x.changedAfter.n}` : ''
       return `<li>${chip(INPUT[x.state])}<code>${esc(nameOf(x.path))}</code><span class="faint">${esc(d + later)}</span></li>`
     }).join('')
@@ -88,7 +89,7 @@ function activityPanel(id, r) {
     return `<li class="act" data-review="${esc(s.review.state)}">
 <div class="act-h">${chip(DECIDE[s.review.state] || DECIDE['awaiting review'])}<h3>${esc(s.action)}</h3></div>
 <p class="act-meta">${esc(`${s.actor} · ${s.tool} · ${when(s.at)} · ${stepName(r, s)}`)}</p>
-<div class="act-io"><p class="label">Inputs</p><ul class="io">${ins || '<li class="faint">None recorded</li>'}</ul></div>
+<div class="act-io"><p class="label">Inputs</p><ul class="io">${ins || '<li class="faint">None recorded: its outputs trace to nothing measured</li>'}</ul></div>
 <div class="act-io"><p class="label">Outputs</p><ul class="io">${outs || '<li class="faint">None recorded</li>'}</ul></div>
 ${decided ? `<ul class="io act-rev">${decided}</ul>` : ''}
 <details class="fold trace"><summary>Trace back to sealed measurements <span class="faint">· ${esc(s.lineage.sentence)}</span></summary><div class="fold-body">${trees.length ? `<ul class="ttree">${trees.map((o) => treeHTML(r, o.tree)).join('')}</ul>` : `<p class="finding">${esc(cap(s.lineage.sentence))}.</p>`}</div></details>
@@ -135,7 +136,7 @@ export function renderMany(box, res, opts = {}) {
 <span class="tag tag-l ${tc}">${ic(vi)}${vw}</span>
 <${Hl} id="${id}-vh">${esc(headline(r))}</${Hl}>
 <p class="verdict-meta">${esc(where)}</p>
-${r.verdict === 'pass' ? '<p class="v-why">Each file is byte for byte the one that was sealed, each ledger is as it was signed, and each agent output is the file its step recorded, traced back to sealed measurements. It does not show a result was right. <a href="../sealed.html">What a seal covers</a></p>' : ''}
+${r.verdict === 'pass' ? `<p class="v-why">Each file checked is byte for byte the one that was sealed, each ledger is as it was signed (not edited or reordered), and each agent output is the file its step recorded. ${esc(H.cutSentence(r))} It does not show a result was right. <a href="../sealed.html">What a seal covers</a></p>` : ''}
 </div>
 <div class="verdict-actions">${acts}
 <button class="btn ${r.verdict === 'pass' && !demo ? 'btn-primary' : 'btn-ghost'} btn-s" type="button" data-act="report-html">${ic('down')}Download report (HTML)</button>
@@ -210,7 +211,7 @@ function openReview(box, res) {
   if (!slot) { slot = document.createElement('div'); slot.setAttribute('data-review-slot', ''); $('.cols', box).before(slot) }
   const id = `rv${H.uid()}`, { steps, files } = subjectsOf(res)
   const pick = (x, i, k) => `<li><label><input type="checkbox" name="${id}-s" value="${esc(x.key)}"${k === 's' && x.state !== 'approved' ? ' checked' : ''}><span>${esc(x.label)}</span></label></li>`
-  const signed = res.review
+  const signed = res.reviews && res.reviews.length ? res.reviews : null
   slot.innerHTML = `<section class="panel review-mode" aria-labelledby="${id}-h">
 <h2 id="${id}-h" tabindex="-1">Review and sign off <span class="label">signed with this browser’s key</span></h2>
 <p class="callout callout-note">${ic('note')}<span>A browser key identifies this browser, not a person: anyone who uses this browser profile signs with the same key. Per-person keys are upcoming. The key stays in this browser (IndexedDB) and cannot be exported.</span></p>
@@ -223,7 +224,7 @@ ${files.length ? `<details class="fold"${steps.length ? '' : ' open'}><summary>F
 <div class="btn-row"><button class="btn btn-primary" type="submit">${ic('lock')}Sign with this browser’s key</button><button class="btn btn-ghost" type="button" data-act="review-close">Close</button></div>
 <p class="rv-error" data-rv-error role="alert"></p>
 </form>
-${signed ? `<div class="callout callout-pass rv-done">${ic('check')}<div><p>${esc(`Your review ledger holds ${plural(signed.verified.recordCount, 'review record', 'review records')}, key id ${signed.key.keyId}. The audit above includes it. Keep it with the lab folder: later audits include it too.`)}</p><button class="btn btn-primary btn-s" type="button" data-act="review-download">${ic('down')}Download your review ledger</button> <code>${esc(reviewFile(res.reviewer))}</code></div></div>` : ''}
+${signed ? `<div class="callout callout-pass rv-done">${ic('check')}<div><p>${esc(signed.length === 1 ? `Your review ledger holds ${plural(signed[0].verified.recordCount, 'review record', 'review records')}, key id ${signed[0].key.keyId}. The audit above includes it. Keep it with the lab folder: later audits include it too.` : `Your ${fmtN(signed.length)} review ledgers (${signed.map((x) => x.name).join(', ')}) are all in the audit above, key id ${signed[0].key.keyId}. Keep every one with the lab folder: later audits include them too.`)}</p>${signed.map((x, i) => `<p class="rv-file"><button class="btn btn-primary btn-s" type="button" data-act="review-download" data-review="${i}">${ic('down')}${signed.length === 1 ? 'Download your review ledger' : `Download ${esc(x.name)}’s review ledger`}</button> <code>${esc(x.file)}</code></p>`).join('')}</div></div>` : ''}
 </section>`
   $('[data-review-form]', slot).addEventListener('submit', (e) => { e.preventDefault(); sign(box, slot, id) })
   return slot
@@ -243,13 +244,22 @@ async function sign(box, slot, id) {
   btn.disabled = true
   try {
     saveName(name)
-    const key = res.review && res.reviewer === name ? res.review.key : await H.S.keys.current()
-    const prior = res.review && res.reviewer === name ? res.review : null
-    const review = await signReview({ key, prior, reviewer: name, subjects, decision, note })
+    // every name signed in this tab keeps its own ledger (a second name never replaces the first one's); a name signed
+    // again extends its own ledger. All are audited with the others and each can be downloaded.
+    const kept = new Map((res.reviews || []).map((x) => [x.name, x]))
+    const prior = kept.get(name) || null
+    const key = prior ? prior.key : await H.S.keys.current()
+    const signed = await signReview({ key, prior, reviewer: name, subjects, decision, note })
+    const used = new Set([...kept.values()].map((x) => x.file))
+    let file = prior ? prior.file : reviewFile(name)
+    for (let k = 2; !prior && used.has(file); k++) file = reviewFile(name).replace(/\.ledger\.jsonl$/, `-${k}.ledger.jsonl`)
+    const review = { ...signed, name, file }
+    kept.set(name, review)
+    const reviews = [...kept.values()]
     const base = res.baseEntries || res.entries
-    const entries = [...base, { verified: review.verified, root: null, files: null, ledgerPath: reviewFile(name) }]
+    const entries = [...base, ...reviews.map((x) => ({ verified: x.verified, root: null, files: null, ledgerPath: x.file }))]
     const report = IQC.auditMany(entries, { ...(res.opts || {}), where: 'browser', tool: H.TOOL })
-    const next = { ...res, report, entries, baseEntries: base, review, reviewer: name }
+    const next = { ...res, report, entries, baseEntries: base, reviews, review, reviewer: name }
     renderMany(box, next, { ...(box._opts || { mode: 'audit', level: 'h1' }), reviewOpen: true })
     focusEl($('.verdict', box))
     announce(`Signed: ${plural(subjects.length, 'record', 'records')} ${decision}. The audit ran again with your review ledger. ${cap(report.verdict)}: ${headline(report)}`)
@@ -260,11 +270,14 @@ async function sign(box, slot, id) {
   }
 }
 
-export function reviewAct(act, box) {
+export function reviewAct(act, box, btn) {
   const res = box._res
   if (act === 'review-open') { const slot = openReview(box, res); focusEl($('h2', slot)); announce('Review mode: pick steps or files, a decision and a note.') }
   else if (act === 'review-close') { const slot = $('[data-review-slot]', box); if (slot) slot.innerHTML = ''; const b = $('[data-act="review-open"]', box); if (b) b.focus() }
-  else if (act === 'review-download' && res.review) { download(reviewFile(res.reviewer), res.review.text, 'application/x-ndjson'); announce(`${reviewFile(res.reviewer)} downloaded.`) }
+  else if (act === 'review-download' && res.reviews) {
+    const x = res.reviews[Number(btn && btn.dataset.review) || 0]
+    if (x) { download(x.file, x.text, 'application/x-ndjson'); announce(`${x.file} downloaded.`) }
+  }
 }
 
 // ---------------------------------------------------------------------------------------------------- the demo

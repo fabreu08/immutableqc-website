@@ -20,7 +20,7 @@ Connect it from any MCP client that starts local servers over standard input and
 - --search (repeatable): where the instruments' ledgers are. Give the lab folder, or a file sealed outside the root reads as untraced.
 
 The four tools (each result says which folders it searched):
-- check_inputs {paths}: per file, measured (a ledger sealed these exact bytes; its key id), derived (a recorded step wrote them) or untraced, and whether a sealed file changed after it was sealed. Only files a lab station sealed read as measured. Never run iqc seal or iqc watch on files yourself. Reads only.
+- check_inputs {paths}: per file, measured (a station's ledger sealed these exact bytes; its key id), derived (a recorded step wrote them) or untraced, and whether a sealed file changed after it was sealed. Only files a lab station sealed read as measured. Never run iqc seal or iqc watch on files yourself. Reads only.
 - record_step {action, inputs, outputs, input_refs?}: appends one signed record of a step (files by SHA-256 and size); the tool cannot remove it; a person reviews it. Recorded even when an input is untraced, with a warning.
 - trace {path}: a file's tree back to sealed files, and tracesToMeasured.
 - audit_summary {strict?}: pass, review or fail for every ledger under the search folders. Every tool but record_step reads only.
@@ -29,8 +29,8 @@ The loop: check_inputs before you use lab files; tell the person about an untrac
 
 Limits:
 - A pass does not show that a file was right when it was written, or a change made inside the settle window (10 s by default) before it was sealed.
-- Whoever holds a ledger's key could rewrite it, and a ledger cut short (its last records deleted) needs no key: both show only against a head pinned earlier (iqc head, then iqc audit --expect-head, or --pin-file); audit_summary checks none.
-- Measured means some ledger sealed those bytes, whatever its key: anyone, an agent included, can run iqc seal under any station name. Compare measured.keyId with the lab's station key ids (iqc status prints them); a built-in check is upcoming.
+- Whoever holds a ledger's key could rewrite it, and a ledger cut short (its last records deleted) needs no key: both show only against a head pinned earlier (iqc head, then iqc audit --expect-head, or --pin-file). Without one, an audit says so.
+- Measured: only a ledger with no agent steps measures; --station-key <keyId> (repeatable) limits it to listed keys, else any key counts. A reviewer is a key, not a name; --reviewer-key limits approvals. A step with no inputs goes to review.
 - A step records only the files it names. A trace follows the steps as the agent recorded them: a step can name inputs it did not use, or outputs it did not compute from them. A person's review checks that.
 - A key identifies a computer or a browser, not a person; per-person signatures are upcoming.
 - Values inside files are not read; reading them is upcoming.
