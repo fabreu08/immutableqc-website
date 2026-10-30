@@ -83,6 +83,285 @@ resembles the element and an attorney should look.
   storing "an immutable list of validation keys", given that `--pin-file` appends a head after every batch; and the
   claims of the parent, US 11,321,305, which we have not read.
 
+#### Design-around options for `--pin-file` (engineering reading, 2026-10-18)
+**Engineering reading only, not legal advice. No code was changed for this note; every option below is a proposal, and
+the founder decides.** The founder chose on 2026-10-18 to keep `--pin-file` (see "Founder decisions" below), so any
+option here that changes how it behaves needs his explicit go-ahead first. Words such as "arguably absent" describe how an
+engineer reads the claim text; whether an element is in fact absent is a question for a patent attorney.
+
+**What must survive.** A whole-ledger rewrite by someone who holds the signing key must still show up in an audit. The
+key holder can re-sign every record, so signatures alone never catch this; only a head recorded earlier, somewhere the key
+holder cannot quietly change, does. Each option says whether that property survives.
+
+**How `--pin-file` works today** (read from the code on `claude/nifty-gates-h5guqf` at `9b7c4df`):
+- Who writes: `watch`, `seal`, `record`, `review` and `mcp` all take `--pin-file` (`agent/src/args.mjs`).
+  `pinFileFor()` in `agent/src/session.mjs` checks that the file's folder exists (the help text suggests another drive
+  or a share) and builds a `PinFile`.
+- When: automatically. `Appender.append()` in `agent/src/ledger.mjs` calls `PinFile.pin()` in its `finally` block after
+  every batch that wrote at least one record. No person is involved.
+- What: one line, `immutableqc-head <ledgerId> <n>:<h> <time>` (`formatPinLine()` in `core/immutableqc.mjs`). `h` is
+  record `n`'s link, the same value stored in the ledger. The line carries no signature, no file data and no fingerprint
+  of a file.
+- How: `openSync(file, 'a')`, one write, `fsyncSync`. It is an **append-only list**: every batch adds a line, nothing is
+  replaced, and one pin file can hold lines for several ledgers. A failed write is a warning; sealing goes on.
+- Checked by: `iqc audit --pin-file` reads the file (`readPinFile()` in `agent/src/audit.mjs`), and the app takes a
+  chosen pin file (`app/app.mjs`, "choose-pins"). Both hand the text to `auditMany()` as `pinLines`. `parsePinLines()`
+  reads each line and `_headCheck()` checks that record `n` still has link `h` (a grown ledger still matches); a
+  mismatch, a pinned record past the end, or an unreadable line fails the audit. `--expect-head n:h` (from `iqc head`)
+  goes through the same `_headCheck()`.
+- `iqc head` (`runHead()` in `agent/src/info.mjs`) prints `n:h` for a person to pin by hand and suggests "an email, an
+  ELN entry, a printout". It sends nothing anywhere.
+- The legacy `reading` kind (`KINDS.reading` in core; product-v1 3.4): sealed fields `instrumentId, sensorType, value,
+  unit, capturedAt`, so it **does hold a measured value and its unit**. v1 never produces it (no producer in `agent/src`
+  or `app/`), but `verifyLedger()` accepts it, `createRecords()` would build one if asked, the core tests use it
+  (`readingItem()` in `core/test/_helpers.mjs`), and **the published docs pages are built on it**: `site/src/iqc.js`
+  (`FIELDS`, `replay()`), `site/pages/check.html`, `site/pages/sealed.html` and `site/partials/plate-record.html` show
+  hash-chained records holding measured values and recompute their links in the visitor's browser.
+
+**Claim words used below.** Every quote is copied from the claims above. Where the task's wording of an element is not
+the claims' wording, the note says so. In particular, "storing the first data block [comprising measurement data] ... in
+a blockchain" is not a single passage: the claims say "storing the first data block and the first validation key in a
+blockchain at the computing platform" (claims 1, 7; claim 12 says "store ..."), and the measurement data comes from the
+earlier words "a first data block comprising first measurement data" (claims 1, 7) and "broadcast a first data block
+comprising the first measurement data" (claim 12).
+
+##### Option A: retire the `reading` kind entirely
+- Elements it targets:
+  - Claim 1: "receiving, via a communication interface of a computing platform and from a first block generator, a first
+    data block comprising first measurement data", and "a first validation key calculated, using a key calculation
+    algorithm, from contents of the first measurement data".
+  - Claim 7: "receiving, at a computing platform and from a first block generator, a first data block comprising first
+    measurement data".
+  - Claim 12: "a first block generator, configured to: measure a sample and generate first measurement data associated
+    with the sample; and broadcast a first data block comprising the first measurement data".
+- How clearly: **unclear.** With `reading` gone, every record holds fingerprints, sizes, paths, times, events, agent step
+  refs or review decisions, never a measured value. The claims themselves set a key that "does not include the contents
+  of the first measurement data" apart from the data, which supports reading a fingerprint as not being measurement
+  data. Against that: a `file` record's `sha256` is computed from the bytes of a results file, which do hold measurement
+  data, so one could argue the record is "associated with a sample" data and the key is still calculated "from contents
+  of the first measurement data" at one remove. Paths can also carry sample names. An attorney has to say.
+- Rewrite detection: unaffected. Pins and links work the same for `file` records.
+- Security cost: none for v1 ledgers. Old docs-page and alpha ledgers with `reading` records would no longer verify
+  (reported as an unknown kind), unless a separate read-only legacy checker is kept, which would keep the kind in the
+  code.
+- Convenience cost: **high for the website.** The docs pages (`overview`, `sealed`, `check`, the record plate) explain the
+  format with hash-chained measured values; they would need a new worked example built on `file` records (a results
+  file's SHA-256, size and path), and the build's cross-checks in `site/build.mjs` (sections 3b and on, `IQC.replay`)
+  would change with them. Core tests that use `readingItem()` would move to `file` items.
+- Sketch: remove `reading` from `KINDS` and from `_ROLE_OF` and the `kinds` counters in `core/immutableqc.mjs`; drop its
+  row from product-v1 3.4 (or bump the format version if old ledgers must be refused by name); rebuild the docs-page
+  example in `site/src/iqc.js`, `site/data/` and the three page templates on the `file` payload
+  (`iqc-file-v1|station|path|sha256|bytes|observedAt|event`); replace `readingItem()` in the core tests; add a build or
+  unit check that no shipped file and no test fixture writes a `reading` record. A smaller first step that keeps old
+  ledgers verifying: make `createRecords()` refuse `kind: 'reading'` (verify-only), which matches guardrail item 5 above
+  but leaves the kind in the format.
+
+##### Option B: the agent and its ledger stay on the machine that reads the files; no central collector
+- Elements it targets:
+  - Claims 1 and 7: "wherein the first block generator is a separate device from the computing platform", together with
+    "receiving, via a communication interface of a computing platform and from a first block generator" (claim 1) and
+    "receiving, at a computing platform and from a first block generator" (claim 7).
+  - Claim 12: "a first block generator, configured to: measure a sample ...; and broadcast a first data block", and
+    "receive, from the first block generator, the first data block". Claim 12 has no "separate device" words.
+- How clearly: **fairly clear for claims 1 and 7, unclear for claim 12.** In our design the process that builds a record
+  (the agent) is the same process, on the same machine, that stores it; nothing receives blocks from another device. The
+  instrument writes files, not blocks, and computes no key. For claim 12 the angle is different: our block builder
+  never measures a sample and never broadcasts; but if the agent runs on the instrument's own PC, an attorney may ask
+  whether "instrument plus its PC" is one block generator that measures (dependent claim 5 puts the block generator
+  inside the instrument).
+- Two setups to watch: (1) `--ledger` lets the ledger live on another drive, which can be a file server; then a second
+  machine holds the chain and arguably "receives" records over a network. (2) The agent can watch a share that several
+  instrument PCs write to; that is still files, not blocks, but it is the nearest thing to a collector. `auditMany()`
+  joins ledgers from several actors, but only at audit time, on the auditor's copy, and stores nothing.
+- Rewrite detection: unaffected.
+- Security cost: small. A ledger on the same disk as the data is no weaker against a key holder than one on a server;
+  the pin is what protects against a rewrite. Keeping the ledger on a share protects against the loss of one PC, which
+  backups also do.
+- Convenience cost: low for v1 (it is how v1 works). It closes off a future "lab server that gathers every station's
+  records into one chain", which guardrail item 4 already rules out.
+- Sketch: a written rule here and in product-v1 section 4; optionally `openForWriting()` in `agent/src/session.mjs`
+  notes (not refuses) when `--ledger` resolves to a network path (a UNC path `\\server\...` or a mapped drive on Windows;
+  an NFS or SMB mount elsewhere); nothing in `agent/` or `app/` ever accepts records sent from another machine.
+
+##### Option C: the pin file holds only the latest head, replaced atomically
+- Elements it targets: "an immutable list of validation keys" (claim 1: "securely stores the first validation key in an
+  immutable list of validation keys"; claim 7: "the first validation key in an immutable list of validation keys";
+  claim 12: "securely stores the first validation key in the validation keys database in an immutable list of validation
+  keys").
+- How clearly: **unclear.** A file that holds one line per ledger and is overwritten on each write is by design neither a
+  growing list nor immutable. But: a pin file shared by several ledgers still holds several lines; a synced folder
+  (OneDrive, Dropbox), a share with previous versions, or a backup keeps old copies, which an attorney could read as the
+  list; and an auditor still compares against what was stored.
+- Rewrite detection: **survives for the records up to the latest pin**, because record `n`'s link commits to every record
+  before it. One latest head proves as much about records 1 to `n` as the whole append-only list does. What is lost, and
+  must be put back: today a key holder who rewrites the ledger offline and restarts the agent leaves the old lines in
+  place, so the next audit fails. With replace-only, the restarted agent would overwrite the old head with the forged
+  ledger's head and the rewrite would no longer show. The fix is a check before each replace: the agent reads the
+  current line for its ledger id and replaces it only if record `n` of the ledger it is extending still has that link
+  (the same `_headCheck()` the audit uses); otherwise it stops without writing, as `Appender.sync()` does for a replaced
+  ledger. A key holder could still delete or edit the pin file itself, which is equally true of today's list, so the pin
+  file's protection still comes from where it is kept.
+- Security cost: lost history of when each head was pinned (a timeline an investigator might use); the check above is
+  needed or the property is lost. Atomic replace on a share is not as robust as an append: two agents replacing one
+  shared pin file at the same moment can drop each other's line.
+- Convenience cost: low if each ledger gets its own pin file; otherwise read-modify-write of a shared file.
+- Sketch: in `PinFile.pin()` (`agent/src/ledger.mjs`), write `${file}.${process.pid}.tmp` with `openSync(tmp, 'wx')`,
+  `writeAll`, `fsyncSync`, then `renameSync(tmp, file)` and `syncDir(dirname(file))`, the same pattern `createLedger()`
+  uses for a new ledger. Before writing, `parsePinLines()` the current file and compare its line for this ledger id with
+  the agent's verified ledger. Make the pin file per ledger (for example `--pin-file` names a folder and the file is
+  `<ledgerId>.pin`) so no two agents share one file. `parsePinLines()` and `auditMany()` need no change: one line is a
+  valid pin file.
+
+##### Option D: pins only to plain files or human channels, never a database or a service
+- Elements it targets: "a data escrow database system configured to store the first validation key in a validation keys
+  database" (claim 1; claim 12: "provide the first validation key to the data escrow database system configured to store
+  the first validation key in a validation keys database"), and in claim 7 "comparing the first validation key with a
+  first validation record stored in a validation keys database via a data escrow database system".
+- How clearly: **depends on the channel.** A printout or a handwritten lab book entry: arguably absent, fairly clear (no
+  database, no system). A plain text file on another drive or a share: unclear (a file on a file server is stored by a
+  system, but it is not a database configured for keys). An email the lab sends itself: unclear (a mail server is a
+  storage system). **An ELN entry: arguably not removed**, because an ELN is a database system run apart from the
+  computing platform; this is the channel closest to the element, and `iqc head` names it today.
+- Rewrite detection: survives, as long as the channel is out of the key holder's reach.
+- Security cost: none in principle; in practice a printout or a lab book is harder to audit and easier to lose.
+- Convenience cost: low; this is today's rule 4. Dropping the ELN suggestion costs labs a channel many of them use daily.
+- Sketch: keep `--pin-file` writing only a local or shared plain file (no URL, no API, no database driver: today's code
+  already does only `openSync`); add a unit test that `agent/src` opens no network connection (no `net`, `http`, `https`,
+  `fetch` import); change the wording of `runHead()` in `agent/src/info.mjs` and the `head` help in `agent/src/cli.mjs`
+  from "an email, an ELN entry, a printout" to channels the founder approves after the attorney's view.
+
+##### Option E: pins only when a person runs `iqc head`; nothing automatic
+- Elements it targets:
+  - Claim 1: "providing, via the communication interface of the computing platform, the first validation key from the
+    computing platform to a data escrow database system configured to store the first validation key in a validation
+    keys database".
+  - Claim 7: "comparing the first validation key with a first validation record stored in a validation keys database via
+    a data escrow database system" (the auditor compares with a value a person typed, not a record kept by an escrow
+    system).
+  - Claim 12: "provide the first validation key to the data escrow database system".
+- How clearly: **fairly clear for the "providing" step of claims 1 and 12; unclear for claim 7's auditor step.** Claims 1
+  and 7 are media storing instructions that make processors perform the steps, and claim 12 a processor "configured to"
+  provide; if our program only prints the head and a person decides where to put it, the program does not perform the
+  providing. Claim 7's own providing step is to "an auditor computing device", which our audit still does (the auditor
+  reads the ledger), so for claim 7 E only touches the comparison "via a data escrow database system".
+- Rewrite detection: **survives only up to the last manual pin.** Records sealed after it can be rewritten by the key
+  holder without an audit noticing, so the protection depends on discipline (for example a pin at the end of every run
+  or every day).
+- Security cost: high in practice: gaps between pins, and pins forgotten.
+- Convenience cost: high: a person must act on each pin; `--pin-file` as built goes away. **This option reverses the
+  founder's 2026-10-18 decision and needs his explicit choice.**
+- Sketch: remove `pin-file` from the `watch`, `seal`, `record`, `review` and `mcp` lists in `agent/src/args.mjs`, delete
+  `PinFile` and `pinFileFor()`, keep `iqc audit --pin-file` and the app's pin file input for checking files people
+  keep by hand, and keep `iqc head` and `--expect-head` as they are. A softer form: `iqc head --append <file>`, run by a
+  person, which appends one line in the same format.
+
+##### Option F (added): the pin is a value never stored in the ledger
+- Elements it targets: the identity of "the first validation key" across steps. Claim 1 needs the same key both in
+  "storing the first data block and the first validation key in a blockchain at the computing platform" and in
+  "providing ... the first validation key from the computing platform to a data escrow database system"; claim 12 says
+  "store the first data block and the first validation key in a blockchain at the computing platform" and "provide the
+  first validation key to the data escrow database system"; claim 7 stores it and compares "the first validation key with
+  a first validation record stored in a validation keys database".
+- How clearly: **unclear.** Today the pinned `h` is exactly record `n`'s stored link. If the pin were instead
+  `p = SHA-256("immutableqc-pin-v1|" + ledgerId + "|" + n + "|" + h)`, the escrowed value would not be stored in the
+  ledger, and the stored link itself would never be written to the pin file. An attorney may still treat `p` as the same key
+  in another form, or as a validation key in its own right.
+- Rewrite detection: unaffected: the audit recomputes `p` from record `n`'s link and compares.
+- Security cost: none (SHA-256 of the link; the link still commits to every earlier record).
+- Convenience cost: a pin no longer equals the `h` a person sees in a report, so by-eye comparison needs both values
+  shown; old pin files need reading for a while.
+- Sketch: in core add `pinValueOf(ledgerId, n, h)`; `formatPinLine()` writes `immutableqc-pin <ledgerId> <n>:<p>
+  <time>`; `parsePinLines()` accepts both the new form and old `immutableqc-head` lines; `auditMany()` calls a
+  `_pinCheck()` that recomputes `p` from record `n` where it now calls `_headCheck()`; `iqc head` prints the pin form for
+  pinning and the plain head for reading.
+
+##### Option G (added): the pin goes to a medium on the same computer, not to a separate platform
+- Elements it targets: claim 1 "wherein the data escrow database system is a separate platform from the computing
+  platform", claim 7 "wherein the data escrow database system is a separate device from the computing platform, the
+  auditor computing device, the first block generator, and the second block generator". Claim 12 has no such words.
+- How clearly: **fairly clear for claims 1 and 7, not removed for claim 12.** A pin file on a second local disk, a USB
+  stick or write-once media attached to the same PC is not a separate platform or device in the ordinary sense.
+- Rewrite detection: **survives only if the medium is out of the key holder's reach** (write-once media, or a stick that a
+  second person takes away and keeps). A second disk in the same PC, writable by the same user, gives little protection.
+- Security cost: high unless write-once or physically removed; this is weaker than today's "another drive or a share".
+- Convenience cost: medium: someone has to handle media.
+- Sketch: no code change needed beyond help text in `agent/src/cli.mjs`; optionally `pinFileFor()` notes when the pin
+  file is on the same volume as the ledger (`statSync().dev` equal), since that protects nothing.
+
+##### Options considered and not recommended
+- **Drop the link chaining** (sign each record alone, pin a hash of the whole file or a Merkle root instead). Targets the
+  claim words "calculated, using the key calculation algorithm, from the contents of the first data block and contents
+  of a previous block in the blockchain or a second validation key corresponding to the previous block in the
+  blockchain". Not removed: any value that lets a later audit catch a whole-ledger rewrite has to be computed from the
+  newest record and everything before it, which is what those words describe. It also changes the v1 format. This
+  element looks inherent to the property we keep.
+- **Add or remove signatures on pins.** No independent claim mentions signatures, so this touches no element. Pins carry
+  none today; keep it that way for simplicity.
+- **Pin less often (per session, per day).** The claims need only one block and one key, so pinning less often removes no
+  element; it only widens the window an audit cannot cover.
+- **Drop the auditor's comparison.** Claims 7 and 12 need an auditor device; but comparing against a stored head is the
+  whole point of the feature, so this defeats the goal.
+
+##### Matrix: claim by option
+"Absent, fairly clear" and "absent, unclear" are engineering readings of the claim words, not conclusions.
+
+| Option | Claim 1 | Claim 7 | Claim 12 | Rewrite still detected |
+|---|---|---|---|---|
+| A. Retire `reading` | Absent, unclear ("a first data block comprising first measurement data"; key "from contents of the first measurement data") | Absent, unclear ("a first data block comprising first measurement data") | Absent, unclear ("generate first measurement data ... broadcast a first data block comprising the first measurement data") | Yes |
+| B. Local agent and ledger, no collector | Absent, fairly clear ("a separate device from the computing platform") | Absent, fairly clear (same words) | Absent, unclear ("measure a sample ... broadcast"; "receive, from the first block generator") | Yes |
+| C. Latest head, atomic replace | Absent, unclear ("an immutable list of validation keys") | Absent, unclear (same) | Absent, unclear (same) | Yes, with the check before each replace |
+| D. Plain files and human channels | Printout: absent, fairly clear. File or email: unclear. ELN: not removed ("data escrow database system") | Same, for "via a data escrow database system" | Same as claim 1 | Yes |
+| E. Manual `iqc head` only | Absent, fairly clear (the "providing ... to a data escrow database system" step) | Absent, unclear (comparison "via a data escrow database system") | Absent, fairly clear ("provide the first validation key to the data escrow database system") | Only up to the last manual pin |
+| F. Pin a value not stored in the ledger | Absent, unclear (same "first validation key" stored and provided) | Absent, unclear | Absent, unclear | Yes |
+| G. Same-computer medium | Absent, fairly clear ("a separate platform from the computing platform") | Absent, fairly clear ("a separate device from the computing platform") | Not removed (no such words) | Only with write-once or removed media |
+| Drop chaining | Not removed | Not removed | Not removed | Weaker or lost |
+
+##### Recommended combination (for the founder to decide)
+1. **Keep `--pin-file` automatic, as the founder decided, and change three things about it: C + F + D.** One pin file per
+   ledger holding only the latest pin, replaced atomically after a check that the old pin still matches the ledger
+   (C); the pin is the derived value `p`, never stored in the ledger (F); plain files only, no service, with a test that
+   the agent opens no network connection (D). Rewrite detection survives in full: the latest pin commits to every
+   earlier record, and the check before replace stops a restarted agent from covering a rewrite.
+2. **Make B and the safe half of A written rules now**: the agent and its ledger stay on the machine that reads the
+   files, no collector ever; `createRecords()` refuses `reading` so nothing can produce it. These cost nothing.
+3. **Plan the full A** (remove `reading`, rebuild the docs-page example on `file` records) as its own piece of work,
+   because it touches the published pages and the build's cross-checks.
+4. **Keep E and G in reserve.** E is the cleanest way to take out the providing step of claims 1 and 12, but it reverses
+   the founder's decision and weakens protection between pins; G helps only claims 1 and 7 and only with write-once or
+   removed media.
+
+What this gives per claim, in the engineering reading:
+- Claim 1: B (fairly clear) plus C, F and A (each unclear). Two elements read as absent, one of them fairly clearly.
+- Claim 7: B (fairly clear) plus C, F and A (each unclear). Same shape as claim 1.
+- Claim 12: no "separate device" words, so B is only unclear; C, F and A are unclear too. **Claim 12 is the weak spot of
+  this combination**: it has several unclear elements and none that reads as fairly clearly absent. Only E gives claim 12
+  a fairly clear one. If the attorney sees claim 12 as the risk, E (or `iqc head --append` run by a person) is the option
+  to weigh against the founder's decision.
+
+##### Questions for a patent attorney
+1. Is a single-writer, hash-chained, signed log on one machine (no consensus, no network, no blocks of several entries) a
+   "blockchain" as these claims and the specification use the word?
+2. Is a record holding a file's SHA-256, size and path "measurement data", or a "data block comprising first measurement
+   data", when the file it describes holds measurements? Does a path that names a sample make the record "associated
+   with a sample"?
+3. Our link is computed from the previous link and the record's fingerprint `r_n`, not from the record itself. Does that
+   meet "providing the first data block and the previous block in the blockchain or the second validation key ... as
+   arguments to the key calculation algorithm"?
+4. Is the agent, running on the PC that reads the instrument's files, a "first block generator" separate from a
+   "computing platform", or both at once? Does that change if the ledger is on a file server (`--ledger`), or if the agent
+   runs on the instrument's own PC (claim 5)? Does claim 12's "measure a sample ... and broadcast" read on a program that
+   only reads files?
+5. Is a file that holds only the latest pin, atomically replaced, an "immutable list of validation keys"? Does a synced
+   folder's version history, a share's previous versions or a backup make it one?
+6. Can a plain text file on another drive or a network share be a "data escrow database system" with a "validation keys
+   database"? An email to the lab's own mailbox? An ELN entry? A printout?
+7. If the pinned value is a hash of the stored link (option F), is it still "the first validation key" that was stored in
+   the blockchain, either literally or as an equivalent?
+8. For claims 1 and 7 (media storing instructions) and claim 12 (a processor "configured to" provide): if the program only
+   prints the head and a person pins it, is the providing step performed by the claimed instructions or processor? Does
+   an automatic `--pin-file` write to a share count as "providing, via the communication interface"?
+9. The parent, US 11,321,305, is still unread; are its claims broader on any of these points?
+
 ### US 11,178,157 B2
 - "Data and source validation for equipment output data or equipment failure prediction using blockchains". Assignee:
   CenturyLink Intellectual Property LLC. Inventors: Steven M. Casey, Kevin M. McBride, William O'Brien, Jr., Stephen
