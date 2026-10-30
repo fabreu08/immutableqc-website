@@ -19,7 +19,7 @@ https://immutableqc.com/agents.html · Contact: https://joseqc.com
   - `audit` checks every ledger and every file under a lab folder: exit 0 pass, 3 review, 1 fail, 2 usage or read error.
   - `mcp` serves check_inputs, record_step, trace and audit_summary over MCP on standard input and output.
 - **The app** at https://immutableqc.com/app/: audits a whole lab folder in the browser with nothing uploaded, traces
-  agent outputs back to sealed measurements, sends untraced inputs to review, and has a review mode for sign-off. The
+  agent outputs back through recorded steps to sealed files, sends untraced inputs to review, and has a review mode for sign-off. The
   demo (https://immutableqc.com/app/#demo) shows a pass, a review and a fail.
 
 Upcoming: an npm package; a Windows installer and service; values read from inside files; per-person keys and
@@ -30,7 +30,9 @@ signatures; Merkle batches; sealing inside the vendor's software; post-quantum s
 1. Download https://immutableqc.com/download/iqc.mjs and check its SHA-256 against the one printed on
    https://immutableqc.com/agents.html (Linux `sha256sum iqc.mjs`, macOS `shasum -a 256 iqc.mjs`, Windows
    `certutil -hashfile iqc.mjs SHA256`). If the two differ, do not run it.
-2. Seal the instruments' folders on the computers that can read them: `node iqc.mjs watch <folder>`.
+2. A person sets up each lab station, a computer that can read an instrument's folder: `node iqc.mjs watch <folder>`.
+   Only files a lab station sealed read as measured. If you are an AI agent: never run iqc seal or iqc watch on files
+   yourself.
 3. Connect the MCP server from any MCP client that starts local servers over standard input and output. The server
    entry, as JSON:
 
@@ -85,10 +87,14 @@ print("recorded", ref)
 
 **Limits.** A pass does not show that a file was right when it was written, or anything about a change made inside the
 settle window (10 s by default) before it was sealed. Whoever holds a ledger's key could rewrite it; a head pinned
-somewhere else (`iqc audit --expect-head`, or `--pin-file`) exposes that. Measured means a ledger sealed those bytes:
-compare its key id with your instruments' keys (`iqc audit --expect-key`). A step records only the files it names. A key
-identifies a computer or a browser, not a person; per-person signatures are upcoming. Values inside files are not read;
-reading them is upcoming.
+somewhere else (`iqc audit --expect-head`, or `--pin-file`) exposes that. A ledger cut short (its last records deleted,
+with their files) needs no key, and it shows only against a head pinned earlier (`iqc head`, then
+`iqc audit --expect-head`, or `--pin-file`); audit_summary checks no pinned head. Measured means some ledger sealed
+those bytes, whatever its key: anyone who runs iqc seal, an agent included, makes files read as measured, and the
+station name is a label the sealer picks. The check is to compare each measured key id with the lab's station key ids
+(`iqc status` on each station prints them); a built-in check is upcoming. A step records only the files it names.
+A trace follows the steps as the agent recorded them: a step can name inputs it did not use, or outputs it did not compute from them. A person's review checks that. A key identifies a computer or a browser, not a person; per-person signatures are upcoming. Values
+inside files are not read; reading them is upcoming.
 
 ## License and contact
 

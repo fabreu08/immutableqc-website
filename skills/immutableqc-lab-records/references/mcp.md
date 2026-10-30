@@ -25,7 +25,8 @@ run it. The server entry, as JSON:
 | `trace` | `path` | The tree back to sealed files, and `tracesToMeasured` | nothing |
 | `audit_summary` | `strict?` | Pass, review or fail, with the problems and items for review | nothing |
 
-Every result also says which folders it searched and how many ledgers it found.
+Every result also says which folders it searched and how many ledgers it found. `audit_summary` checks no pinned
+head, so a ledger cut short (its last records deleted) can still pass it. A trace follows the steps as the agent recorded them: a step can name inputs it did not use, or outputs it did not compute from them. A person's review checks that.
 
 ## Versions and errors
 

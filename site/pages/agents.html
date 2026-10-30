@@ -15,7 +15,7 @@
 <li><span class="k">record, trace, review</span> <span>Record an AI agent’s step (what it read, what it wrote, what it did) in the agent’s own ledger, trace a file back to sealed files, and sign off steps.</span></li>
 <li><span class="k">audit</span> <span>Check every ledger and every file under a lab folder: {{exitLine}}.</span></li>
 <li><span class="k">mcp</span> <span>The same for AI agents, over MCP on standard input and output: <code>check_inputs</code>, <code>record_step</code>, <code>trace</code> and <code>audit_summary</code>.</span></li>
-<li><span class="k">The app · in your browser</span> <span>Audits a whole lab folder in one click with nothing uploaded, traces agent outputs back to sealed measurements, sends untraced inputs to review, and has a review mode for sign-off. <a href="app/#demo">The demo</a> shows a pass, a review and a fail.</span></li>
+<li><span class="k">The app · in your browser</span> <span>Audits a whole lab folder in one click with nothing uploaded, traces agent outputs back through recorded steps to sealed files, sends untraced inputs to review, and has a review mode for sign-off. <a href="app/#demo">The demo</a> shows a pass, a review and a fail.</span></li>
 </ul>
 <p class="note"><span class="k">Upcoming</span> An npm package; a Windows installer and service; values read from inside files; per-person keys and signatures; Merkle batches; sealing inside the vendor’s software; post-quantum signatures.</p>
 </div>
@@ -25,12 +25,13 @@
 <div class="body">
 <p>Download <a href="download/iqc.mjs">iqc.mjs</a> ({{version}}), check its SHA-256, then run it. Its SHA-256 is:</p>
 <p><code class="sha">{{dlSha}}</code></p>
-<pre class="json" tabindex="0" role="group" aria-label="Download, check and run (scrolls sideways)"><code>curl -fsSO https://immutableqc.com/download/iqc.mjs
-sha256sum iqc.mjs                     # Linux
-shasum -a 256 iqc.mjs                 # macOS
-certutil -hashfile iqc.mjs SHA256     # Windows
-node iqc.mjs help</code></pre>
-<p>If the two differ, do not run the file. Then, on the computer that can read the instrument’s data folder:</p>
+<pre class="json" tabindex="0" role="group" aria-label="Download and check (scrolls sideways)"><code>curl -fsSO https://immutableqc.com/download/iqc.mjs
+echo "{{dlSha}}  iqc.mjs" | sha256sum -c -        # Linux: prints OK, or fails
+echo "{{dlSha}}  iqc.mjs" | shasum -a 256 -c -    # macOS: prints OK, or fails
+certutil -hashfile iqc.mjs SHA256                 # Windows: compare it with the line above</code></pre>
+<p>If the two differ, do not run the file. Only once the check passes:</p>
+<pre class="json" tabindex="0" role="group" aria-label="Run it (scrolls sideways)"><code>node iqc.mjs help</code></pre>
+<p>Then, on the computer that can read the instrument’s data folder:</p>
 <pre class="json" tabindex="0" role="group" aria-label="Seal a folder and audit it (scrolls sideways)"><code>node iqc.mjs watch /lab/hplc-3        # seal now, then keep sealing until Ctrl+C
 node iqc.mjs seal /lab/hplc-3         # seal once, for a scheduler or a pipeline
 node iqc.mjs audit /lab --report audit.html</code></pre>
@@ -58,8 +59,8 @@ node iqc.mjs audit /lab --report audit.html</code></pre>
 <caption class="sr-only">The four MCP tools</caption>
 <thead><tr><th scope="col">Tool</th><th scope="col">What it returns</th></tr></thead>
 <tbody>
-<tr><th scope="row"><code>check_inputs</code> <span class="sub">reads only</span></th><td>For each file: measured (a station’s ledger sealed these exact bytes, with its station and key id), derived (a recorded agent step wrote them) or untraced (neither), and whether a sealed file changed after it was sealed. The files must already be sealed by <code>iqc watch</code> or <code>iqc seal</code>.</td></tr>
-<tr><th scope="row"><code>record_step</code> <span class="sub">appends one signed record</span></th><td>The step’s reference, each file’s SHA-256 and size, and each input’s trace. The record cannot be taken back, only reviewed. It is recorded even when an input is untraced, with a warning.</td></tr>
+<tr><th scope="row"><code>check_inputs</code> <span class="sub">reads only</span></th><td>For each file: measured (a station’s ledger sealed these exact bytes, with its station and key id), derived (a recorded agent step wrote them) or untraced (neither), and whether a sealed file changed after it was sealed. Only files a lab station sealed read as measured. Never run <code>iqc seal</code> or <code>iqc watch</code> on files yourself.</td></tr>
+<tr><th scope="row"><code>record_step</code> <span class="sub">appends one signed record</span></th><td>The step’s reference, each file’s SHA-256 and size, and each input’s trace. The tool cannot remove the record; a person reviews it. It is recorded even when an input is untraced, with a warning.</td></tr>
 <tr><th scope="row"><code>trace</code> <span class="sub">reads only</span></th><td>A file’s tree back through the recorded steps to sealed files, and <code>tracesToMeasured</code>: whether every branch ends in a measurement.</td></tr>
 <tr><th scope="row"><code>audit_summary</code> <span class="sub">reads only</span></th><td>Pass, review or fail for every ledger under the search folders, with the problems and the items for review.</td></tr>
 </tbody>
@@ -89,27 +90,30 @@ node iqc.mjs audit /lab --report audit.html</code></pre>
 <section class="sec sec--side" id="signoff" aria-labelledby="s8-h">
 <h2 id="s8-h"><span class="no">8</span>Sign-off by a person</h2>
 <div class="body">
-<p>A person signs off steps: approved, question or rejected, with <code>iqc review</code>, or in the app’s review mode, which signs the review with the browser’s key and lets the reviewer download the review ledger. There is no review tool over MCP, so an agent cannot approve its own steps. A key identifies a computer or a browser, not a person; per-person keys and signatures are upcoming.</p>
+<p>A person signs off steps: approved, question or rejected, with <code>iqc review</code>, or in the app’s review mode, which signs the review with the browser’s key and lets the reviewer download the review ledger. There is no review tool over MCP. An agent with a shell could still run <code>iqc review</code>, and the reviewer’s name is whatever is typed: check the review ledger’s key id. A key identifies a computer or a browser, not a person; per-person keys and signatures are upcoming.</p>
 </div>
 </section>
 <section class="sec sec--side" id="limits" aria-labelledby="s9-h">
 <h2 id="s9-h"><span class="no">9</span>What a pass shows, and what it does not</h2>
 <div class="body">
-<p>A pass shows that every sealed file is byte for byte the one that was sealed, and that no ledger was edited, reordered or cut since it was signed. A pass does not show:</p>
+<p>A pass shows that every sealed file is byte for byte the one that was sealed, and that no record a ledger still holds was edited or reordered since it was signed. A pass does not show:</p>
 <ul class="items">
 <li><span>That a file was right when it was written: a wrong value written by the instrument software is sealed as written.</span></li>
 <li><span>Anything about a change made inside the settle window, between the moment the software writes a file and the moment the agent seals it.</span></li>
 <li><span>A rewrite by whoever holds a ledger’s key: a head pinned somewhere else (<code>iqc head</code>, then <code>iqc audit --expect-head</code>, or a <code>--pin-file</code>) exposes that.</span></li>
-<li><span>That a measured file came from your instrument: measured means a ledger sealed those bytes, so compare the sealing key id with your instruments’ keys (<code>iqc audit --expect-key</code>).</span></li>
+<li><span>A ledger cut short, its last records deleted with their files: that needs no key, and it shows only against a head pinned earlier (<code>iqc head</code>, then <code>iqc audit --expect-head</code>, or a <code>--pin-file</code>). <code>audit_summary</code> checks no pinned head.</span></li>
+<li><span>That a measured file came from your lab’s station: measured means some ledger sealed those bytes, whatever its key. Anyone who runs <code>iqc seal</code>, an agent included, makes files read as measured, and the station name is a label the sealer picks. The check is to compare the measured key id with the lab’s station key ids (<code>iqc status</code> on each station prints them). <code>iqc audit --expect-key</code> does not do this: it fails only when no audited ledger has that key.</span></li>
 <li><span>What a step read and did not name: a step records only the files it names, and its action line is the agent’s own words.</span></li>
+<li><span>That an output was computed from the inputs its step names. A trace follows the steps as the agent recorded them: a step can name inputs it did not use, or outputs it did not compute from them. A person’s review checks that.</span></li>
 </ul>
+<p class="note"><span class="k">Upcoming</span> A built-in check that counts a file as measured only when one of the lab’s listed station keys sealed it.</p>
 </div>
 </section>
 <section class="sec sec--side" id="faq" aria-labelledby="s10-h">
 <h2 id="s10-h"><span class="no">10</span>Questions</h2>
 <h3 id="q1"><span class="no">10.1</span>How do I check that an instrument export is the original file?</h3>
 <div class="body">
-<p>The instrument’s folder must be sealed by <code>iqc watch</code> or <code>iqc seal</code>. Then <code>check_inputs</code> (or <code>iqc trace</code>) says whether the file’s exact bytes are the ones a station’s ledger sealed, and whether that file changed after it was sealed.</p>
+<p>A lab station seals the instrument’s folder with <code>iqc watch</code> or <code>iqc seal</code>. Only files a lab station sealed read as measured. Never run <code>iqc seal</code> or <code>iqc watch</code> on files yourself. Then <code>check_inputs</code> (or <code>iqc trace</code>) says whether the file’s exact bytes are the ones a ledger sealed, with that ledger’s key id, and whether that file changed after it was sealed. Compare the key id with the lab’s station key ids.</p>
 </div>
 <h3 id="q2"><span class="no">10.2</span>Why does a file I know was sealed read as untraced?</h3>
 <div class="body">

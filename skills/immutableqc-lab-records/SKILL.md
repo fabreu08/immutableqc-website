@@ -21,15 +21,17 @@ iqc never uses the network.
   relative to the server's root folder; the server's instructions name the root and the folders it searches.
 - Otherwise use the command line: `node <path>/iqc.mjs <command>` (see `references/cli.md`).
 - If neither is there, ask the person where iqc.mjs is, or to connect the server (`references/mcp.md`). If they give
-  you a downloaded iqc.mjs, check its SHA-256 against the one printed on https://immutableqc.com before you run it.
+  you a downloaded iqc.mjs, check its SHA-256 against the one printed on https://immutableqc.com/agents.html before you run it.
 
 ## 2. Check your inputs first
 
 Before you use instrument exports or other lab files, call `check_inputs` with their paths (or run
 `node iqc.mjs trace <file> --search <lab folder>` for one file). Each file comes back in one of three states:
 
-- **measured**: a station's ledger sealed these exact bytes. Use it. The result names the station and the ledger's key
-  id; if the person gave you their instruments' key ids, compare.
+- **measured**: some ledger sealed these exact bytes, whatever its key. The result names the station and the ledger's
+  key id; the station name is a label the sealer picks. Only files a lab station sealed read as measured. Never run
+  `iqc seal` or `iqc watch` on files yourself. Compare the key id with the lab's station key ids (`iqc status` on each
+  station prints them); if the person has not given you those, tell them which key id sealed the file.
 - **derived**: a recorded agent step wrote these bytes. Call `trace` on it to see whether every branch ends in a
   measured file (`tracesToMeasured`).
 - **untraced**: no ledger sealed these bytes and no recorded step wrote them. Tell the person before you rely on the
@@ -50,11 +52,12 @@ After you write files (a summary, a fit, a plot, a report), call `record_step` o
 - For an input outside the root, copy it into the root (the same bytes trace the same way), or pass it in
   `input_refs` as `<sha256>:<bytes>:<label>`.
 
-The record is signed and appended to your ledger; it cannot be taken back, only reviewed. The step is recorded even when
+The record is signed and appended to your ledger: the tool cannot remove it; a person reviews it. The step is recorded even when
 an input is untraced: the result carries a warning, and you tell the person.
 
-From a script, the same is `node iqc.mjs record --root <workspace> --search <lab folder> --actor <name> --action
-"<what you did>" --in <file> --out <file>` (see `references/cli.md`).
+From a script, the same is `cd <workspace> && node iqc.mjs record --root <workspace> --search <lab folder> --actor
+<name> --action "<what you did>" --in <file> --out <file>` (see `references/cli.md`). `--in` and `--out` are read from
+the current folder, not from `--root` (the MCP tools read paths from the root).
 
 ## 4. Before you report or hand off
 
@@ -62,10 +65,15 @@ Call `trace` on each result you report, or `audit_summary` for the whole lab fol
 `node iqc.mjs audit <lab folder>`, exit 0 pass, 3 review, 1 fail, 2 usage or read error). Report the verdict with
 your result; on review or fail, list what the audit says.
 
-## 5. Never sign off your own steps
+## 5. Never sign off your own steps, never seal
 
 Sign-off is for a person: `iqc review` on the command line, or the review mode of the app at
-https://immutableqc.com/app/. There is no review tool over MCP. Do not run `iqc review` on steps you recorded.
+https://immutableqc.com/app/. There is no review tool over MCP. An agent with a shell could still run `iqc review`, and
+the reviewer's name is whatever is typed, so a person checks the review ledger's key id. Do not run `iqc review` on
+steps you recorded.
+
+Sealing is for the lab's stations. Never run `iqc seal` or `iqc watch` on files yourself: it would make them read as
+measured.
 
 ## 6. What a pass does not show
 
@@ -73,8 +81,12 @@ https://immutableqc.com/app/. There is no review tool over MCP. Do not run `iqc 
 - A change made inside the settle window (10 s by default), before the station sealed the file.
 - A rewrite by whoever holds a ledger's key: a head pinned somewhere else (`iqc audit --expect-head`, or a pin file)
   exposes that.
-- That a measured file came from the lab's instrument: measured means a ledger sealed those bytes; check the key id.
+- A ledger cut short, its last records deleted with their files: that needs no key, and it shows only against a head
+  pinned earlier (`iqc head`, then `iqc audit --expect-head`, or `--pin-file`). `audit_summary` checks no pinned head.
+- That a measured file came from the lab's station: measured means some ledger sealed those bytes, whatever its key.
+  Compare the key id with the lab's station key ids; a built-in check is upcoming.
 - Anything a step read and did not name.
+- A trace follows the steps as the agent recorded them: a step can name inputs it did not use, or outputs it did not compute from them. A person's review checks that.
 - A key identifies a computer or a browser, not a person; per-person signatures are upcoming. Values inside files are
   not read; reading them is upcoming.
 

@@ -33,7 +33,7 @@ lints its strings with the site's rules; it also checks `softwareVersion`, `soft
 against the agent. This exact block was tested against those checks on a scratch copy of `index.html`: it passes.
 
 ```html
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Immutable QC","alternateName":"iqc","description":"Tamper-evident records for automated research labs. A one-file local agent seals every file an instrument writes into a signed ledger, records what AI agents read and wrote, and serves check_inputs, record_step, trace and audit_summary to AI agents over MCP on standard input and output. Nothing is uploaded; it never uses the network.","url":"https://immutableqc.com/","applicationCategory":"DeveloperApplication","operatingSystem":"Windows, macOS, Linux","softwareRequirements":"Node.js 22 or later","softwareVersion":"0.1.0","downloadUrl":"https://immutableqc.com/download/iqc.mjs","featureList":["Seals every file in a folder as it is written","Records the steps an AI agent takes on files","Traces agent outputs back to sealed measurements","Audits a lab folder in the browser; nothing is uploaded","Reviewer sign-off of agent steps"]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Immutable QC","alternateName":"iqc","description":"Tamper-evident records for automated research labs. A one-file local agent seals every file an instrument writes into a signed ledger, records what AI agents read and wrote, and serves check_inputs, record_step, trace and audit_summary to AI agents over MCP on standard input and output. Nothing is uploaded; it never uses the network.","url":"https://immutableqc.com/","applicationCategory":"DeveloperApplication","operatingSystem":"Windows, macOS, Linux","softwareRequirements":"Node.js 22 or later","softwareVersion":"0.1.0","downloadUrl":"https://immutableqc.com/download/iqc.mjs","featureList":["Seals every file in a folder as it is written","Records the steps an AI agent takes on files","Traces agent outputs back through recorded steps to sealed files","Audits a lab folder in the browser; nothing is uploaded","Reviewer sign-off of agent steps"]}</script>
 ```
 
 Add `"license"` only after the founder picks a license (decision D1), and `"sameAs": ["<repo URL>"]` only after D5. No
@@ -53,14 +53,21 @@ Add `"license"` only after the founder picks a license (decision D1), and `"same
 
 ## 5. Fixes to what the page says today
 
-- Line 284: "Needs Node.js 20 or later" becomes "Needs Node.js 22 or later" (the agent refuses older versions).
-- The pipeline block (line 328): `# exit 0 pass, 1 fail, 2 usage or read error` becomes
+- "Needs Node.js 20 or later on Windows, macOS or Linux": "Needs Node.js 20 or later" becomes "Needs Node.js 22 or later" (the agent refuses older versions).
+- The pipeline block's comment `# exit 0 pass, 1 fail, 2 usage or read error` becomes
   `# exit 0 pass, 3 review, 1 fail, 2 usage or read error`.
 - The install section shows `record`, `trace` and `mcp` beside `watch`, `seal` and `audit`.
-- "Works today" (lines 254 to 259) adds: agent steps traced back to sealed measurements; reviewer sign-off (in the app's
+- The "Works today" list adds: agent steps traced back through recorded steps to sealed files; reviewer sign-off (in the app's
   review mode, or `iqc review`); the MCP server for AI agents.
-- Upcoming (line 268): drop "Lineage". If anything replaces it, say "Values inside files" (already there) or nothing.
-- Line 298 (macOS, Linux: `shasum -a 256 iqc.mjs`) is right as is; Linux also has `sha256sum iqc.mjs`.
+- The Upcoming chip "Lineage": drop it. If anything replaces it, say "Values inside files" (already there) or nothing.
+- The check line "macOS, Linux: `shasum -a 256 iqc.mjs`" is right as is; Linux also has `sha256sum iqc.mjs`.
+- "Each file is byte-for-byte the one the agent sealed, and the ledger has not been edited, reordered or cut since it
+  was signed." becomes "Each file is byte for byte the one the agent sealed, and no record the ledger still holds was
+  edited or reordered since it was signed." A ledger cut short (its last records deleted) passes an audit; it shows
+  only against a head pinned earlier (`iqc head`, then `iqc audit --expect-head`, or `--pin-file`).
+- Anywhere the page says an audit traces agent outputs back to sealed measurements, say instead that it traces each
+  recorded step's named inputs back to sealed files, and add: "A trace follows the steps as the agent recorded them: a
+  step can name inputs it did not use, or outputs it did not compute from them. A person's review checks that."
 
 ## 6. Footer
 
