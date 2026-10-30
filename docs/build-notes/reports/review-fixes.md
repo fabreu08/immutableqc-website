@@ -28,6 +28,8 @@ and copy (Sonnet), one re-test of the critical attacks, one fix round, a second 
   copied command, with a line saying what to replace.
 - **Copy.** Node.js 22 or later everywhere, exit codes 0 / 3 / 1 / 2, the new measured, reviewer-key and pin rules in
   the README files, AGENTS.md, llms.txt, the Agent Skill and the spec.
+- **App size budget** re-pinned (site/tools/check.mjs): core grew 47.4 → 53.5 KB gzipped with these fixes; app first load
+  175.3 KB (js 86.9) against 172 / 82, now 179 / 89. Way back down: load core only when an audit starts.
 - **Patent check** of the two key lists: `key-allowlist-patent-check.md` (no in-force patent found in six searches; low
   risk; prior art from 2010-2021; an engineering reading, for the attorney's FTO).
 

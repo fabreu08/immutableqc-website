@@ -923,10 +923,14 @@ async function firstLoad(pg, { slow = false, w = 390, h = 844, android = false }
 // and the demo's code and data, the lab audit (many.mjs) and the lab and review views (lab.mjs) now load only when
 // used. Measured after the trim: 11 requests · 168.2 KB (html 5.0, css 17.3, js 80.0, fonts 65.9). Pinned at that
 // with about 2% headroom: total 172 KB, js 82 KB.
+// app/ re-pinned 2026-10-30 (lead decision, recorded in docs/build-notes/reports/review-fixes.md): the fixes for the
+// adversarial review's critical findings (unchecked files, pins bound to ledgers, station and reviewer keys, no-inputs
+// steps) grew core/immutableqc.mjs from 47.4 KB to 53.5 KB gzipped and the app by 1.1 KB. Measured: 175.3 KB, js 86.9.
+// Pinned with about 2% headroom: total 179 KB, js 89 KB. The way back down: load core only when an audit starts.
 function HAND_BUDGET() {
   return {
     'index.html': { requests: 10, total: 110 * 1024, html: 10 * 1024, css: 19 * 1024, js: 10 * 1024, fonts: 72 * 1024 },
-    'app/': { requests: 13, total: 172 * 1024, html: 6 * 1024, css: 19 * 1024, js: 82 * 1024, fonts: 72 * 1024 },
+    'app/': { requests: 13, total: 179 * 1024, html: 6 * 1024, css: 19 * 1024, js: 89 * 1024, fonts: 72 * 1024 },
   }
 }
 for (const pg of [...DOC_PAGES, ...HAND_PAGES]) {
